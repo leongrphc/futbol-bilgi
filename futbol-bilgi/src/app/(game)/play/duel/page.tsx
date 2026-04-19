@@ -11,6 +11,7 @@ import { TimerBar } from '@/components/game/timer-bar';
 import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { useUserStore } from '@/lib/stores/user-store';
+import { useSocialStore } from '@/lib/stores/social-store';
 import { DUEL_CONFIG, ENERGY_CONFIG } from '@/lib/constants/game';
 import {
   calculateLevel,
@@ -61,6 +62,10 @@ export default function DuelPage() {
   const updateCoins = useUserStore((state) => state.updateCoins);
   const updateEloRating = useUserStore((state) => state.updateEloRating);
   const incrementQuestionsAnswered = useUserStore((state) => state.incrementQuestionsAnswered);
+  const profiles = useSocialStore((state) => state.profiles);
+  const duelInvites = useSocialStore((state) => state.duelInvites);
+  const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
+  const markUserActive = useSocialStore((state) => state.markUserActive);
 
   const [phase, setPhase] = useState<DuelPhase>('loading');
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
@@ -130,6 +135,9 @@ export default function DuelPage() {
       return;
     }
 
+    ensureCurrentUserProfile(user);
+    markUserActive(user.id);
+
     if (user.energy < ENERGY_CONFIG.cost_duel) {
       setShowEnergyWarning(true);
       setPhase('loading');
@@ -137,7 +145,7 @@ export default function DuelPage() {
     }
 
     startDuel();
-  }, [user, router, startDuel]);
+  }, [user, router, startDuel, ensureCurrentUserProfile, markUserActive]);
 
   useEffect(() => {
     if (phase !== 'searching') return;
@@ -335,6 +343,14 @@ export default function DuelPage() {
   return (
     <div className="min-h-screen p-4 pb-24">
       <div className="mx-auto max-w-xl space-y-4">
+        {user && duelInvites.some((invite) => invite.to_user_id === user.id && invite.status === 'pending') && (
+          <Card padding="md" variant="highlighted">
+            <p className="text-sm text-text-secondary">
+              Bekleyen düello davetin var. Profil ve sıralama ekranlarından arkadaşlarını yönetebilirsin.
+            </p>
+          </Card>
+        )}
+
         {(phase === 'loading' || phase === 'searching' || phase === 'matched' || phase === 'countdown') && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}

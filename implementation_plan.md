@@ -864,7 +864,7 @@ src/
 ### Faz 2 — Sosyal & Rekabet (6-8 hafta)
 - [x] Düello modu (PvP)
 - [x] Hızlı Maç modu
-- [ ] Arkadaş sistemi
+- [x] Arkadaş sistemi
 - [ ] Lig yarışması (seasonal)
 - [ ] Paylaşım özellikleri
 - [ ] Push notification
