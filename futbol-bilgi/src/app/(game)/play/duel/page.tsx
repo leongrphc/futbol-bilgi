@@ -31,14 +31,7 @@ import {
 import { getQuestionsByDifficulty } from '@/lib/data/mock-questions';
 import type { DifficultyLevel, Question } from '@/types';
 
-type DuelPhase =
-  | 'loading'
-  | 'searching'
-  | 'matched'
-  | 'countdown'
-  | 'playing'
-  | 'revealing'
-  | 'result';
+type DuelPhase = 'loading' | 'searching' | 'matched' | 'countdown' | 'playing' | 'revealing' | 'result';
 
 interface MockOpponent {
   id: string;
@@ -48,34 +41,18 @@ interface MockOpponent {
 }
 
 const DIFFICULTY_PATTERN: DifficultyLevel[] = [1, 2, 3, 4, 5];
-const OPPONENT_NAMES = [
-  'AslanKral',
-  'KartalRuhu',
-  'Kanarya1907',
-  'KaradenizGol',
-  'AnadoluYıldızı',
-  'TribunBeyni',
-  'FutbolUstasi',
-  'DerbiAvcısı',
-];
+const OPPONENT_NAMES = ['AslanKral', 'KartalRuhu', 'Kanarya1907', 'KaradenizGol', 'AnadoluYıldızı', 'TribunBeyni', 'FutbolUstasi', 'DerbiAvcısı'];
 
 export default function DuelPage() {
   const router = useRouter();
   const user = useUserStore((state) => state.user);
-  const updateEnergy = useUserStore((state) => state.updateEnergy);
-  const addXP = useUserStore((state) => state.addXP);
-  const updateCoins = useUserStore((state) => state.updateCoins);
-  const updateEloRating = useUserStore((state) => state.updateEloRating);
-  const incrementQuestionsAnswered = useUserStore((state) => state.incrementQuestionsAnswered);
+  const setUser = useUserStore((state) => state.setUser);
   const profiles = useSocialStore((state) => state.profiles);
   const duelInvites = useSocialStore((state) => state.duelInvites);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const recordDuelResult = useLeagueStore((state) => state.recordDuelResult);
-  const finalizeSeasonForTier = useLeagueStore((state) => state.finalizeSeasonForTier);
-
-  const [seasonMessage, setSeasonMessage] = useState<string | null>(null);
 
   const [phase, setPhase] = useState<DuelPhase>('loading');
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
@@ -131,22 +108,34 @@ export default function DuelPage() {
     };
   }, [user?.elo_rating]);
 
-  const startDuel = useCallback(() => {
+  const startDuel = useCallback(async () => {
     if (!user) return;
 
-    const sessionId = `duel_${Date.now()}`;
+    const response = await fetch('/api/game/duel', { method: 'POST' });
+    const json = await response.json();
+
+    if (!response.ok || !json.data) {
+      setShowEnergyWarning(true);
+      return;
+    }
+
+    const sessionId = json.data.sessionId as string;
     sessionIdRef.current = sessionId;
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
+
     trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
       mode: 'duel',
       session_id: sessionId,
       league_scope: user.league_tier,
       question_count: DUEL_CONFIG.total_questions,
     });
-    updateEnergy(-ENERGY_CONFIG.cost_duel);
     setQuestions(buildDuelQuestions());
     setOpponent(createMockOpponent());
     setPhase('searching');
-  }, [user, updateEnergy, buildDuelQuestions, createMockOpponent]);
+  }, [user, setUser, buildDuelQuestions, createMockOpponent]);
 
   useEffect(() => {
     if (!user) {
@@ -162,8 +151,9 @@ export default function DuelPage() {
       return;
     }
 
-    startDuel();
+    void startDuel();
   }, [user, router, startDuel, ensureCurrentUserProfile, markUserActive, ensurePlayerEntry]);
+
   useEffect(() => {
     if (phase !== 'searching') return;
 
@@ -203,11 +193,13 @@ export default function DuelPage() {
     return () => clearTimeout(timeout);
   }, [phase, countdown, timer]);
 
-  const finishDuel = useCallback((winner: 'player' | 'opponent' | 'draw') => {
+  const finishDuel = useCallback(async (winner: 'player' | 'opponent' | 'draw') => {
     if (!user || !opponent) return;
 
-    const duelResult =
-      winner === 'player' ? 'win' : winner === 'opponent' ? 'loss' : 'draw';
+    const duelResult = winner === 'player' ? 'win' : winner === 'opponent' ? 'loss' : 'draw';
+    const duelScore = winner === 'player' ? 1 : winner === 'opponent' ? 0 : 0.5;
+    const computedEloDelta = calculateDuelEloDelta(user.elo_rating, opponent.elo, duelScore);
+
     trackEvent(ANALYTICS_EVENTS.GAME_COMPLETED, {
       mode: 'duel',
       session_id: sessionIdRef.current,
@@ -217,32 +209,46 @@ export default function DuelPage() {
       total_answered: totalQuestions,
       xp_earned: winner === 'player' ? DUEL_CONFIG.winner_xp : 0,
       coins_earned: winner === 'player' ? DUEL_CONFIG.winner_coins : 0,
-      elo_delta: calculateDuelEloDelta(user.elo_rating, opponent.elo, winner === 'player' ? 1 : winner === 'opponent' ? 0 : 0.5),
+      elo_delta: computedEloDelta,
     });
+
+    const response = await fetch('/api/game/duel', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: sessionIdRef.current,
+        result: duelResult,
+        score: playerScore,
+        correctAnswers: playerAnsweredCount,
+        totalAnswered: totalQuestions,
+        opponentElo: opponent.elo,
+      }),
+    });
+
+    const json = await response.json();
+    if (!response.ok || !json.data) {
+      return;
+    }
+
     setResult(duelResult);
     recordDuelResult(user.id, user.league_tier, duelResult);
-
-    const duelScore = winner === 'player' ? 1 : winner === 'opponent' ? 0 : 0.5;
-    const delta = calculateDuelEloDelta(user.elo_rating, opponent.elo, duelScore);
-    setEloDelta(delta);
-    updateEloRating(user.elo_rating + delta);
+    setEloDelta(json.data.rewards.eloDelta);
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
 
     if (winner === 'player') {
-      const xp = DUEL_CONFIG.winner_xp;
-      const coins = DUEL_CONFIG.winner_coins;
       const currentLevel = calculateLevel(user.xp).level;
-      const newLevel = calculateLevel(user.xp + xp).level;
+      const newLevel = calculateLevel(json.data.profile.xp).level;
       const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
-
-      addXP(xp);
-      updateCoins(coins);
-      setRewardData({ xp, coins, levelUp });
+      setRewardData({ xp: json.data.rewards.xp, coins: json.data.rewards.coins, levelUp });
       setShowRewardOverlay(true);
       return;
     }
 
     setPhase('result');
-  }, [user, opponent, playerScore, playerAnsweredCount, totalQuestions, recordDuelResult, updateEloRating, addXP, updateCoins]);
+  }, [user, opponent, playerScore, playerAnsweredCount, totalQuestions, recordDuelResult, setUser]);
 
   const goToNextQuestion = useCallback(() => {
     pendingRevealRef.current = false;
@@ -258,7 +264,7 @@ export default function DuelPage() {
         sumAnswerTimesMs(playerAnswerTimes),
         sumAnswerTimesMs(opponentAnswerTimes),
       );
-      finishDuel(winner);
+      void finishDuel(winner);
       return;
     }
 
@@ -292,8 +298,6 @@ export default function DuelPage() {
     setLastRoundSummary({ playerDelta: playerRoundScore, opponentDelta: opponentRound.score });
     setOpponentStatus(opponentRound.isCorrect ? 'correct' : opponentRound.timeSpent >= DUEL_CONFIG.time_per_question ? 'timeout' : 'wrong');
 
-    incrementQuestionsAnswered(playerIsCorrect);
-
     const revealAnswered = setTimeout(() => {
       setOpponentStatus('answered');
     }, 500);
@@ -307,7 +311,7 @@ export default function DuelPage() {
       clearTimeout(revealAnswered);
       clearTimeout(nextQuestionTimeout);
     };
-  }, [currentQuestion, timer, goToNextQuestion, incrementQuestionsAnswered]);
+  }, [currentQuestion, timer, goToNextQuestion]);
 
   const handleSelectAnswer = useCallback((answer: 'A' | 'B' | 'C' | 'D') => {
     if (phase !== 'playing') return;
@@ -316,7 +320,7 @@ export default function DuelPage() {
 
   const handleEnergyConfirm = useCallback(() => {
     setShowEnergyWarning(false);
-    startDuel();
+    void startDuel();
   }, [startDuel]);
 
   const handleEnergyCancel = useCallback(() => {
@@ -348,7 +352,7 @@ export default function DuelPage() {
     setShowRewardOverlay(false);
     setRewardData({ xp: 0, coins: 0, levelUp: null });
     pendingRevealRef.current = false;
-    startDuel();
+    void startDuel();
   }, [user, startDuel]);
 
   const handleRewardComplete = useCallback(() => {
@@ -357,7 +361,6 @@ export default function DuelPage() {
   }, []);
 
   const playerTotalTimeMs = sumAnswerTimesMs(playerAnswerTimes);
-  const opponentTotalTimeMs = sumAnswerTimesMs(opponentAnswerTimes);
 
   if (showRewardOverlay) {
     return (
@@ -383,11 +386,7 @@ export default function DuelPage() {
         )}
 
         {(phase === 'loading' || phase === 'searching' || phase === 'matched' || phase === 'countdown') && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex min-h-[70vh] flex-col items-center justify-center"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex min-h-[70vh] flex-col items-center justify-center">
             <Card padding="lg" className="w-full max-w-sm text-center">
               <motion.div
                 animate={phase === 'searching' ? { rotate: 360 } : { scale: [1, 1.05, 1] }}
@@ -442,31 +441,15 @@ export default function DuelPage() {
         {(phase === 'playing' || phase === 'revealing') && currentQuestion && opponent && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-2 gap-3">
-              <PlayerCard
-                label="Sen"
-                name={user?.username ?? 'Oyuncu'}
-                elo={user?.elo_rating ?? 1000}
-                score={playerScore}
-                correct={playerAnsweredCount}
-                accent="primary"
-              />
-              <PlayerCard
-                label="Rakip"
-                name={opponent.username}
-                elo={opponent.elo}
-                score={opponentScore}
-                correct={opponentAnsweredCount}
-                accent="orange"
-              />
+              <PlayerCard label="Sen" name={user?.username ?? 'Oyuncu'} elo={user?.elo_rating ?? 1000} score={playerScore} correct={playerAnsweredCount} accent="primary" />
+              <PlayerCard label="Rakip" name={opponent.username} elo={opponent.elo} score={opponentScore} correct={opponentAnsweredCount} accent="orange" />
             </motion.div>
 
             <Card padding="md">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-xs text-text-muted">Soru</p>
-                  <p className="font-display text-lg font-bold text-text-primary">
-                    {questionIndex + 1}/{totalQuestions}
-                  </p>
+                  <p className="font-display text-lg font-bold text-text-primary">{questionIndex + 1}/{totalQuestions}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-text-muted">Rakip durumu</p>
@@ -483,14 +466,10 @@ export default function DuelPage() {
 
             <Card padding="lg">
               <div className="mb-3 flex items-center justify-between">
-                <span className="rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-500">
-                  Düello
-                </span>
+                <span className="rounded-full bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-500">Düello</span>
                 <span className="text-xs text-text-muted">{currentQuestion.category}</span>
               </div>
-              <h2 className="font-display text-lg font-bold leading-snug text-text-primary">
-                {currentQuestion.question_text}
-              </h2>
+              <h2 className="font-display text-lg font-bold leading-snug text-text-primary">{currentQuestion.question_text}</h2>
               <div className="mt-4">
                 <ShareButton
                   payload={buildQuestionChallengeShare({
@@ -537,9 +516,7 @@ export default function DuelPage() {
               <h1 className="font-display text-3xl font-bold text-text-primary">
                 {result === 'win' ? 'Düelloyu Kazandın!' : result === 'loss' ? 'Düelloyu Kaybettin' : 'Berabere'}
               </h1>
-              <p className="mt-2 text-sm text-text-secondary">
-                {playerScore} - {opponentScore} skorla maç tamamlandı.
-              </p>
+              <p className="mt-2 text-sm text-text-secondary">{playerScore} - {opponentScore} skorla maç tamamlandı.</p>
             </Card>
 
             <div className="grid grid-cols-2 gap-3">
@@ -556,13 +533,6 @@ export default function DuelPage() {
                 </p>
               </Card>
             )}
-
-            <Card padding="md">
-              <p className="text-sm text-text-secondary">
-                Bu maç haftalık lig puanına <span className="font-bold text-primary-500">{result === 'win' ? '+3' : result === 'draw' ? '+1' : '+0'}</span> katkı yaptı.
-              </p>
-              {seasonMessage && <p className="mt-2 text-xs text-text-muted">{seasonMessage}</p>}
-            </Card>
 
             <div className="flex gap-3">
               <Button variant="secondary" fullWidth onClick={() => router.push('/play')}>
@@ -657,6 +627,6 @@ function getOpponentStatusLabel(status: 'thinking' | 'answered' | 'correct' | 'w
     case 'timeout':
       return 'Süreyi doldurdu';
     default:
-      return 'Bekleniyor';
+      return 'Bekliyor';
   }
 }
