@@ -6,6 +6,8 @@ import { Mail, Lock, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { loginAction } from './actions';
 
 export default function LoginPage() {
@@ -46,13 +48,18 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
+    trackEvent(ANALYTICS_EVENTS.AUTH_ATTEMPTED, { mode: 'login' });
 
     try {
       const result = await loginAction(formData);
       if (result?.error) {
+        trackEvent(ANALYTICS_EVENTS.AUTH_FAILED, {
+          mode: 'login',
+          reason: 'invalid_credentials',
+        });
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);

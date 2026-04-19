@@ -25,6 +25,8 @@ import { GameResultScreen } from '@/components/game/game-result';
 import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
 import { ShareButton } from '@/components/social/share-button';
 import { buildQuestionChallengeShare } from '@/lib/utils/share';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 import type { Question, JokerType } from '@/types';
 
@@ -65,7 +67,7 @@ export default function MillionairePage() {
     setCurrentQuestion,
     nextQuestion,
     answerQuestion,
-    useJoker,
+    useJoker: activateJoker,
     updateSafePoint,
   } = useGameStore();
 
@@ -92,7 +94,6 @@ export default function MillionairePage() {
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
   const [pendingRewards, setPendingRewards] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({ xp: 0, coins: 0, levelUp: null });
-  const [energyChecked, setEnergyChecked] = useState(false);
 
   // Current question derived from state
   const currentQuestion = questions[questionNumber - 1] ?? null;
@@ -100,6 +101,53 @@ export default function MillionairePage() {
   const safePointScore = getSafePointScore(questionNumber);
   const phaseRef = useRef(phase);
   const safePointReachedRef = useRef(safePointReached);
+  const hasInitializedRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const correctAnswersRef = useRef(correctAnswers);
+  const totalAnsweredRef = useRef(totalAnswered);
+  const questionNumberRef = useRef(questionNumber);
+
+  useEffect(() => {
+    correctAnswersRef.current = correctAnswers;
+    totalAnsweredRef.current = totalAnswered;
+    questionNumberRef.current = questionNumber;
+  }, [correctAnswers, totalAnswered, questionNumber]);
+
+  const trackMillionaireCompleted = useCallback((result: 'win' | 'loss' | 'timeout', finalScore: number, xp: number, coins: number) => {
+    trackEvent(ANALYTICS_EVENTS.GAME_COMPLETED, {
+      mode: 'millionaire',
+      session_id: sessionIdRef.current,
+      result,
+      score: finalScore,
+      correct_answers: correctAnswersRef.current,
+      total_answered: totalAnsweredRef.current,
+      xp_earned: xp,
+      coins_earned: coins,
+      question_reached: questionNumberRef.current,
+      safe_point_reached: finalScore,
+    });
+  }, []);
+
+  const trackMillionaireStarted = useCallback((sessionId: string) => {
+    sessionIdRef.current = sessionId;
+    trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
+      mode: 'millionaire',
+      session_id: sessionId,
+      league_scope: 'turkey',
+      question_count: 15,
+    });
+  }, []);
+
+  const handleTimeExpired = useCallback(() => {
+    if (phaseRef.current === 'playing') {
+      const finalScore = safePointReachedRef.current;
+      const xp = calculateXP(finalScore, 'millionaire');
+      const coins = calculateCoins(finalScore, 'millionaire');
+      trackMillionaireCompleted('timeout', finalScore, xp, coins);
+      endGame('timeout', xp, coins);
+      awardRewards(xp, coins);
+    }
+  }, [trackMillionaireCompleted, endGame, awardRewards]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -109,19 +157,10 @@ export default function MillionairePage() {
     safePointReachedRef.current = safePointReached;
   }, [safePointReached]);
 
-  // Timer
   const timer = useTimer({
     initialTime: currentStep?.timeLimit ?? 30,
     autoStart: false,
-    onExpire: () => {
-      if (phaseRef.current === 'playing') {
-        const finalScore = safePointReachedRef.current;
-        const xp = calculateXP(finalScore, 'millionaire');
-        const coins = calculateCoins(finalScore, 'millionaire');
-        endGame('timeout', xp, coins);
-        awardRewards(xp, coins);
-      }
-    },
+    onExpire: handleTimeExpired,
   });
 
   // ==========================================
@@ -135,6 +174,7 @@ export default function MillionairePage() {
     const sessionId = `session_${Date.now()}`;
     resetGame();
     startGame('millionaire', 'turkey', sessionId);
+    trackMillionaireStarted(sessionId);
 
     // Deduct energy
     if (user) {
@@ -152,94 +192,12 @@ export default function MillionairePage() {
     }
   }, [resetGame, startGame, setCurrentQuestion, timer, user, updateEnergy]);
 
-  useEffect(() => {
-    // Check energy before starting
-    if (!energyChecked) {
-      setEnergyChecked(true);
-      const currentEnergy = user?.energy ?? 0;
-
-      if (currentEnergy < ENERGY_CONFIG.cost_millionaire) {
-        // Not enough energy — show warning
-        setShowEnergyWarning(true);
-        return;
-      }
-
-      // Enough energy — start directly
-      initializeGame();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [energyChecked]);
 
   // ==========================================
   // Handle Answer Selection
   // ==========================================
 
-  const handleSelectAnswer = useCallback(
-    (key: 'A' | 'B' | 'C' | 'D') => {
-      if (phase !== 'playing' || !currentQuestion) return;
-
-      // Double answer mode — first wrong guess
-      if (doubleAnswerActive && firstWrongAnswer === null && key !== currentQuestion.correct_answer) {
-        setFirstWrongAnswer(key);
-        setSelectedAnswer(null);
-        setEliminatedOptions((prev) => [...prev, key]);
-        return;
-      }
-
-      setSelectedAnswer(key);
-      setPhase('answered');
-      timer.pause();
-
-      // Reveal answer after a short delay
-      setTimeout(() => {
-        revealAnswer(key);
-      }, 1000);
-    },
-    [phase, currentQuestion, doubleAnswerActive, firstWrongAnswer, timer],
-  );
-
-  // ==========================================
-  // Reveal Answer
-  // ==========================================
-
-  const revealAnswer = useCallback(
-    (selected: 'A' | 'B' | 'C' | 'D') => {
-      if (!currentQuestion || !currentStep) return;
-
-      setCorrectAnswer(currentQuestion.correct_answer);
-      setPhase('revealing');
-
-      const isCorrect = selected === currentQuestion.correct_answer;
-
-      // Record answer in game store
-      answerQuestion(isCorrect, isCorrect ? currentStep.points : 0);
-
-      // Record answer in user store (persistent stats)
-      if (user) {
-        incrementQuestionsAnswered(isCorrect);
-      }
-
-      // Update safe point if at a safe point
-      if (isCorrect && currentStep.isSafePoint) {
-        updateSafePoint(currentStep.points);
-      }
-
-      setTimeout(() => {
-        if (isCorrect) {
-          handleCorrectAnswer();
-        } else {
-          handleWrongAnswer();
-        }
-      }, 2000);
-    },
-    [currentQuestion, currentStep, answerQuestion, updateSafePoint],
-  );
-
-  // ==========================================
-  // Award Rewards to User Store
-  // ==========================================
-
-  const awardRewards = useCallback((xp: number, coins: number) => {
+  function awardRewards(xp: number, coins: number) {
     if (!user) {
       setPhase('result');
       return;
@@ -253,17 +211,17 @@ export default function MillionairePage() {
     updateCoins(coins);
     setPendingRewards({ xp, coins, levelUp });
     setShowRewardOverlay(true);
-  }, [user, addXP, updateCoins]);
+  }
 
-  // ==========================================
-  // Correct Answer Flow
-  // ==========================================
-
-  const handleCorrectAnswer = useCallback(() => {
+  function handleCorrectAnswer() {
     // Check if this was the last question (WIN!)
     if (questionNumber >= 15) {
       const xp = calculateXP(1000000, 'millionaire');
       const coins = calculateCoins(1000000, 'millionaire');
+      correctAnswersRef.current = correctAnswers + 1;
+      totalAnsweredRef.current = totalAnswered + 1;
+      questionNumberRef.current = questionNumber;
+      trackMillionaireCompleted('win', 1000000, xp, coins);
       endGame('win', xp, coins);
       awardRewards(xp, coins);
       return;
@@ -291,33 +249,62 @@ export default function MillionairePage() {
         setPhase('playing');
       }
     }, 1000);
-  }, [questionNumber, questions, nextQuestion, setCurrentQuestion, endGame, timer]);
+  }
 
-  // ==========================================
-  // Wrong Answer Flow
-  // ==========================================
-
-  const handleWrongAnswer = useCallback(() => {
+  function handleWrongAnswer() {
     const finalScore = safePointReached;
     const xp = calculateXP(finalScore, 'millionaire');
     const coins = calculateCoins(finalScore, 'millionaire');
+    trackMillionaireCompleted('loss', finalScore, xp, coins);
     endGame('loss', xp, coins);
     awardRewards(xp, coins);
-  }, [safePointReached, endGame, awardRewards]);
+  }
 
-  // ==========================================
-  // Time Expired
-  // ==========================================
+  function revealAnswer(selected: 'A' | 'B' | 'C' | 'D') {
+    if (!currentQuestion || !currentStep) return;
 
-  const handleTimeExpired = useCallback(() => {
-    if (phase === 'playing') {
-      const finalScore = safePointReached;
-      const xp = calculateXP(finalScore, 'millionaire');
-      const coins = calculateCoins(finalScore, 'millionaire');
-      endGame('timeout', xp, coins);
-      awardRewards(xp, coins);
+    setCorrectAnswer(currentQuestion.correct_answer);
+    setPhase('revealing');
+
+    const isCorrect = selected === currentQuestion.correct_answer;
+
+    answerQuestion(isCorrect, isCorrect ? currentStep.points : 0);
+
+    if (user) {
+      incrementQuestionsAnswered(isCorrect);
     }
-  }, [phase, safePointReached, endGame, awardRewards]);
+
+    if (isCorrect && currentStep.isSafePoint) {
+      updateSafePoint(currentStep.points);
+    }
+
+    setTimeout(() => {
+      if (isCorrect) {
+        handleCorrectAnswer();
+      } else {
+        handleWrongAnswer();
+      }
+    }, 2000);
+  }
+
+  const handleSelectAnswer = (key: 'A' | 'B' | 'C' | 'D') => {
+    if (phase !== 'playing' || !currentQuestion) return;
+
+    if (doubleAnswerActive && firstWrongAnswer === null && key !== currentQuestion.correct_answer) {
+      setFirstWrongAnswer(key);
+      setSelectedAnswer(null);
+      setEliminatedOptions((prev) => [...prev, key]);
+      return;
+    }
+
+    setSelectedAnswer(key);
+    setPhase('answered');
+    timer.pause();
+
+    setTimeout(() => {
+      revealAnswer(key);
+    }, 1000);
+  };
 
   // ==========================================
   // Joker Handlers
@@ -327,7 +314,12 @@ export default function MillionairePage() {
     (type: JokerType) => {
       if (!currentQuestion || phase !== 'playing') return;
 
-      useJoker(type);
+      activateJoker(type);
+      trackEvent(ANALYTICS_EVENTS.JOKER_USED, {
+        mode: 'millionaire',
+        joker_type: type,
+        question_number: questionNumber,
+      });
 
       switch (type) {
         case 'fifty_fifty': {
@@ -415,7 +407,7 @@ export default function MillionairePage() {
         }
       }
     },
-    [currentQuestion, phase, eliminatedOptions, useJoker, timer, answerQuestion, nextQuestion, setCurrentQuestion, questions, questionNumber],
+    [currentQuestion, phase, eliminatedOptions, activateJoker, timer, answerQuestion, nextQuestion, setCurrentQuestion, questions, questionNumber],
   );
 
   // ==========================================
@@ -446,6 +438,7 @@ export default function MillionairePage() {
     const sessionId = `session_${Date.now()}`;
     resetGame();
     startGame('millionaire', 'turkey', sessionId);
+    trackMillionaireStarted(sessionId);
 
     // Deduct energy
     if (user) {
@@ -472,6 +465,7 @@ export default function MillionairePage() {
   // ==========================================
 
   const handleEnergyConfirm = useCallback(() => {
+    hasInitializedRef.current = true;
     setShowEnergyWarning(false);
     initializeGame();
   }, [initializeGame]);
@@ -514,7 +508,7 @@ export default function MillionairePage() {
 
         {/* Energy warning overlay */}
         <EnergyWarning
-          isVisible={showEnergyWarning}
+          isVisible={showEnergyWarning || (!hasInitializedRef.current && (user?.energy ?? 0) < ENERGY_CONFIG.cost_millionaire)}
           currentEnergy={user?.energy ?? 0}
           onConfirm={handleEnergyConfirm}
           onCancel={handleEnergyCancel}

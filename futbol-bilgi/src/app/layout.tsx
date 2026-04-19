@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Outfit } from 'next/font/google';
+import { AnalyticsProvider } from '@/components/providers/analytics-provider';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import { NotificationProvider } from '@/components/providers/notification-provider';
 import './globals.css';
@@ -83,9 +84,11 @@ export default function RootLayout({
     >
       <body className="min-h-dvh bg-bg-primary text-text-primary antialiased">
         <AuthProvider>
-          <NotificationProvider>
-            {children}
-          </NotificationProvider>
+          <AnalyticsProvider>
+            <NotificationProvider>
+              {children}
+            </NotificationProvider>
+          </AnalyticsProvider>
         </AuthProvider>
       </body>
     </html>

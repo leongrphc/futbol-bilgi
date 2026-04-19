@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { User, Mail, Lock, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { registerAction } from './actions';
 
 export default function RegisterPage() {
@@ -76,13 +78,18 @@ export default function RegisterPage() {
     }
 
     setIsLoading(true);
+    trackEvent(ANALYTICS_EVENTS.AUTH_ATTEMPTED, { mode: 'register' });
 
     try {
       const result = await registerAction(formData);
       if (result?.error) {
+        trackEvent(ANALYTICS_EVENTS.AUTH_FAILED, {
+          mode: 'register',
+          reason: 'registration_failed',
+        });
         setError(result.error);
       }
-    } catch (err) {
+    } catch {
       setError('Bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);

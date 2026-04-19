@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Swords, Trophy, TimerReset, ShieldAlert, Zap, Target } from 'lucide-react';
@@ -11,6 +11,8 @@ import { TimerBar } from '@/components/game/timer-bar';
 import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
 import { ShareButton } from '@/components/social/share-button';
 import { buildQuestionChallengeShare } from '@/lib/utils/share';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
@@ -95,6 +97,7 @@ export default function DuelPage() {
   const [eloDelta, setEloDelta] = useState(0);
   const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({ xp: 0, coins: 0, levelUp: null });
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
+  const sessionIdRef = useRef<string | null>(null);
 
   const currentQuestion = questions[questionIndex] ?? null;
   const totalQuestions = DUEL_CONFIG.total_questions;
@@ -131,6 +134,14 @@ export default function DuelPage() {
   const startDuel = useCallback(() => {
     if (!user) return;
 
+    const sessionId = `duel_${Date.now()}`;
+    sessionIdRef.current = sessionId;
+    trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
+      mode: 'duel',
+      session_id: sessionId,
+      league_scope: user.league_tier,
+      question_count: DUEL_CONFIG.total_questions,
+    });
     updateEnergy(-ENERGY_CONFIG.cost_duel);
     setQuestions(buildDuelQuestions());
     setOpponent(createMockOpponent());
@@ -147,15 +158,12 @@ export default function DuelPage() {
     markUserActive(user.id);
     ensurePlayerEntry(user.id, user.league_tier);
 
-    if (user.energy < ENERGY_CONFIG.cost_duel) {
-      setShowEnergyWarning(true);
-      setPhase('loading');
+    if (user.energy < ENERGY_CONFIG.cost_duel || sessionIdRef.current) {
       return;
     }
 
     startDuel();
-  }, [user, router, startDuel, ensureCurrentUserProfile, markUserActive]);
-
+  }, [user, router, startDuel, ensureCurrentUserProfile, markUserActive, ensurePlayerEntry]);
   useEffect(() => {
     if (phase !== 'searching') return;
 
@@ -179,14 +187,16 @@ export default function DuelPage() {
 
   useEffect(() => {
     if (phase !== 'countdown') return;
-    if (countdown <= 0) {
-      setPhase('playing');
-      timer.reset(DUEL_CONFIG.time_per_question);
-      timer.start();
-      return;
-    }
 
     const timeout = setTimeout(() => {
+      if (countdown <= 1) {
+        setCountdown(0);
+        setPhase('playing');
+        timer.reset(DUEL_CONFIG.time_per_question);
+        timer.start();
+        return;
+      }
+
       setCountdown((prev) => prev - 1);
     }, 1000);
 
@@ -198,6 +208,17 @@ export default function DuelPage() {
 
     const duelResult =
       winner === 'player' ? 'win' : winner === 'opponent' ? 'loss' : 'draw';
+    trackEvent(ANALYTICS_EVENTS.GAME_COMPLETED, {
+      mode: 'duel',
+      session_id: sessionIdRef.current,
+      result: duelResult,
+      score: playerScore,
+      correct_answers: playerAnsweredCount,
+      total_answered: totalQuestions,
+      xp_earned: winner === 'player' ? DUEL_CONFIG.winner_xp : 0,
+      coins_earned: winner === 'player' ? DUEL_CONFIG.winner_coins : 0,
+      elo_delta: calculateDuelEloDelta(user.elo_rating, opponent.elo, winner === 'player' ? 1 : winner === 'opponent' ? 0 : 0.5),
+    });
     setResult(duelResult);
     recordDuelResult(user.id, user.league_tier, duelResult);
 
@@ -221,7 +242,7 @@ export default function DuelPage() {
     }
 
     setPhase('result');
-  }, [user, opponent, updateEloRating, addXP, updateCoins]);
+  }, [user, opponent, playerScore, playerAnsweredCount, totalQuestions, recordDuelResult, updateEloRating, addXP, updateCoins]);
 
   const goToNextQuestion = useCallback(() => {
     pendingRevealRef.current = false;
@@ -556,7 +577,7 @@ export default function DuelPage() {
       </div>
 
       <EnergyWarning
-        isVisible={showEnergyWarning}
+        isVisible={showEnergyWarning || (!!user && user.energy < ENERGY_CONFIG.cost_duel && phase === 'loading')}
         currentEnergy={user?.energy ?? 0}
         onConfirm={handleEnergyConfirm}
         onCancel={handleEnergyCancel}

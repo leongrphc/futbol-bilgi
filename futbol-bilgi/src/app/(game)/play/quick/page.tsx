@@ -12,6 +12,8 @@ import { GameResultScreen } from '@/components/game/game-result';
 import { ShareButton } from '@/components/social/share-button';
 import { useGameStore } from '@/lib/stores/game-store';
 import { buildQuestionChallengeShare } from '@/lib/utils/share';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { Button } from '@/components/ui/button';
 import { Home } from 'lucide-react';
 import { useUserStore } from '@/lib/stores/user-store';
@@ -64,6 +66,7 @@ export default function QuickPage() {
   });
 
   const pendingRevealRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
   const currentQuestion = questions[questionNumber - 1] ?? null;
 
   const timer = useTimer({
@@ -87,6 +90,18 @@ export default function QuickPage() {
       applyScoreBonus(timeBonus);
     }
 
+    trackEvent(ANALYTICS_EVENTS.GAME_COMPLETED, {
+      mode: 'quick',
+      session_id: sessionIdRef.current,
+      result: gameResult,
+      score: score + timeBonus,
+      correct_answers: correctAnswers,
+      total_answered: totalAnswered,
+      xp_earned: xp,
+      coins_earned: 0,
+      time_remaining: timer.timeRemaining,
+    });
+
     if (!user) {
       endGame(gameResult, xp, 0);
       setPhase('result');
@@ -104,15 +119,22 @@ export default function QuickPage() {
       levelUp: newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null,
     });
     setShowRewardOverlay(true);
-  }, [timer.timeRemaining, correctAnswers, applyScoreBonus, user, endGame, addXP]);
+  }, [timer.timeRemaining, correctAnswers, totalAnswered, score, applyScoreBonus, user, endGame, addXP]);
 
   useEffect(() => {
     const gameQuestions = getQuickPlayQuestions();
     setQuestions(gameQuestions);
 
     const sessionId = `quick_${Date.now()}`;
+    sessionIdRef.current = sessionId;
     resetGame();
     startGame('quick', 'turkey', sessionId);
+    trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
+      mode: 'quick',
+      session_id: sessionId,
+      league_scope: 'turkey',
+      question_count: QUICK_PLAY_CONFIG.total_questions,
+    });
 
     if (gameQuestions.length > 0) {
       setCurrentQuestion(gameQuestions[0]);

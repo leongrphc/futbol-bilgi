@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { useUserStore } from '@/lib/stores/user-store';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { getStreakStatus, getStreakMilestoneProgress } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
 
@@ -251,7 +253,16 @@ export default function PlayPage() {
                     )}
                   </div>
 
-                  <Link href={mode.href}>
+                  <Link
+                    href={mode.href}
+                    onClick={() => {
+                      trackEvent(ANALYTICS_EVENTS.GAME_MODE_SELECTED, {
+                        mode: mode.id,
+                        energy_cost: mode.energyCost,
+                        has_energy: hasEnergy,
+                      });
+                    }}
+                  >
                     <Button
                       variant="primary"
                       size="md"

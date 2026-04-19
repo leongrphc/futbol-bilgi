@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Gamepad2, Trophy, User, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils/cn';
 
 // ==========================================
@@ -52,6 +54,13 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => {
+                trackEvent(ANALYTICS_EVENTS.NAV_CLICKED, {
+                  from_path: pathname,
+                  target_path: item.href,
+                  label: item.label,
+                });
+              }}
               className={cn(
                 'relative flex flex-1 flex-col items-center justify-center gap-1 py-2 transition-colors',
                 isActive ? 'text-primary-500' : 'text-text-secondary hover:text-text-primary'

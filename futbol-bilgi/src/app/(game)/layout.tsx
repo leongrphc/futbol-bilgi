@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { useUserStore } from '@/lib/stores/user-store';
+
+function useHydrated() {
+  return true;
+}
 
 export default function GameLayout({
   children,
@@ -13,11 +17,7 @@ export default function GameLayout({
   const user = useUserStore((state) => state.user);
   const isLoading = useUserStore((state) => state.isLoading);
   const router = useRouter();
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useHydrated();
 
   useEffect(() => {
     if (isHydrated && !isLoading && !user) {
