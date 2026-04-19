@@ -186,8 +186,9 @@ export default function MillionairePage() {
     setQuestions(gameQuestions);
 
     const sessionId = json.data.sessionId as string;
+    const jokerInventory = (json.data.profile?.settings?.jokers ?? user.settings.jokers) as Partial<Record<JokerType, number>> | undefined;
     resetGame();
-    startGame('millionaire', 'turkey', sessionId);
+    startGame('millionaire', 'turkey', sessionId, jokerInventory);
     trackMillionaireStarted(sessionId);
     sessionIdRef.current = sessionId;
     setUser({
@@ -365,8 +366,27 @@ export default function MillionairePage() {
   // ==========================================
 
   const handleUseJoker = useCallback(
-    (type: JokerType) => {
-      if (!currentQuestion || phase !== 'playing') return;
+    async (type: JokerType) => {
+      if (!currentQuestion || phase !== 'playing' || !user) return;
+
+      const joker = jokers.find((item) => item.type === type);
+      if (!joker || !joker.isAvailable || joker.isUsed) return;
+
+      const response = await fetch('/api/me/jokers/use', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jokerType: type }),
+      });
+
+      const json = await response.json();
+      if (!response.ok || !json.data) {
+        return;
+      }
+
+      setUser({
+        ...user,
+        ...json.data.profile,
+      });
 
       activateJoker(type);
       trackEvent(ANALYTICS_EVENTS.JOKER_USED, {
@@ -461,7 +481,7 @@ export default function MillionairePage() {
         }
       }
     },
-    [currentQuestion, phase, eliminatedOptions, activateJoker, timer, answerQuestion, nextQuestion, setCurrentQuestion, questions, questionNumber],
+    [currentQuestion, phase, eliminatedOptions, activateJoker, timer, answerQuestion, nextQuestion, setCurrentQuestion, questions, questionNumber, jokers, setUser, user],
   );
 
   // ==========================================

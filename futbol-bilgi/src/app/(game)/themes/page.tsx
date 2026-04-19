@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Palette, Check, Lock, Sparkles, Copy, Phone, SkipForward, BatteryCharging } from 'lucide-react';
+import { Palette, Check, Lock, Sparkles, Copy, Phone, SkipForward, BatteryCharging, Percent, Users, Timer } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUserStore } from '@/lib/stores/user-store';
@@ -32,8 +32,16 @@ const utilityItems = [
     title: '%50 Joker',
     description: 'İki yanlış şıkkı eler.',
     price: '50 coin',
-    icon: Copy,
+    icon: Percent,
     stockKey: 'fifty_fifty' as const,
+  },
+  {
+    key: 'joker_audience' as const,
+    title: 'Seyirci',
+    description: 'Seyirci dağılımını gösterir.',
+    price: '75 coin',
+    icon: Users,
+    stockKey: 'audience' as const,
   },
   {
     key: 'joker_phone' as const,
@@ -44,12 +52,28 @@ const utilityItems = [
     stockKey: 'phone' as const,
   },
   {
+    key: 'joker_freeze_time' as const,
+    title: 'Süre Dondur',
+    description: 'Ek süre kazandırır.',
+    price: '60 coin',
+    icon: Timer,
+    stockKey: 'freeze_time' as const,
+  },
+  {
     key: 'joker_skip' as const,
     title: 'Pas Geç',
     description: 'Soruyu değiştirir.',
     price: '120 coin',
     icon: SkipForward,
     stockKey: 'skip' as const,
+  },
+  {
+    key: 'joker_double_answer' as const,
+    title: 'Çift Cevap',
+    description: 'Bir yanlış tahmin hakkı verir.',
+    price: '80 coin',
+    icon: Copy,
+    stockKey: 'double_answer' as const,
   },
   {
     key: 'energy_refill_small' as const,
@@ -261,7 +285,7 @@ export default function ThemesPage() {
               const stock = user.settings.jokers?.[item.stockKey ?? 'fifty_fifty'] ?? 0;
 
               return (
-                <Card key={item.key} padding="lg" className="space-y-4">
+                <Card key={item.key} padding="lg" className="flex h-full flex-col justify-between space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="rounded-xl bg-primary-500/10 p-3">
                       <Icon className="h-5 w-5 text-primary-500" />
@@ -290,7 +314,7 @@ export default function ThemesPage() {
             {utilityItems.filter((item) => item.stockKey === null).map((item) => {
               const Icon = item.icon;
               return (
-                <Card key={item.key} padding="lg" className="space-y-4">
+                <Card key={item.key} padding="lg" className="flex h-full flex-col justify-between space-y-4">
                   <div className="rounded-xl bg-warning/10 p-3 w-fit">
                     <Icon className="h-5 w-5 text-warning" />
                   </div>

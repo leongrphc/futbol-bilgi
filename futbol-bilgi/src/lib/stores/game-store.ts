@@ -14,14 +14,14 @@ import { MILLIONAIRE_STEPS } from '@/lib/constants/game';
 // Default Jokers for Millionaire Mode
 // ==========================================
 
-function createDefaultJokers(): JokerState[] {
+function createDefaultJokers(jokerInventory?: Partial<Record<JokerType, number>>): JokerState[] {
   return [
-    { type: 'fifty_fifty', isUsed: false, isAvailable: true },
-    { type: 'audience', isUsed: false, isAvailable: true },
-    { type: 'phone', isUsed: false, isAvailable: true },
-    { type: 'freeze_time', isUsed: false, isAvailable: true },
-    { type: 'skip', isUsed: false, isAvailable: true },
-    { type: 'double_answer', isUsed: false, isAvailable: true },
+    { type: 'fifty_fifty', isUsed: false, isAvailable: (jokerInventory?.fifty_fifty ?? 0) > 0 },
+    { type: 'audience', isUsed: false, isAvailable: (jokerInventory?.audience ?? 0) > 0 },
+    { type: 'phone', isUsed: false, isAvailable: (jokerInventory?.phone ?? 0) > 0 },
+    { type: 'freeze_time', isUsed: false, isAvailable: (jokerInventory?.freeze_time ?? 0) > 0 },
+    { type: 'skip', isUsed: false, isAvailable: (jokerInventory?.skip ?? 0) > 0 },
+    { type: 'double_answer', isUsed: false, isAvailable: (jokerInventory?.double_answer ?? 0) > 0 },
   ];
 }
 
@@ -53,7 +53,7 @@ const initialState: GameState = {
 
 interface GameActions {
   // Game lifecycle
-  startGame: (mode: GameMode, leagueScope: LeagueScope, sessionId: string) => void;
+  startGame: (mode: GameMode, leagueScope: LeagueScope, sessionId: string, jokerInventory?: Partial<Record<JokerType, number>>) => void;
   endGame: (result: GameResult, xp: number, coins: number) => void;
   resetGame: () => void;
 
@@ -83,7 +83,7 @@ export type GameStore = GameState & GameActions;
 export const useGameStore = create<GameStore>()((set, get) => ({
   ...initialState,
 
-  startGame: (mode, leagueScope, sessionId) => {
+  startGame: (mode, leagueScope, sessionId, jokerInventory) => {
     const timeLimit =
       mode === 'millionaire'
         ? MILLIONAIRE_STEPS[0].timeLimit
@@ -98,7 +98,7 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       sessionId,
       questionNumber: 1,
       timeRemaining: timeLimit,
-      jokers: mode === 'millionaire' ? createDefaultJokers() : [],
+      jokers: mode === 'millionaire' ? createDefaultJokers(jokerInventory) : [],
     });
   },
 
