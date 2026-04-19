@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -125,8 +125,10 @@ export default function DashboardPage() {
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [adMessage, setAdMessage] = useState<string | null>(null);
   const [iapMessage, setIapMessage] = useState<string | null>(null);
+  const [premiumMessage, setPremiumMessage] = useState<string | null>(null);
   const [claimingRewardType, setClaimingRewardType] = useState<string | null>(null);
   const [purchasingProductId, setPurchasingProductId] = useState<string | null>(null);
+  const [isClaimingPremiumGems, setIsClaimingPremiumGems] = useState(false);
   const [rewardData, setRewardData] = useState<{
     xp: number;
     coins: number;
@@ -264,6 +266,68 @@ export default function DashboardPage() {
     });
     setIapMessage(`${json.data.purchase.label} hesabına eklendi.`);
     setPurchasingProductId(null);
+  };
+
+  const handlePremiumPass = async () => {
+    if (!user) return;
+
+    setPurchasingProductId('premium_pass');
+    setPremiumMessage(null);
+
+    const response = await fetch('/api/iap/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: 'premium_pass' }),
+    });
+
+    const json = await response.json();
+
+    if (!response.ok || !json.data) {
+      setPremiumMessage(json.error ?? 'Premium pass alınamadı.');
+      setPurchasingProductId(null);
+      return;
+    }
+
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
+    setPremiumMessage('Premium Pass aktif edildi.');
+    setPurchasingProductId(null);
+  };
+
+  const handleClaimPremiumGems = async () => {
+    if (!user) return;
+
+    setIsClaimingPremiumGems(true);
+    setPremiumMessage(null);
+
+    const response = await fetch('/api/iap/premium-claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    const json = await response.json();
+
+    if (!response.ok || !json.data) {
+      setPremiumMessage(json.error ?? 'Premium ödülü alınamadı.');
+      setIsClaimingPremiumGems(false);
+      return;
+    }
+
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
+    setPremiumMessage('Günlük 20 gem hesabına işlendi.');
+    setRewardData({
+      xp: 0,
+      coins: 0,
+      levelUp: null,
+      streakUp: null,
+      streakMilestone: null,
+    });
+    setIsClaimingPremiumGems(false);
   };
 
   const handleClaimDailyReward = async () => {
@@ -424,6 +488,31 @@ export default function DashboardPage() {
               <p className="mt-1 text-xs text-text-secondary">Gerçek ödeme olmadan sandbox satın alma akışı.</p>
             </div>
             <ShoppingBag className="h-6 w-6 text-primary-500" />
+          </div>
+
+          <div className="mt-4 mb-4 rounded-2xl border border-secondary-500/20 bg-secondary-500/5 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-base font-bold text-text-primary">Premium Pass</h3>
+                  {user.is_premium && <span className="rounded-full bg-secondary-500 px-2 py-0.5 text-[10px] font-bold text-bg-primary">Premium Aktif</span>}
+                </div>
+                <p className="mt-1 text-xs text-text-secondary">Günlük 20 gem al ve premium durumunu aktif et.</p>
+              </div>
+              <Sparkles className="h-5 w-5 text-secondary-500" />
+            </div>
+            <div className="mt-3">
+              {user.is_premium ? (
+                <Button size="sm" variant="secondary" onClick={handleClaimPremiumGems} isLoading={isClaimingPremiumGems}>
+                  Günlük 20 Gem Al
+                </Button>
+              ) : (
+                <Button size="sm" onClick={handlePremiumPass} isLoading={purchasingProductId === 'premium_pass'}>
+                  Premium Pass Satın Al
+                </Button>
+              )}
+            </div>
+            {premiumMessage && <p className="mt-3 text-xs text-text-secondary">{premiumMessage}</p>}
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

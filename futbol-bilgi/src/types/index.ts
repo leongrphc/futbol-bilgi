@@ -68,6 +68,10 @@ export interface UserSettings {
   purchases?: {
     starter_pack_claimed?: boolean;
   };
+  premium?: {
+    claimed_daily_gems_at?: string;
+    pass_activated_at?: string;
+  };
 }
 
 export interface QuestionOption {
