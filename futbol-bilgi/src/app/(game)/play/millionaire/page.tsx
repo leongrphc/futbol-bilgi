@@ -91,6 +91,7 @@ export default function MillionairePage() {
   // Economy UI state
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
+  const [isClaimingAdEnergy, setIsClaimingAdEnergy] = useState(false);
   const [pendingRewards, setPendingRewards] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({ xp: 0, coins: 0, levelUp: null });
 
   // Current question derived from state
@@ -506,6 +507,36 @@ export default function MillionairePage() {
     router.push('/');
   }, [router]);
 
+  const handleWatchAdForEnergy = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+
+    setIsClaimingAdEnergy(true);
+
+    try {
+      const response = await fetch('/api/ads/reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardType: 'energy_refill' }),
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json.data) {
+        return;
+      }
+
+      setUser({
+        ...user,
+        ...json.data.profile,
+      });
+      setShowEnergyWarning(false);
+      void initializeGame();
+    } finally {
+      setIsClaimingAdEnergy(false);
+    }
+  }, [initializeGame, setUser, user]);
+
   // ==========================================
   // Reward Overlay Complete → show result screen
   // ==========================================
@@ -543,6 +574,9 @@ export default function MillionairePage() {
           currentEnergy={user?.energy ?? 0}
           onConfirm={handleEnergyConfirm}
           onCancel={handleEnergyCancel}
+          onSecondaryAction={handleWatchAdForEnergy}
+          secondaryActionLabel={isClaimingAdEnergy ? 'Yükleniyor...' : 'Reklam İzle +1⚡'}
+          secondaryActionDisabled={isClaimingAdEnergy}
         />
       </div>
     );

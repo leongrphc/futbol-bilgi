@@ -64,6 +64,7 @@ export interface UserSettings {
   notifications_enabled: boolean;
   language: string;
   theme: 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch';
+  rewarded_jokers?: Partial<Record<'double_answer', number>>;
 }
 
 export interface QuestionOption {

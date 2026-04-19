@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -123,6 +123,8 @@ export default function DashboardPage() {
   const fetchEntries = useLeagueStore((state) => state.fetchEntries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
+  const [adMessage, setAdMessage] = useState<string | null>(null);
+  const [claimingRewardType, setClaimingRewardType] = useState<string | null>(null);
   const [rewardData, setRewardData] = useState<{
     xp: number;
     coins: number;
@@ -190,6 +192,49 @@ export default function DashboardPage() {
 
   const { canClaimToday, activeStreak } = getStreakStatus(user.last_daily_claim, user.streak_days);
   const rewardPreview = getDailyRewardPreview(user.last_daily_claim, user.streak_days);
+
+  const handleClaimAdReward = async (rewardType: 'energy_refill' | 'coins_small' | 'double_answer_joker') => {
+    setClaimingRewardType(rewardType);
+    setAdMessage(null);
+
+    const response = await fetch('/api/ads/reward', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rewardType }),
+    });
+
+    const json = await response.json();
+
+    if (!response.ok || !json.data || !user) {
+      setAdMessage(json.error ?? 'Ödül alınamadı.');
+      setClaimingRewardType(null);
+      return;
+    }
+
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
+
+    if (rewardType === 'coins_small') {
+      setRewardData({
+        xp: 0,
+        coins: json.data.reward.coins ?? 0,
+        levelUp: null,
+        streakUp: null,
+        streakMilestone: null,
+      });
+      setShowRewardOverlay(true);
+    } else {
+      setAdMessage(
+        rewardType === 'energy_refill'
+          ? '+1 enerji hesabına işlendi.'
+          : 'Çift cevap jokeri hesabına eklendi.'
+      );
+    }
+
+    setClaimingRewardType(null);
+  };
 
   const handleClaimDailyReward = async () => {
     if (!canClaimToday) return;
@@ -313,6 +358,31 @@ export default function DashboardPage() {
           endsAt={seasonEndsAt}
           zone={leagueZone}
         />
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="mb-6">
+        <Card padding="md" variant="highlighted">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs text-text-secondary">Rewarded Reklam</p>
+              <h2 className="mt-1 font-display text-lg font-bold text-text-primary">İzle, ödülünü al</h2>
+              <p className="mt-1 text-xs text-text-secondary">Enerji, coin veya çift cevap jokeri kazan.</p>
+            </div>
+            <PlayCircle className="h-6 w-6 text-secondary-500" />
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('energy_refill')} isLoading={claimingRewardType === 'energy_refill'}>
+              +1 Enerji
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('coins_small')} isLoading={claimingRewardType === 'coins_small'}>
+              +50 Coin
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('double_answer_joker')} isLoading={claimingRewardType === 'double_answer_joker'}>
+              Çift Cevap
+            </Button>
+          </div>
+          {adMessage && <p className="mt-3 text-xs text-text-secondary">{adMessage}</p>}
+        </Card>
       </motion.div>
 
       <motion.div variants={itemVariants} className="mb-6">

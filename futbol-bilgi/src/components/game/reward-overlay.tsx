@@ -59,23 +59,25 @@ export function RewardOverlay({
 
             {/* Reward items */}
             <div className="flex gap-8">
-              {/* XP Reward */}
-              <RewardItem
-                icon={<Star className="h-8 w-8 text-accent-500" />}
-                value={`+${xp}`}
-                label="XP"
-                color="text-accent-500"
-                delay={0.3}
-              />
+              {xp > 0 && (
+                <RewardItem
+                  icon={<Star className="h-8 w-8 text-accent-500" />}
+                  value={`+${xp}`}
+                  label="XP"
+                  color="text-accent-500"
+                  delay={0.3}
+                />
+              )}
 
-              {/* Coin Reward */}
-              <RewardItem
-                icon={<Coins className="h-8 w-8 text-secondary-500" />}
-                value={`+${coins}`}
-                label="Coin"
-                color="text-secondary-500"
-                delay={0.5}
-              />
+              {coins > 0 && (
+                <RewardItem
+                  icon={<Coins className="h-8 w-8 text-secondary-500" />}
+                  value={`+${coins}`}
+                  label="Coin"
+                  color="text-secondary-500"
+                  delay={xp > 0 ? 0.5 : 0.3}
+                />
+              )}
             </div>
 
             {achievementTitle && (
@@ -262,6 +264,9 @@ interface EnergyWarningProps {
   currentEnergy: number;
   onConfirm: () => void;
   onCancel: () => void;
+  onSecondaryAction?: () => void;
+  secondaryActionLabel?: string;
+  secondaryActionDisabled?: boolean;
 }
 
 export function EnergyWarning({
@@ -269,6 +274,9 @@ export function EnergyWarning({
   currentEnergy,
   onConfirm,
   onCancel,
+  onSecondaryAction,
+  secondaryActionLabel,
+  secondaryActionDisabled = false,
 }: EnergyWarningProps) {
   return (
     <AnimatePresence>
@@ -295,12 +303,23 @@ export function EnergyWarning({
                 <p className="mb-6 text-center text-sm text-text-secondary">
                   Oynamak için en az 1 enerji gerekiyor. Enerji 20 dakikada 1 yenilenir.
                 </p>
-                <button
-                  onClick={onCancel}
-                  className="w-full rounded-xl bg-bg-elevated py-3 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-card"
-                >
-                  Tamam
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={onCancel}
+                    className="flex-1 rounded-xl bg-bg-elevated py-3 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-card"
+                  >
+                    Tamam
+                  </button>
+                  {onSecondaryAction && secondaryActionLabel ? (
+                    <button
+                      onClick={onSecondaryAction}
+                      disabled={secondaryActionDisabled}
+                      className="flex-1 rounded-xl bg-gradient-to-r from-secondary-500 to-secondary-600 py-3 text-sm font-bold text-bg-primary shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      {secondaryActionLabel}
+                    </button>
+                  ) : null}
+                </div>
               </>
             ) : (
               // Has energy — confirm spend
