@@ -47,6 +47,7 @@ import { updateAchievementStatsFromStores } from '@/lib/achievements/sync';
 import { useNotifications } from '@/lib/hooks/use-notifications';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { calculateLevel } from '@/lib/utils/game';
 
 function getUnlockedTitles(keys: string[]) {
   return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
@@ -85,9 +86,7 @@ export default function ProfilePage() {
   const evaluateAchievements = useAchievementStore((state) => state.evaluate);
   const clearNewlyUnlocked = useAchievementStore((state) => state.clearNewlyUnlocked);
   const { toggleSubscription, isSupported } = useNotifications();
-  const updateGems = useUserStore((state) => state.updateGems);
-  const addXP = useUserStore((state) => state.addXP);
-  const updateCoins = useUserStore((state) => state.updateCoins);
+  const setUser = useUserStore((state) => state.setUser);
   const [appliedAchievementKeys, setAppliedAchievementKeys] = useState<string[]>([]);
   const [achievementMessage, setAchievementMessage] = useState<string | null>(null);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
@@ -222,21 +221,34 @@ export default function ProfilePage() {
   );
 
   useEffect(() => {
-    const rewards = evaluateAchievements();
-    if (rewards.length === 0) return;
+    const syncAchievements = async () => {
+      const response = await fetch('/api/achievements/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          friendships,
+          leagueEntries,
+          currentSeasonId: currentSeason.id,
+        }),
+      });
 
-    const unapplied = rewards.filter((reward) => !appliedAchievementKeys.includes(reward.key));
-    if (unapplied.length === 0) return;
+      const json = await response.json();
+      if (!response.ok || !json.data) return;
 
-    unapplied.forEach((reward) => {
-      if (reward.rewardCoins) updateCoins(reward.rewardCoins);
-      if (reward.rewardGems) updateGems(reward.rewardGems);
-      if (reward.rewardXp) addXP(reward.rewardXp);
-    });
+      if (json.data.newlyUnlocked.length === 0) {
+        return;
+      }
 
-    setAppliedAchievementKeys((prev) => [...prev, ...unapplied.map((reward) => reward.key)]);
-    setAchievementMessage(`${unapplied.length} yeni başarım ödülü hesabına işlendi.`);
-  }, [evaluateAchievements, appliedAchievementKeys, updateCoins, updateGems, addXP]);
+      setUser({
+        ...user,
+        ...json.data.profile,
+      });
+      setAppliedAchievementKeys((prev) => [...prev, ...json.data.newlyUnlocked]);
+      setAchievementMessage(`${json.data.newlyUnlocked.length} yeni başarım ödülü hesabına işlendi.`);
+    };
+
+    void syncAchievements();
+  }, [friendships, leagueEntries, currentSeason.id, setUser, user]);
 
   return (
     <div className="min-h-screen p-4 pb-24">
