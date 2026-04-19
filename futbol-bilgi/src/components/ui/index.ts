@@ -12,3 +12,6 @@ export type { ProgressBarProps } from './progress-bar';
 
 export { Avatar } from './avatar';
 export type { AvatarProps } from './avatar';
+
+export { Input, inputVariants } from './input';
+export type { InputProps } from './input';
