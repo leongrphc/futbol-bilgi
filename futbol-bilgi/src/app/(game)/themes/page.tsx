@@ -2,11 +2,23 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Palette, Check, Lock } from 'lucide-react';
+import { Palette, Check, Lock, Sparkles } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUserStore } from '@/lib/stores/user-store';
-import { THEME_DEFINITIONS, THEME_DEFINITION_MAP, type AppThemeKey } from '@/lib/themes';
+import {
+  THEME_DEFINITION_MAP,
+  THEME_DEFINITIONS,
+  canAffordTheme,
+  getDisplayThemeKey,
+  getOwnedThemeItemIds,
+  getResolvedThemeData,
+  getThemeByKey,
+  getThemeItemByKey,
+  getThemePriceLabel,
+  getThemePreviewStyle,
+  type AppThemeKey,
+} from '@/lib/themes';
 import type { ShopItem, UserInventory } from '@/types';
 
 interface ThemeShopResponse {
@@ -30,11 +42,12 @@ export default function ThemesPage() {
 
       const json = await response.json();
       const data = (json.data ?? { shopItems: [], inventory: [] }) as ThemeShopResponse;
+      const resolved = getResolvedThemeData(user.id, data.shopItems, data.inventory);
 
       setUser({
         ...user,
-        inventory: data.inventory,
-        shop_items: data.shopItems,
+        inventory: resolved.inventory,
+        shop_items: resolved.shopItems,
       });
       setIsLoading(false);
     };
@@ -42,28 +55,69 @@ export default function ThemesPage() {
     loadThemes();
   }, [user, setUser]);
 
-  const inventory = user?.inventory ?? [];
-  const shopItems = user?.shop_items ?? [];
-  const ownedItemIds = useMemo(() => new Set(inventory.map((item) => item.item_id)), [inventory]);
-  const equippedItem = inventory.find((item) => item.is_equipped);
-
-  const itemByThemeKey = useMemo(() => {
-    const entries = shopItems
-      .map((item) => {
-        const themeKey = item.metadata?.themeKey;
-        return typeof themeKey === 'string' ? [themeKey, item] : null;
-      })
-      .filter(Boolean) as Array<[string, ShopItem]>;
-
-    return Object.fromEntries(entries) as Record<string, ShopItem>;
-  }, [shopItems]);
-
   if (!user) {
     return null;
   }
 
+  const resolvedThemeData = getResolvedThemeData(user.id, user.shop_items ?? [], user.inventory ?? []);
+  const shopItems = resolvedThemeData.shopItems;
+  const inventory = resolvedThemeData.inventory;
+  const ownedItemIds = getOwnedThemeItemIds(inventory);
+  const equippedThemeKey = getDisplayThemeKey(user.settings);
+
+  const buyTheme = async (themeKey: AppThemeKey) => {
+    const item = getThemeItemByKey(themeKey, shopItems);
+    if (!item) return;
+
+    const response = await fetch('/api/shop/themes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId: item.id }),
+    });
+
+    const json = await response.json();
+
+    if (!response.ok) {
+      setMessage(json.error || 'Tema satın alınamadı.');
+      return;
+    }
+
+    setUser({
+      ...user,
+      coins: json.data.profile.coins,
+      gems: json.data.profile.gems,
+      inventory: [...inventory, json.data.inventory],
+      shop_items: shopItems,
+    });
+    setMessage(`${getThemeByKey(themeKey).label} satın alındı.`);
+  };
+
   const equipTheme = async (themeKey: AppThemeKey) => {
-    const item = itemByThemeKey[themeKey];
+    if (themeKey === 'dark') {
+      const response = await fetch('/api/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: { theme: 'dark' } }),
+      });
+
+      if (!response.ok) {
+        const json = await response.json();
+        setMessage(json.error || 'Tema kuşanılamadı.');
+        return;
+      }
+
+      setUser({
+        ...user,
+        settings: {
+          ...user.settings,
+          theme: 'dark',
+        },
+      });
+      setMessage('Klasik Gece kuşanıldı.');
+      return;
+    }
+
+    const item = getThemeItemByKey(themeKey, shopItems);
     if (!item) return;
 
     const response = await fetch('/api/shop/themes', {
@@ -83,6 +137,12 @@ export default function ThemesPage() {
       is_equipped: entry.item_id === item.id,
     }));
 
+    await fetch('/api/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { theme: themeKey } }),
+    });
+
     setUser({
       ...user,
       inventory: nextInventory,
@@ -90,36 +150,18 @@ export default function ThemesPage() {
         ...user.settings,
         theme: themeKey,
       },
+      shop_items: shopItems,
     });
     setMessage(`${THEME_DEFINITION_MAP[themeKey].label} kuşanıldı.`);
   };
 
-  const buyTheme = async (themeKey: AppThemeKey) => {
-    const item = itemByThemeKey[themeKey];
-    if (!item) return;
-
-    const response = await fetch('/api/shop/themes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId: item.id }),
-    });
-
-    const json = await response.json();
-
-    if (!response.ok) {
-      setMessage(json.error || 'Tema satın alınamadı.');
-      return;
-    }
-
-    const nextInventory = [...inventory, json.data.inventory];
-    setUser({
-      ...user,
-      coins: json.data.profile.coins,
-      gems: json.data.profile.gems,
-      inventory: nextInventory,
-    });
-    setMessage(`${THEME_DEFINITION_MAP[themeKey].label} satın alındı.`);
-  };
+  const collectionThemes = useMemo(
+    () => THEME_DEFINITIONS.filter((theme) => {
+      const item = getThemeItemByKey(theme.key, shopItems);
+      return item ? ownedItemIds.has(item.id) : theme.key === 'dark';
+    }),
+    [ownedItemIds, shopItems],
+  );
 
   return (
     <div className="min-h-screen p-4 pb-24">
@@ -139,31 +181,27 @@ export default function ThemesPage() {
             <Palette className="h-5 w-5 text-primary-500" />
             <div>
               <p className="text-sm text-text-secondary">Aktif Tema</p>
-              <p className="font-medium text-text-primary">
-                {THEME_DEFINITION_MAP[(user.settings.theme as AppThemeKey) || 'dark']?.label ?? 'Klasik Gece'}
-              </p>
+              <p className="font-medium text-text-primary">{THEME_DEFINITION_MAP[equippedThemeKey].label}</p>
             </div>
           </div>
-          <div className="text-sm font-semibold text-secondary-500">{user.coins} coin</div>
+          <div className="text-right text-sm font-semibold text-secondary-500">
+            <div>{user.coins} coin</div>
+            <div>{user.gems} gem</div>
+          </div>
         </Card>
 
-        {message && (
-          <Card padding="sm" className="text-sm text-text-secondary">{message}</Card>
-        )}
+        {message && <Card padding="sm" className="text-sm text-text-secondary">{message}</Card>}
 
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-text-primary">Koleksiyonum</h2>
           <div className="grid gap-4 md:grid-cols-2">
-            {THEME_DEFINITIONS.filter((theme) => {
-              const item = itemByThemeKey[theme.key];
-              return item ? ownedItemIds.has(item.id) : theme.key === 'dark';
-            }).map((theme) => {
-              const item = itemByThemeKey[theme.key];
-              const equipped = !!item && equippedItem?.item_id === item.id;
+            {collectionThemes.map((theme) => {
+              const equipped = equippedThemeKey === theme.key;
+              const item = getThemeItemByKey(theme.key, shopItems);
 
               return (
                 <Card key={`owned-${theme.key}`} padding="lg" className="space-y-4">
-                  <div className="h-20 rounded-2xl" style={{ background: `linear-gradient(135deg, ${theme.preview.background} 0%, ${theme.preview.primary} 55%, ${theme.preview.secondary} 100%)` }} />
+                  <div className="h-20 rounded-2xl" style={getThemePreviewStyle(theme.key)} />
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <h3 className="font-display text-lg font-semibold text-text-primary">{theme.label}</h3>
@@ -171,7 +209,7 @@ export default function ThemesPage() {
                     </div>
                     {equipped && <span className="text-xs font-semibold text-success">Aktif</span>}
                   </div>
-                  <Button variant={equipped ? 'secondary' : 'primary'} onClick={() => equipTheme(theme.key)} disabled={!item}>
+                  <Button variant={equipped ? 'secondary' : 'primary'} onClick={() => equipTheme(theme.key)} disabled={!item && theme.key !== 'dark'}>
                     <Check className="h-4 w-4" />
                     {equipped ? 'Kuşanıldı' : 'Kuşan'}
                   </Button>
@@ -185,30 +223,34 @@ export default function ThemesPage() {
           <h2 className="font-display text-lg font-semibold text-text-primary">Mağaza</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {THEME_DEFINITIONS.map((theme) => {
-              const item = itemByThemeKey[theme.key];
+              const item = getThemeItemByKey(theme.key, shopItems);
               const owned = item ? ownedItemIds.has(item.id) : theme.key === 'dark';
-              const equipped = !!item && equippedItem?.item_id === item.id;
-              const priceLabel = item ? ((item.price_coins ?? 0) === 0 ? 'Ücretsiz' : `${item.price_coins} coin`) : 'Yakında';
+              const equipped = equippedThemeKey === theme.key;
 
               return (
                 <Card key={theme.key} padding="lg" className="space-y-4">
-                  <div className="h-24 rounded-2xl" style={{ background: `linear-gradient(135deg, ${theme.preview.background} 0%, ${theme.preview.primary} 55%, ${theme.preview.secondary} 100%)` }} />
+                  <div className="h-24 rounded-2xl" style={getThemePreviewStyle(theme.key)} />
                   <div>
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-display text-lg font-semibold text-text-primary">{theme.label}</h3>
-                      {equipped && <span className="text-xs font-semibold text-success">Kuşanıldı</span>}
+                      {theme.rarity !== 'common' && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-secondary-500">
+                          <Sparkles className="h-3 w-3" />
+                          {theme.rarity}
+                        </span>
+                      )}
                     </div>
                     <p className="mt-1 text-sm text-text-secondary">{theme.description}</p>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-secondary-500">{priceLabel}</span>
+                    <span className="text-sm font-medium text-secondary-500">{getThemePriceLabel(item)}</span>
                     {owned ? (
-                      <Button variant={equipped ? 'secondary' : 'primary'} onClick={() => equipTheme(theme.key)} disabled={!item}>
+                      <Button variant={equipped ? 'secondary' : 'primary'} onClick={() => equipTheme(theme.key)} disabled={!item && theme.key !== 'dark'}>
                         <Check className="h-4 w-4" />
                         {equipped ? 'Aktif' : 'Kuşan'}
                       </Button>
                     ) : (
-                      <Button variant="outline" onClick={() => buyTheme(theme.key)} disabled={!item || user.coins < (item.price_coins ?? 0) || isLoading}>
+                      <Button variant="outline" onClick={() => buyTheme(theme.key)} disabled={!canAffordTheme(item, user.coins, user.gems) || isLoading}>
                         <Lock className="h-4 w-4" />
                         Satın Al
                       </Button>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ensureDefaultThemeCatalog, ensureDefaultThemeInventory, mapThemeShopItem } from '@/lib/themes';
 
 export async function GET() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export async function GET() {
 
   const admin = createAdminClient();
 
-  const [{ data: shopItems, error: shopError }, { data: inventory, error: inventoryError }] = await Promise.all([
+  const [{ data: rawShopItems, error: shopError }, { data: rawInventory, error: inventoryError }] = await Promise.all([
     admin.from('shop_items').select('*').eq('item_type', 'theme').eq('is_active', true).order('created_at', { ascending: true }),
     admin.from('user_inventory').select('*').eq('user_id', user.id),
   ]);
@@ -20,6 +21,9 @@ export async function GET() {
   if (shopError || inventoryError) {
     return NextResponse.json({ error: shopError?.message || inventoryError?.message }, { status: 500 });
   }
+
+  const shopItems = ensureDefaultThemeCatalog((rawShopItems ?? []).map(mapThemeShopItem).filter(Boolean));
+  const inventory = ensureDefaultThemeInventory(user.id, rawInventory ?? []);
 
   return NextResponse.json({ data: { shopItems, inventory } });
 }
@@ -33,13 +37,11 @@ export async function POST(request: Request) {
   }
 
   const { itemId } = await request.json();
-
   if (!itemId) {
     return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
   }
 
   const admin = createAdminClient();
-
   const [{ data: item, error: itemError }, { data: profile, error: profileError }, { data: existingInventory, error: inventoryError }] = await Promise.all([
     admin.from('shop_items').select('*').eq('id', itemId).eq('item_type', 'theme').eq('is_active', true).single(),
     admin.from('profiles').select('*').eq('id', user.id).single(),
@@ -72,11 +74,7 @@ export async function POST(request: Request) {
 
   const { data: insertedInventory, error: insertInventoryError } = await admin
     .from('user_inventory')
-    .insert({
-      user_id: user.id,
-      item_id: itemId,
-      is_equipped: false,
-    })
+    .insert({ user_id: user.id, item_id: itemId, is_equipped: false })
     .select('*')
     .single();
 
@@ -96,13 +94,11 @@ export async function PATCH(request: Request) {
   }
 
   const { itemId } = await request.json();
-
   if (!itemId) {
     return NextResponse.json({ error: 'Missing itemId' }, { status: 400 });
   }
 
   const admin = createAdminClient();
-
   const { data: inventoryItem, error: inventoryError } = await admin
     .from('user_inventory')
     .select('*')
