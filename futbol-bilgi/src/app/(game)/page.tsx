@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery } from 'lucide-react';
 import Link from 'next/link';
@@ -11,14 +11,9 @@ import { RewardOverlay } from '@/components/game/reward-overlay';
 import { SeasonSummaryCard } from '@/components/league/season-summary-card';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useLeagueStore } from '@/lib/stores/league-store';
-import { DAILY_CHALLENGE_CONFIG, LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import { getLeagueZone } from '@/lib/league/ranking';
-import { calculateLevel, formatNumber, getStreakStatus, getDailyRewardPreview, getNextStreak } from '@/lib/utils/game';
+import { calculateLevel, formatNumber, getStreakStatus, getDailyRewardPreview } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
-
-// ==========================================
-// Animation Variants
-// ==========================================
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -42,10 +37,6 @@ const itemVariants = {
     },
   },
 };
-
-// ==========================================
-// Game Mode Data
-// ==========================================
 
 const gameModes = [
   {
@@ -90,26 +81,64 @@ const gameModes = [
   },
 ];
 
-// ==========================================
-// Dashboard Page
-// ==========================================
+interface DailyRewardResponse {
+  data?: {
+    xp: number;
+    coins: number;
+    gems: number;
+    energy: number;
+    energy_last_refill: string;
+    level: number;
+    streak_days: number;
+    last_daily_claim: string | null;
+    total_questions_answered: number;
+    total_correct_answers: number;
+    elo_rating: number;
+    settings: Record<string, unknown>;
+    username: string;
+    email: string;
+    avatar_url: string | null;
+    avatar_frame: string | null;
+    favorite_team: string | null;
+    league_tier: string;
+    is_premium: boolean;
+    created_at: string;
+    updated_at: string;
+  };
+  reward?: {
+    xp: number;
+    coins: number;
+    nextStreak: number;
+  };
+  error?: string;
+}
 
 export default function DashboardPage() {
   const user = useUserStore((state) => state.user);
-  const addXP = useUserStore((state) => state.addXP);
-  const updateCoins = useUserStore((state) => state.updateCoins);
-  const updateStreak = useUserStore((state) => state.updateStreak);
+  const setUser = useUserStore((state) => state.setUser);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const entries = useLeagueStore((state) => state.entries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
-  const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null; streakUp: { days: number } | null; streakMilestone: { days: number } | null }>({
+  const [rewardData, setRewardData] = useState<{
+    xp: number;
+    coins: number;
+    levelUp: { from: number; to: number } | null;
+    streakUp: { days: number } | null;
+    streakMilestone: { days: number } | null;
+  }>({
     xp: 0,
     coins: 0,
     levelUp: null,
     streakUp: null,
     streakMilestone: null,
   });
+
+  useEffect(() => {
+    if (user) {
+      ensurePlayerEntry(user.id, user.league_tier);
+    }
+  }, [user, ensurePlayerEntry]);
 
   if (!user) {
     return null;
@@ -120,10 +149,8 @@ export default function DashboardPage() {
     user.total_questions_answered > 0
       ? Math.round((user.total_correct_answers / user.total_questions_answered) * 100)
       : 0;
+
   const currentEntry = entries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
-  if (!currentEntry) {
-    ensurePlayerEntry(user.id, user.league_tier);
-  }
   const tierEntries = entries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier);
   const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
   const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
@@ -132,37 +159,49 @@ export default function DashboardPage() {
   const totalTierPlayers = rankedTierEntries.length;
   const seasonEndsAt = currentSeason.ends_at;
 
-  // Format current date in Turkish
   const currentDate = new Date().toLocaleDateString('tr-TR', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
 
-  const { canClaimToday, activeStreak, wasClaimedYesterday } = getStreakStatus(user.last_daily_claim, user.streak_days);
+  const { canClaimToday, activeStreak } = getStreakStatus(user.last_daily_claim, user.streak_days);
   const rewardPreview = getDailyRewardPreview(user.last_daily_claim, user.streak_days);
 
-  const handleClaimDailyReward = () => {
+  const handleClaimDailyReward = async () => {
     if (!canClaimToday) return;
 
-    const { xp, coins, nextStreak } = rewardPreview;
-
     const currentLevel = calculateLevel(user.xp).level;
-    const newLevel = calculateLevel(user.xp + xp).level;
-    const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
+    const response = await fetch('/api/me/progression', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'claim_daily_reward' }),
+    });
 
-    // Check for streak milestones
+    const json = (await response.json()) as DailyRewardResponse;
+
+    if (!response.ok || !json.data || !json.reward) {
+      return;
+    }
+
+    const nextLevel = calculateLevel(json.data.xp).level;
+    const levelUp = nextLevel > currentLevel ? { from: currentLevel, to: nextLevel } : null;
     const milestones = [7, 30, 100, 365];
-    const isMilestone = milestones.includes(nextStreak);
+    const streakUp = { days: json.reward.nextStreak };
+    const streakMilestone = milestones.includes(json.reward.nextStreak) ? { days: json.reward.nextStreak } : null;
 
-    // Only show streakUp if they actually had a streak going or are starting a new one
-    const streakUp = { days: nextStreak };
-    const streakMilestone = isMilestone ? { days: nextStreak } : null;
+    setUser({
+      ...user,
+      ...json.data,
+    });
 
-    addXP(xp);
-    updateCoins(coins);
-    updateStreak(nextStreak);
-    setRewardData({ xp, coins, levelUp, streakUp, streakMilestone });
+    setRewardData({
+      xp: json.reward.xp,
+      coins: json.reward.coins,
+      levelUp,
+      streakUp,
+      streakMilestone,
+    });
     setShowRewardOverlay(true);
   };
 
@@ -173,7 +212,6 @@ export default function DashboardPage() {
       animate="visible"
       className="min-h-screen p-4 pb-24"
     >
-      {/* Header Section */}
       <motion.div variants={itemVariants} className="mb-6">
         <h1 className="font-display text-3xl font-bold text-text-primary">
           Merhaba, {user.username}! 👋
@@ -181,79 +219,61 @@ export default function DashboardPage() {
         <p className="mt-1 text-sm text-text-secondary">{currentDate}</p>
       </motion.div>
 
-      {/* Stats Bar */}
       <motion.div variants={itemVariants} className="mb-6">
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-          {/* Energy */}
           <Card padding="sm" className="flex-shrink-0 w-32">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <Battery className="h-4 w-4 text-warning" />
                 <span className="text-xs text-text-secondary">Enerji</span>
               </div>
-              <div className="font-display text-lg font-bold text-text-primary">
-                {user.energy}/5
-              </div>
+              <div className="font-display text-lg font-bold text-text-primary">{user.energy}/5</div>
               <ProgressBar value={user.energy / 5} variant="warning" size="sm" />
             </div>
           </Card>
 
-          {/* Coins */}
           <Card padding="sm" className="flex-shrink-0 w-32">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <Coins className="h-4 w-4 text-secondary-500" />
                 <span className="text-xs text-text-secondary">Coin</span>
               </div>
-              <div className="font-display text-lg font-bold text-text-primary">
-                {formatNumber(user.coins)}
-              </div>
+              <div className="font-display text-lg font-bold text-text-primary">{formatNumber(user.coins)}</div>
             </div>
           </Card>
 
-          {/* Gems */}
           <Card padding="sm" className="flex-shrink-0 w-32">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <Gem className="h-4 w-4 text-info" />
                 <span className="text-xs text-text-secondary">Gem</span>
               </div>
-              <div className="font-display text-lg font-bold text-text-primary">
-                {formatNumber(user.gems)}
-              </div>
+              <div className="font-display text-lg font-bold text-text-primary">{formatNumber(user.gems)}</div>
             </div>
           </Card>
 
-          {/* Streak */}
           <Card padding="sm" className="flex-shrink-0 w-32">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
                 <Flame className="h-4 w-4 text-accent-500" />
                 <span className="text-xs text-text-secondary">Streak</span>
               </div>
-              <div className="font-display text-lg font-bold text-text-primary">
-                {activeStreak} gün
-              </div>
+              <div className="font-display text-lg font-bold text-text-primary">{activeStreak} gün</div>
             </div>
           </Card>
         </div>
       </motion.div>
 
-      {/* Level Progress */}
       <motion.div variants={itemVariants} className="mb-6">
         <Card padding="md">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500/20 text-primary-500 font-display font-bold">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-500/20 font-display font-bold text-primary-500">
                 {level}
               </div>
               <div>
-                <div className="font-display text-sm font-semibold text-text-primary">
-                  Seviye {level}
-                </div>
-                <div className="text-xs text-text-secondary">
-                  {currentXP}/{nextLevelXP} XP
-                </div>
+                <div className="font-display text-sm font-semibold text-text-primary">Seviye {level}</div>
+                <div className="text-xs text-text-secondary">{currentXP}/{nextLevelXP} XP</div>
               </div>
             </div>
           </div>
@@ -272,74 +292,28 @@ export default function DashboardPage() {
         />
       </motion.div>
 
-      {/* Game Modes Section */}
       <motion.div variants={itemVariants} className="mb-6">
-        <h2 className="mb-4 font-display text-xl font-bold text-text-primary">
-          🎮 Oyun Modları
-        </h2>
+        <h2 className="mb-4 font-display text-xl font-bold text-text-primary">🎮 Oyun Modları</h2>
         <div className="grid grid-cols-2 gap-3">
-          {gameModes.map((mode, index) => {
+          {gameModes.map((mode) => {
             const Icon = mode.icon;
             return (
-              <motion.div
-                key={mode.id}
-                variants={itemVariants}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
+              <motion.div key={mode.id} variants={itemVariants} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Link href={mode.href}>
-                  <Card
-                    padding="md"
-                    className={cn(
-                      'relative overflow-hidden h-full',
-                      'hover:border-white/[0.16]'
-                    )}
-                  >
-                    {/* Gradient background */}
-                    <div
-                      className={cn(
-                        'absolute inset-0 bg-gradient-to-br opacity-10',
-                        mode.gradient
-                      )}
-                    />
-
-                    {/* Content */}
+                  <Card padding="md" className={cn('relative h-full overflow-hidden', 'hover:border-white/[0.16]')}>
+                    <div className={cn('absolute inset-0 bg-gradient-to-br opacity-10', mode.gradient)} />
                     <div className="relative z-10 flex flex-col gap-3">
-                      {/* Icon */}
-                      <div
-                        className={cn(
-                          'flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br',
-                          mode.gradient
-                        )}
-                      >
+                      <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br', mode.gradient)}>
                         <Icon className="h-6 w-6 text-white" />
                       </div>
-
-                      {/* Title */}
                       <div>
-                        <h3 className="font-display text-base font-bold text-text-primary leading-tight">
-                          {mode.title}
-                        </h3>
-                        <p className="mt-1 text-xs text-text-secondary">
-                          {mode.description}
-                        </p>
+                        <h3 className="font-display text-base font-bold leading-tight text-text-primary">{mode.title}</h3>
+                        <p className="mt-1 text-xs text-text-secondary">{mode.description}</p>
                       </div>
-
-                      {/* Badge or Cost */}
                       <div className="flex items-center justify-between">
-                        {mode.badge && (
-                          <span className="rounded-full bg-bg-elevated px-2 py-1 text-xs font-medium text-text-secondary">
-                            {mode.badge}
-                          </span>
-                        )}
-                        {mode.cost && (
-                          <span className="rounded-full bg-bg-elevated px-2 py-1 text-xs font-medium text-warning">
-                            {mode.cost}
-                          </span>
-                        )}
+                        {mode.badge && <span className="rounded-full bg-bg-elevated px-2 py-1 text-xs font-medium text-text-secondary">{mode.badge}</span>}
+                        {mode.cost && <span className="rounded-full bg-bg-elevated px-2 py-1 text-xs font-medium text-warning">{mode.cost}</span>}
                       </div>
-
-                      {/* CTA Button */}
                       <Button size="sm" variant="primary" fullWidth>
                         {mode.id === 'duel' ? 'Eşleş' : mode.id === 'quick' ? 'Hızlı Başla' : mode.id === 'daily' ? 'Başla' : 'Oyna'}
                       </Button>
@@ -352,61 +326,40 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Daily Reward Banner */}
-      {canClaimToday ? (
+      {canClaimToday && (
         <motion.div variants={itemVariants} className="mb-6">
-          <Card
-            variant="highlighted"
-            padding="md"
-            className="animate-pulse-glow cursor-pointer"
-            onClick={handleClaimDailyReward}
-          >
+          <Card variant="highlighted" padding="md" className="animate-pulse-glow cursor-pointer" onClick={handleClaimDailyReward}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary-500/20">
                   <span className="text-2xl">🎁</span>
                 </div>
                 <div>
-                  <h3 className="font-display text-base font-bold text-text-primary">
-                    Günlük Ödülünü Al!
-                  </h3>
-                  <p className="text-xs text-text-secondary">
-                    Bugün: +{rewardPreview.xp} XP, +{rewardPreview.coins} coin
-                  </p>
+                  <h3 className="font-display text-base font-bold text-text-primary">Günlük Ödülünü Al!</h3>
+                  <p className="text-xs text-text-secondary">Bugün: +{rewardPreview.xp} XP, +{rewardPreview.coins} coin</p>
                 </div>
               </div>
-              <Button size="sm" variant="secondary">
-                Al
-              </Button>
+              <Button size="sm" variant="secondary">Al</Button>
             </div>
           </Card>
         </motion.div>
-      ) : null}
+      )}
 
-      {/* Quick Stats */}
       <motion.div variants={itemVariants}>
-        <h2 className="mb-4 font-display text-xl font-bold text-text-primary">
-          📊 İstatistiklerin
-        </h2>
+        <h2 className="mb-4 font-display text-xl font-bold text-text-primary">📊 İstatistiklerin</h2>
         <div className="grid grid-cols-3 gap-3">
           <Card padding="md" className="text-center">
-            <div className="font-display text-2xl font-bold text-text-primary">
-              {formatNumber(user.total_questions_answered)}
-            </div>
+            <div className="font-display text-2xl font-bold text-text-primary">{formatNumber(user.total_questions_answered)}</div>
             <div className="mt-1 text-xs text-text-secondary">Toplam Soru</div>
           </Card>
 
           <Card padding="md" className="text-center">
-            <div className="font-display text-2xl font-bold text-success">
-              {formatNumber(user.total_correct_answers)}
-            </div>
+            <div className="font-display text-2xl font-bold text-success">{formatNumber(user.total_correct_answers)}</div>
             <div className="mt-1 text-xs text-text-secondary">Doğru Cevap</div>
           </Card>
 
           <Card padding="md" className="text-center">
-            <div className="font-display text-2xl font-bold text-primary-500">
-              {successRate}%
-            </div>
+            <div className="font-display text-2xl font-bold text-primary-500">{successRate}%</div>
             <div className="mt-1 text-xs text-text-secondary">Başarı Oranı</div>
           </Card>
         </div>
