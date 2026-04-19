@@ -1,5 +1,5 @@
 import type { GameMode, DifficultyLevel, LevelInfo } from '@/types';
-import { MILLIONAIRE_STEPS, XP_TABLE, DAILY_CHALLENGE_CONFIG } from '@/lib/constants/game';
+import { MILLIONAIRE_STEPS, XP_TABLE, DAILY_CHALLENGE_CONFIG, DUEL_CONFIG, GAME_CONFIG } from '@/lib/constants/game';
 
 /**
  * Calculate XP earned from a game session.
@@ -18,8 +18,7 @@ export function calculateXP(score: number, mode: GameMode): number {
       // 10 XP per correct answer (score / 100 = correct answers)
       return Math.floor(score / 100) * 10;
     case 'duel':
-      // 30 XP for playing, 50 bonus for winning
-      return 30;
+      return DUEL_CONFIG.winner_xp;
     case 'daily':
       return DAILY_CHALLENGE_CONFIG.base_xp;
     default:
@@ -40,8 +39,7 @@ export function calculateCoins(score: number, mode: GameMode): number {
       // 5 coins per correct answer
       return Math.floor(score / 100) * 5;
     case 'duel':
-      // 20 base coins, winner gets 50
-      return 20;
+      return DUEL_CONFIG.winner_coins;
     case 'daily':
       return DAILY_CHALLENGE_CONFIG.base_coins;
     default:
@@ -157,4 +155,85 @@ export function formatTime(seconds: number): string {
 export function calculateAccuracy(correct: number, total: number): number {
   if (total === 0) return 0;
   return Math.round((correct / total) * 100);
+}
+
+/**
+ * Calculate duel question score from correctness and remaining time.
+ */
+export function calculateDuelQuestionScore(
+  isCorrect: boolean,
+  timeRemaining: number,
+  totalTime = DUEL_CONFIG.time_per_question,
+): number {
+  if (!isCorrect) return 0;
+
+  const safeTime = Math.max(0, Math.min(timeRemaining, totalTime));
+  const speedBonus = Math.round((safeTime / totalTime) * DUEL_CONFIG.max_speed_bonus);
+  return DUEL_CONFIG.base_points + speedBonus;
+}
+
+/**
+ * Calculate ELO delta using standard expected score formula.
+ */
+export function calculateDuelEloDelta(
+  playerElo: number,
+  opponentElo: number,
+  result: 1 | 0.5 | 0,
+): number {
+  const expectedScore = 1 / (1 + 10 ** ((opponentElo - playerElo) / 400));
+  return Math.round(GAME_CONFIG.elo_k_factor * (result - expectedScore));
+}
+
+/**
+ * Decide duel winner; ties are broken by lower total answer time.
+ */
+export function calculateDuelWinner(
+  playerScore: number,
+  opponentScore: number,
+  playerTotalTimeMs: number,
+  opponentTotalTimeMs: number,
+): 'player' | 'opponent' | 'draw' {
+  if (playerScore > opponentScore) return 'player';
+  if (opponentScore > playerScore) return 'opponent';
+  if (playerTotalTimeMs < opponentTotalTimeMs) return 'player';
+  if (opponentTotalTimeMs < playerTotalTimeMs) return 'opponent';
+  return 'draw';
+}
+
+/**
+ * Build a nearby mock opponent ELO from the player's rating.
+ */
+export function generateMockOpponentElo(playerElo: number, variance = 120): number {
+  const delta = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
+  return Math.max(800, playerElo + delta);
+}
+
+/**
+ * Generate a mock opponent response profile for one question.
+ */
+export function generateMockOpponentResponse(difficulty: DifficultyLevel, totalTime = DUEL_CONFIG.time_per_question) {
+  const accuracyChance =
+    difficulty === 1 ? 0.85 :
+    difficulty === 2 ? 0.75 :
+    difficulty === 3 ? 0.65 :
+    difficulty === 4 ? 0.52 : 0.4;
+
+  const isCorrect = Math.random() < accuracyChance;
+  const timeSpent = Math.max(2, Math.min(totalTime, Math.floor(Math.random() * (totalTime - 1)) + 2));
+  const timeRemaining = totalTime - timeSpent;
+  const score = calculateDuelQuestionScore(isCorrect, timeRemaining, totalTime);
+
+  return {
+    isCorrect,
+    timeSpent,
+    timeRemaining,
+    score,
+  };
+}
+
+/**
+ * Sum answer times in milliseconds.
+ */
+export function sumAnswerTimesMs(timesInSeconds: number[]): number {
+  return timesInSeconds.reduce((total, value) => total + value * 1000, 0);
 }

@@ -862,7 +862,7 @@ src/
 - [x] PWA desteği
 
 ### Faz 2 — Sosyal & Rekabet (6-8 hafta)
-- [ ] Düello modu (PvP)
+- [x] Düello modu (PvP)
 - [ ] Hızlı Maç modu
 - [ ] Arkadaş sistemi
 - [ ] Lig yarışması (seasonal)

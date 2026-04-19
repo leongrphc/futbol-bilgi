@@ -158,6 +158,20 @@ export const DAILY_CHALLENGE_CONFIG = {
 } as const;
 
 // ==========================================
+// Duel Mode
+// ==========================================
+
+export const DUEL_CONFIG = {
+  total_questions: 5,
+  time_per_question: 15,
+  base_points: 100,
+  max_speed_bonus: 50,
+  winner_xp: 200,
+  winner_coins: 50,
+  energy_cost: ENERGY_CONFIG.cost_duel,
+} as const;
+
+// ==========================================
 // General Game Settings
 // ==========================================
 

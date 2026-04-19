@@ -22,7 +22,7 @@ export type LeagueTier = 'bronze' | 'silver' | 'gold' | 'diamond' | 'champion';
 
 export type GameResult = 'win' | 'loss' | 'draw' | 'timeout' | 'forfeit';
 
-export type DuelStatus = 'pending' | 'active' | 'completed' | 'expired';
+export type DuelStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
 
@@ -135,19 +135,15 @@ export interface QuestionAnswer {
 
 export interface Duel {
   id: string;
-  challenger_id: string;
-  opponent_id: string;
+  player1_id: string;
+  player2_id: string;
   status: DuelStatus;
-  league_scope: LeagueScope;
-  challenger_score: number;
-  opponent_score: number;
-  challenger_session_id: string | null;
-  opponent_session_id: string | null;
+  player1_score: number;
+  player2_score: number;
   winner_id: string | null;
-  questions: string[]; // question IDs
-  started_at: string;
-  completed_at: string | null;
-  expires_at: string;
+  questions: string[];
+  started_at: string | null;
+  ended_at: string | null;
   created_at: string;
 }
 

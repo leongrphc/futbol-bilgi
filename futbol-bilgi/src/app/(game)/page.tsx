@@ -68,7 +68,7 @@ const gameModes = [
   {
     id: 'duel',
     title: 'Düello',
-    description: '1v1 Bilgi Yarışı',
+    description: '5 soru, hız bonuslu 1v1',
     icon: Swords,
     gradient: 'from-orange-600 to-orange-400',
     href: '/play/duel',
