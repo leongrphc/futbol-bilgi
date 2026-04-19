@@ -133,10 +133,14 @@ export default function ProfilePage() {
   const accuracy = calculateAccuracy(user.total_correct_answers, user.total_questions_answered);
   const leagueTier = LEAGUE_TIER_CONFIG[user.league_tier];
   const currentEntry = leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
-  if (!currentEntry) {
-    ensurePlayerEntry(user.id, user.league_tier);
-  }
   const tierEntries = leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier);
+
+  useEffect(() => {
+    if (!currentEntry) {
+      ensurePlayerEntry(user.id, user.league_tier);
+    }
+  }, [currentEntry, ensurePlayerEntry, user.id, user.league_tier]);
+
   const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
   const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
   const seasonZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
