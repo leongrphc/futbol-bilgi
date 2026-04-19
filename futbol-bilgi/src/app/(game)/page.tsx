@@ -8,8 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { RewardOverlay } from '@/components/game/reward-overlay';
+import { SeasonSummaryCard } from '@/components/league/season-summary-card';
 import { useUserStore } from '@/lib/stores/user-store';
-import { DAILY_CHALLENGE_CONFIG } from '@/lib/constants/game';
+import { useLeagueStore } from '@/lib/stores/league-store';
+import { DAILY_CHALLENGE_CONFIG, LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
+import { getLeagueZone } from '@/lib/league/ranking';
 import { calculateLevel, formatNumber } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
 
@@ -96,6 +99,9 @@ export default function DashboardPage() {
   const addXP = useUserStore((state) => state.addXP);
   const updateCoins = useUserStore((state) => state.updateCoins);
   const updateStreak = useUserStore((state) => state.updateStreak);
+  const currentSeason = useLeagueStore((state) => state.currentSeason);
+  const entries = useLeagueStore((state) => state.entries);
+  const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({
     xp: 0,
@@ -112,6 +118,17 @@ export default function DashboardPage() {
     user.total_questions_answered > 0
       ? Math.round((user.total_correct_answers / user.total_questions_answered) * 100)
       : 0;
+  const currentEntry = entries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
+  if (!currentEntry) {
+    ensurePlayerEntry(user.id, user.league_tier);
+  }
+  const tierEntries = entries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier);
+  const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
+  const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
+  const leagueZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
+  const seasonScore = currentEntry?.season_score ?? 0;
+  const totalTierPlayers = rankedTierEntries.length;
+  const seasonEndsAt = currentSeason.ends_at;
 
   // Format current date in Turkish
   const currentDate = new Date().toLocaleDateString('tr-TR', {
@@ -240,6 +257,17 @@ export default function DashboardPage() {
           </div>
           <ProgressBar value={progress} variant="default" size="md" animated />
         </Card>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="mb-6">
+        <SeasonSummaryCard
+          tier={user.league_tier}
+          rank={currentRank || null}
+          totalPlayers={totalTierPlayers}
+          seasonScore={seasonScore}
+          endsAt={seasonEndsAt}
+          zone={leagueZone}
+        />
       </motion.div>
 
       {/* Game Modes Section */}

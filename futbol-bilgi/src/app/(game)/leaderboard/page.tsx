@@ -7,7 +7,11 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
+import { useLeagueStore } from '@/lib/stores/league-store';
 import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
+import { getLeagueZone } from '@/lib/league/ranking';
+import { Badge } from '@/components/ui/badge';
+import { SeasonalLeaderboard } from '@/components/league/seasonal-leaderboard';
 import { cn } from '@/lib/utils/cn';
 import { MOCK_SOCIAL_PLAYERS } from '@/lib/data/mock-social';
 import type { LeagueTier } from '@/types';
@@ -58,6 +62,10 @@ export default function LeaderboardPage() {
   const user = useUserStore((state) => state.user);
   const profiles = useSocialStore((state) => state.profiles);
   const friendships = useSocialStore((state) => state.friendships);
+  const currentSeason = useLeagueStore((state) => state.currentSeason);
+  const leagueEntries = useLeagueStore((state) => state.entries);
+  const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
+  const finalizeSeasonForTier = useLeagueStore((state) => state.finalizeSeasonForTier);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const sendFriendRequest = useSocialStore((state) => state.sendFriendRequest);
@@ -67,7 +75,8 @@ export default function LeaderboardPage() {
     if (!user) return;
     ensureCurrentUserProfile(user);
     markUserActive(user.id);
-  }, [user, ensureCurrentUserProfile, markUserActive]);
+    ensurePlayerEntry(user.id, user.league_tier);
+  }, [user, ensureCurrentUserProfile, markUserActive, ensurePlayerEntry]);
 
   const currentUserProfile = useMemo(() => {
     if (!user) return null;
@@ -133,6 +142,23 @@ export default function LeaderboardPage() {
   const rankedPlayers = visiblePlayers.map((player, index) => ({ ...player, rank: index + 1 }));
   const topThree = rankedPlayers.slice(0, 3);
   const remaining = rankedPlayers.slice(3);
+
+  const currentTierEntries = user
+    ? leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier)
+    : [];
+
+  const rankedSeasonEntries = [...currentTierEntries]
+    .sort((a, b) => {
+      if (b.season_score !== a.season_score) return b.season_score - a.season_score;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+    })
+    .map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+      zone: getLeagueZone(index + 1, currentTierEntries.length),
+      username: profiles.find((profile) => profile.id === entry.user_id)?.username ?? user?.username ?? 'Oyuncu',
+    }));
 
   const friendshipStatusFor = (playerId: string) => {
     if (!user) return 'none';
@@ -239,9 +265,39 @@ export default function LeaderboardPage() {
           </Card>
         </motion.div>
 
+        {user && rankedSeasonEntries.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+            <SeasonalLeaderboard
+              rows={rankedSeasonEntries.map((entry) => ({
+                userId: entry.user_id,
+                username: entry.username,
+                tier: entry.tier_at_start,
+                rank: entry.rank,
+                seasonScore: entry.season_score,
+                zone: entry.zone,
+                isCurrentUser: entry.user_id === user.id,
+              }))}
+            />
+          </motion.div>
+        )}
+
         {topThree.length > 0 && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.25 }}>
             <Card padding="lg" variant="elevated">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-lg font-semibold text-text-primary">Genel Klasman</h3>
+                  <p className="text-xs text-text-secondary">Arkadaş ve genel skor görünümü</p>
+                </div>
+                {user && (
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    finalizeSeasonForTier(user.league_tier);
+                    setMessage('Bu lig için sezon sonuçları hesaplandı.');
+                  }}>
+                    Sezonu Hesapla
+                  </Button>
+                )}
+              </div>
               <div className="flex items-end justify-center gap-4">
                 {topThree[1] && <PodiumPlayer player={topThree[1]} position={2} />}
                 {topThree[0] && <PodiumPlayer player={topThree[0]} position={1} />}

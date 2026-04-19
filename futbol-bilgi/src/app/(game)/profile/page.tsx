@@ -26,11 +26,14 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
+import { useLeagueStore } from '@/lib/stores/league-store';
 import { calculateLevel, calculateAccuracy } from '@/lib/utils/game';
+import { getLeagueZone } from '@/lib/league/ranking';
 import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import { cn } from '@/lib/utils/cn';
 import { FriendRow } from '@/components/social/friend-row';
 import { FriendLeaderboard } from '@/components/social/friend-leaderboard';
+import { SeasonSummaryCard } from '@/components/league/season-summary-card';
 
 const container = {
   hidden: { opacity: 0 },
@@ -55,6 +58,9 @@ export default function ProfilePage() {
   const profiles = useSocialStore((state) => state.profiles);
   const friendships = useSocialStore((state) => state.friendships);
   const duelInvites = useSocialStore((state) => state.duelInvites);
+  const currentSeason = useLeagueStore((state) => state.currentSeason);
+  const leagueEntries = useLeagueStore((state) => state.entries);
+  const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const sendFriendRequest = useSocialStore((state) => state.sendFriendRequest);
@@ -86,6 +92,14 @@ export default function ProfilePage() {
   const levelInfo = calculateLevel(user.xp);
   const accuracy = calculateAccuracy(user.total_correct_answers, user.total_questions_answered);
   const leagueTier = LEAGUE_TIER_CONFIG[user.league_tier];
+  const currentEntry = leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
+  if (!currentEntry) {
+    ensurePlayerEntry(user.id, user.league_tier);
+  }
+  const tierEntries = leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier);
+  const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
+  const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
+  const seasonZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
 
   const incomingRequests = useMemo(
     () => friendships.filter((friendship) => friendship.friend_id === user.id && friendship.status === 'pending'),
@@ -202,6 +216,17 @@ export default function ProfilePage() {
               </div>
             </div>
           </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <SeasonSummaryCard
+            tier={user.league_tier}
+            rank={currentRank || null}
+            totalPlayers={rankedTierEntries.length}
+            seasonScore={currentEntry?.season_score ?? 0}
+            endsAt={currentSeason.ends_at}
+            zone={seasonZone}
+          />
         </motion.div>
 
         <motion.div variants={item}>

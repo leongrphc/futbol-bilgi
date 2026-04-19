@@ -12,6 +12,7 @@ import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
+import { useLeagueStore } from '@/lib/stores/league-store';
 import { DUEL_CONFIG, ENERGY_CONFIG } from '@/lib/constants/game';
 import {
   calculateLevel,
@@ -66,6 +67,11 @@ export default function DuelPage() {
   const duelInvites = useSocialStore((state) => state.duelInvites);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
   const markUserActive = useSocialStore((state) => state.markUserActive);
+  const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
+  const recordDuelResult = useLeagueStore((state) => state.recordDuelResult);
+  const finalizeSeasonForTier = useLeagueStore((state) => state.finalizeSeasonForTier);
+
+  const [seasonMessage, setSeasonMessage] = useState<string | null>(null);
 
   const [phase, setPhase] = useState<DuelPhase>('loading');
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
@@ -137,6 +143,7 @@ export default function DuelPage() {
 
     ensureCurrentUserProfile(user);
     markUserActive(user.id);
+    ensurePlayerEntry(user.id, user.league_tier);
 
     if (user.energy < ENERGY_CONFIG.cost_duel) {
       setShowEnergyWarning(true);
@@ -190,6 +197,7 @@ export default function DuelPage() {
     const duelResult =
       winner === 'player' ? 'win' : winner === 'opponent' ? 'loss' : 'draw';
     setResult(duelResult);
+    recordDuelResult(user.id, user.league_tier, duelResult);
 
     const duelScore = winner === 'player' ? 1 : winner === 'opponent' ? 0 : 0.5;
     const delta = calculateDuelEloDelta(user.elo_rating, opponent.elo, duelScore);
@@ -513,6 +521,13 @@ export default function DuelPage() {
                 </p>
               </Card>
             )}
+
+            <Card padding="md">
+              <p className="text-sm text-text-secondary">
+                Bu maç haftalık lig puanına <span className="font-bold text-primary-500">{result === 'win' ? '+3' : result === 'draw' ? '+1' : '+0'}</span> katkı yaptı.
+              </p>
+              {seasonMessage && <p className="mt-2 text-xs text-text-muted">{seasonMessage}</p>}
+            </Card>
 
             <div className="flex gap-3">
               <Button variant="secondary" fullWidth onClick={() => router.push('/play')}>

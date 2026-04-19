@@ -865,7 +865,7 @@ src/
 - [x] Düello modu (PvP)
 - [x] Hızlı Maç modu
 - [x] Arkadaş sistemi
-- [ ] Lig yarışması (seasonal)
+- [x] Lig yarışması (seasonal)
 - [ ] Paylaşım özellikleri
 - [ ] Push notification
 - [ ] Achievement sistemi
