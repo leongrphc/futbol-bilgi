@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles, Percent, Users, Phone, Timer, SkipForward, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -124,6 +124,7 @@ export default function DashboardPage() {
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [adMessage, setAdMessage] = useState<string | null>(null);
+  const [shopMessage, setShopMessage] = useState<string | null>(null);
   const [iapMessage, setIapMessage] = useState<string | null>(null);
   const [premiumMessage, setPremiumMessage] = useState<string | null>(null);
   const [claimingRewardType, setClaimingRewardType] = useState<string | null>(null);
@@ -330,6 +331,34 @@ export default function DashboardPage() {
     setIsClaimingPremiumGems(false);
   };
 
+  const handleShopPurchase = async (itemKey: 'joker_fifty_fifty' | 'joker_audience' | 'joker_phone' | 'joker_freeze_time' | 'joker_skip' | 'joker_double_answer' | 'energy_refill_small') => {
+    if (!user) return;
+
+    setShopMessage(null);
+    setPurchasingProductId(itemKey);
+
+    const response = await fetch('/api/shop/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemKey }),
+    });
+
+    const json = await response.json();
+
+    if (!response.ok || !json.data) {
+      setShopMessage(json.error ?? 'Satın alma başarısız oldu.');
+      setPurchasingProductId(null);
+      return;
+    }
+
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
+    setShopMessage('Satın alma tamamlandı.');
+    setPurchasingProductId(null);
+  };
+
   const handleClaimDailyReward = async () => {
     if (!canClaimToday) return;
 
@@ -458,26 +487,72 @@ export default function DashboardPage() {
         <Card padding="md" variant="highlighted">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs text-text-secondary">Rewarded Reklam</p>
-              <h2 className="mt-1 font-display text-lg font-bold text-text-primary">İzle, ödülünü al</h2>
-              <p className="mt-1 text-xs text-text-secondary">Enerji, coin veya çift cevap jokeri kazan.</p>
+              <p className="text-xs text-text-secondary">Joker Envanteri</p>
+              <h2 className="mt-1 font-display text-lg font-bold text-text-primary">Eldeki jokerlerin</h2>
+              <p className="mt-1 text-xs text-text-secondary">Coin ile alınan ve ödüllerden gelen joker stokların.</p>
             </div>
-            <PlayCircle className="h-6 w-6 text-secondary-500" />
+            <Copy className="h-6 w-6 text-primary-500" />
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('energy_refill')} isLoading={claimingRewardType === 'energy_refill'}>
-              +1 Enerji
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('coins_small')} isLoading={claimingRewardType === 'coins_small'}>
-              +50 Coin
-            </Button>
-            <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('double_answer_joker')} isLoading={claimingRewardType === 'double_answer_joker'}>
-              Çift Cevap
-            </Button>
+          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {[
+              { key: 'fifty_fifty', label: '%50', icon: Percent },
+              { key: 'audience', label: 'Seyirci', icon: Users },
+              { key: 'phone', label: 'Telefon', icon: Phone },
+              { key: 'freeze_time', label: 'Süre', icon: Timer },
+              { key: 'skip', label: 'Pas', icon: SkipForward },
+              { key: 'double_answer', label: 'Çift', icon: Copy },
+            ].map(({ key, label, icon: Icon }) => (
+              <Card key={key} padding="sm" className="text-center">
+                <Icon className="mx-auto mb-2 h-4 w-4 text-primary-500" />
+                <p className="text-[10px] text-text-secondary">{label}</p>
+                <p className="font-display text-lg font-bold text-text-primary">{user.settings.jokers?.[key as keyof typeof user.settings.jokers] ?? 0}</p>
+              </Card>
+            ))}
           </div>
-          {adMessage && <p className="mt-3 text-xs text-text-secondary">{adMessage}</p>}
         </Card>
       </motion.div>
+
+      {!user.is_premium && (
+        <motion.div variants={itemVariants} className="mb-6">
+          <Card padding="md" variant="highlighted">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs text-text-secondary">Rewarded Reklam</p>
+                <h2 className="mt-1 font-display text-lg font-bold text-text-primary">İzle, ödülünü al</h2>
+                <p className="mt-1 text-xs text-text-secondary">Enerji, coin veya çift cevap jokeri kazan.</p>
+              </div>
+              <PlayCircle className="h-6 w-6 text-secondary-500" />
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('energy_refill')} isLoading={claimingRewardType === 'energy_refill'}>
+                +1 Enerji
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('coins_small')} isLoading={claimingRewardType === 'coins_small'}>
+                +50 Coin
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('double_answer_joker')} isLoading={claimingRewardType === 'double_answer_joker'}>
+                Çift Cevap
+              </Button>
+            </div>
+            {adMessage && <p className="mt-3 text-xs text-text-secondary">{adMessage}</p>}
+          </Card>
+        </motion.div>
+      )}
+
+      {user.is_premium && (
+        <motion.div variants={itemVariants} className="mb-6">
+          <Card padding="md" variant="highlighted">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs text-text-secondary">Premium Avantajı</p>
+                <h2 className="mt-1 font-display text-lg font-bold text-text-primary">Reklam yerine premium fayda</h2>
+                <p className="mt-1 text-xs text-text-secondary">Premium kullanıcılar rewarded reklam yerine günlük premium gem akışını kullanır.</p>
+              </div>
+              <Sparkles className="h-6 w-6 text-secondary-500" />
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       <motion.div variants={itemVariants} className="mb-6">
         <Card padding="md">
@@ -491,6 +566,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="mt-4 mb-4 rounded-2xl border border-secondary-500/20 bg-secondary-500/5 p-4">
+            <div className="mb-4 rounded-xl bg-bg-primary/40 p-3">
+              <p className="text-xs text-text-secondary">Coin = joker/enerji gibi sık tüketilen öğeler. Gem = premium ve yüksek değerli ürünler.</p>
+            </div>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
@@ -553,6 +631,38 @@ export default function DashboardPage() {
             </Card>
           </div>
           {iapMessage && <p className="mt-3 text-xs text-text-secondary">{iapMessage}</p>}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">%50 Joker</p>
+              <p className="text-xs text-text-secondary">50 coin</p>
+              <Button size="sm" fullWidth variant="secondary" onClick={() => handleShopPurchase('joker_fifty_fifty')} isLoading={purchasingProductId === 'joker_fifty_fifty'}>
+                Satın Al
+              </Button>
+            </Card>
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">Telefon Joker</p>
+              <p className="text-xs text-text-secondary">100 coin</p>
+              <Button size="sm" fullWidth variant="secondary" onClick={() => handleShopPurchase('joker_phone')} isLoading={purchasingProductId === 'joker_phone'}>
+                Satın Al
+              </Button>
+            </Card>
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">Pas Geç</p>
+              <p className="text-xs text-text-secondary">120 coin</p>
+              <Button size="sm" fullWidth variant="secondary" onClick={() => handleShopPurchase('joker_skip')} isLoading={purchasingProductId === 'joker_skip'}>
+                Satın Al
+              </Button>
+            </Card>
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">+1 Enerji</p>
+              <p className="text-xs text-text-secondary">30 coin</p>
+              <Button size="sm" fullWidth variant="secondary" onClick={() => handleShopPurchase('energy_refill_small')} isLoading={purchasingProductId === 'energy_refill_small'}>
+                Satın Al
+              </Button>
+            </Card>
+          </div>
+          {shopMessage && <p className="mt-3 text-xs text-text-secondary">{shopMessage}</p>}
         </Card>
       </motion.div>
 

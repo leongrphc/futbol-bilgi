@@ -65,6 +65,7 @@ export interface UserSettings {
   language: string;
   theme: 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch';
   rewarded_jokers?: Partial<Record<'double_answer', number>>;
+  jokers?: Partial<Record<JokerType, number>>;
   purchases?: {
     starter_pack_claimed?: boolean;
   };

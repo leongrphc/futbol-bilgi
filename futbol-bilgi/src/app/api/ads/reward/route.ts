@@ -66,10 +66,10 @@ export async function POST(request: Request) {
     updates.coins = profile.coins + config.rewardValue;
     rewardSummary = { type: rewardType, coins: config.rewardValue, amount: config.rewardValue };
   } else {
-    const rewardedJokers = ((nextSettings.rewarded_jokers as Record<string, number> | undefined) ?? {});
-    nextSettings.rewarded_jokers = {
-      ...rewardedJokers,
-      double_answer: (rewardedJokers.double_answer ?? 0) + config.rewardValue,
+    const jokers = ((nextSettings.jokers as Record<string, number> | undefined) ?? {});
+    nextSettings.jokers = {
+      ...jokers,
+      double_answer: (jokers.double_answer ?? 0) + config.rewardValue,
     };
     updates.settings = nextSettings;
     rewardSummary = { type: rewardType, joker: 'double_answer', amount: config.rewardValue };
