@@ -63,6 +63,8 @@ export default function QuickPage() {
   });
 
   const pendingRevealRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+  const revealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const currentQuestion = questions[questionNumber - 1] ?? null;
 
@@ -112,9 +114,6 @@ export default function QuickPage() {
   const timer = useTimer({
     initialTime: QUICK_PLAY_CONFIG.total_time,
     autoStart: false,
-    onTick: (remaining) => {
-      setTimeRemaining(remaining);
-    },
     onExpire: () => {
       if (phase === 'playing' || phase === 'revealing') {
         void finalizeGame('timeout');
@@ -149,6 +148,12 @@ export default function QuickPage() {
   }, [timer.timeRemaining, correctAnswers, totalAnswered, score, applyScoreBonus, endGame, setUser, user]);
 
   useEffect(() => {
+    if (hasInitializedRef.current) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+
     const initializeQuick = async () => {
       const response = await fetch('/api/game/quick', { method: 'POST' });
       const json = await response.json();
@@ -175,13 +180,22 @@ export default function QuickPage() {
         setCurrentQuestion(gameQuestions[0]);
         setPhase('playing');
         timer.reset(QUICK_PLAY_CONFIG.total_time);
-        setTimeRemaining(QUICK_PLAY_CONFIG.total_time);
         timer.start();
       }
     };
 
     void initializeQuick();
-  }, [resetGame, startGame, setCurrentQuestion, timer, setTimeRemaining]);
+
+    return () => {
+      if (revealTimeoutRef.current) {
+        clearTimeout(revealTimeoutRef.current);
+      }
+    };
+  }, [resetGame, startGame, setCurrentQuestion, timer, timer.reset, timer.start]);
+
+  useEffect(() => {
+    setTimeRemaining(timer.timeRemaining);
+  }, [setTimeRemaining, timer.timeRemaining]);
 
   const handleSelectAnswer = useCallback((answer: 'A' | 'B' | 'C' | 'D') => {
     if (!currentQuestion || phase !== 'playing' || pendingRevealRef.current) return;
@@ -196,7 +210,7 @@ export default function QuickPage() {
 
     answerQuestion(isCorrect, points);
 
-    const timeout = setTimeout(() => {
+    revealTimeoutRef.current = setTimeout(() => {
       pendingRevealRef.current = false;
 
       if (questionNumber >= QUICK_PLAY_CONFIG.total_questions) {
@@ -213,8 +227,6 @@ export default function QuickPage() {
       setCorrectAnswer(null);
       setPhase('playing');
     }, 900);
-
-    return () => clearTimeout(timeout);
   }, [currentQuestion, phase, answerQuestion, questionNumber, finalizeGame, nextQuestion, questions, setCurrentQuestion]);
 
   const handleRewardComplete = useCallback(() => {

@@ -171,6 +171,8 @@ export default function MillionairePage() {
       return;
     }
 
+    setShowEnergyWarning(false);
+
     const response = await fetch('/api/game/millionaire', { method: 'POST' });
     const json = await response.json();
 
@@ -203,6 +205,20 @@ export default function MillionairePage() {
     }
   }, [resetGame, startGame, setCurrentQuestion, timer, trackMillionaireStarted, setUser, user]);
 
+  useEffect(() => {
+    if (!user || hasInitializedRef.current) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+
+    if (user.energy < ENERGY_CONFIG.cost_millionaire) {
+      setShowEnergyWarning(true);
+      return;
+    }
+
+    void initializeGame();
+  }, [initializeGame, user]);
 
   // ==========================================
   // Handle Answer Selection
@@ -482,7 +498,7 @@ export default function MillionairePage() {
   const handleEnergyConfirm = useCallback(() => {
     hasInitializedRef.current = true;
     setShowEnergyWarning(false);
-    initializeGame();
+    void initializeGame();
   }, [initializeGame]);
 
   const handleEnergyCancel = useCallback(() => {
