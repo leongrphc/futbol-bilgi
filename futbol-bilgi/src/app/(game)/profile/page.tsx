@@ -47,7 +47,6 @@ import { updateAchievementStatsFromStores } from '@/lib/achievements/sync';
 import { useNotifications } from '@/lib/hooks/use-notifications';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { calculateLevel } from '@/lib/utils/game';
 
 function getUnlockedTitles(keys: string[]) {
   return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
@@ -78,6 +77,8 @@ export default function ProfilePage() {
   const duelInvites = useSocialStore((state) => state.duelInvites);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const leagueEntries = useLeagueStore((state) => state.entries);
+  const fetchCurrentSeason = useLeagueStore((state) => state.fetchCurrentSeason);
+  const fetchEntries = useLeagueStore((state) => state.fetchEntries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const achievementProgress = useAchievementStore((state) => state.progress);
   const unlockedAchievements = useAchievementStore((state) => state.unlocked);
@@ -104,10 +105,16 @@ export default function ProfilePage() {
     if (!user) return;
     ensureCurrentUserProfile(user);
     markUserActive(user.id);
-  }, [user, ensureCurrentUserProfile, markUserActive]);
+    fetchCurrentSeason();
+  }, [user, ensureCurrentUserProfile, markUserActive, fetchCurrentSeason]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!currentSeason) return;
+    fetchEntries(currentSeason.id);
+  }, [currentSeason, fetchEntries]);
+
+  useEffect(() => {
+    if (!user || !currentSeason) return;
 
     const stats = updateAchievementStatsFromStores({
       user,
@@ -117,9 +124,9 @@ export default function ProfilePage() {
     });
 
     updateAchievementStats(stats);
-  }, [user, friendships, leagueEntries, currentSeason.id, updateAchievementStats]);
+  }, [user, friendships, leagueEntries, currentSeason, updateAchievementStats]);
 
-  if (!user) {
+  if (!user || !currentSeason) {
     return (
       <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
         <Card padding="lg" className="text-center">
@@ -132,15 +139,16 @@ export default function ProfilePage() {
 
   const levelInfo = calculateLevel(user.xp);
   const accuracy = calculateAccuracy(user.total_correct_answers, user.total_questions_answered);
-  const leagueTier = LEAGUE_TIER_CONFIG[user.league_tier];
   const currentEntry = leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
-  const tierEntries = leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier);
+  const currentSeasonTier = currentEntry?.tier_at_start ?? user.league_tier;
+  const leagueTier = LEAGUE_TIER_CONFIG[currentSeasonTier];
+  const tierEntries = leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === currentSeasonTier);
 
   useEffect(() => {
-    if (!currentEntry) {
+    if (!currentSeason || !currentEntry) {
       ensurePlayerEntry(user.id, user.league_tier);
     }
-  }, [currentEntry, ensurePlayerEntry, user.id, user.league_tier]);
+  }, [currentSeason, currentEntry, ensurePlayerEntry, user.id, user.league_tier]);
 
   const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
   const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
@@ -321,7 +329,7 @@ export default function ProfilePage() {
 
         <motion.div variants={item}>
           <SeasonSummaryCard
-            tier={user.league_tier}
+            tier={currentSeasonTier}
             rank={currentRank || null}
             totalPlayers={rankedTierEntries.length}
             seasonScore={currentEntry?.season_score ?? 0}

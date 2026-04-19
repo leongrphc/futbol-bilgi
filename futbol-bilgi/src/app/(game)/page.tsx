@@ -14,6 +14,7 @@ import { useLeagueStore } from '@/lib/stores/league-store';
 import { getLeagueZone } from '@/lib/league/ranking';
 import { calculateLevel, formatNumber, getStreakStatus, getDailyRewardPreview } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
+import type { LeagueTier, UserSettings } from '@/types';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -94,13 +95,13 @@ interface DailyRewardResponse {
     total_questions_answered: number;
     total_correct_answers: number;
     elo_rating: number;
-    settings: Record<string, unknown>;
+    settings: UserSettings;
     username: string;
     email: string;
     avatar_url: string | null;
     avatar_frame: string | null;
     favorite_team: string | null;
-    league_tier: string;
+    league_tier: LeagueTier;
     is_premium: boolean;
     created_at: string;
     updated_at: string;
@@ -118,6 +119,8 @@ export default function DashboardPage() {
   const setUser = useUserStore((state) => state.setUser);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const entries = useLeagueStore((state) => state.entries);
+  const fetchCurrentSeason = useLeagueStore((state) => state.fetchCurrentSeason);
+  const fetchEntries = useLeagueStore((state) => state.fetchEntries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [rewardData, setRewardData] = useState<{
@@ -135,13 +138,28 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    if (user) {
-      ensurePlayerEntry(user.id, user.league_tier);
-    }
-  }, [user, ensurePlayerEntry]);
+    if (!user) return;
+    fetchCurrentSeason();
+    ensurePlayerEntry(user.id, user.league_tier);
+  }, [user, fetchCurrentSeason, ensurePlayerEntry]);
+
+  useEffect(() => {
+    if (!currentSeason) return;
+    fetchEntries(currentSeason.id);
+  }, [currentSeason, fetchEntries]);
 
   if (!user) {
     return null;
+  }
+
+  if (!currentSeason) {
+    return (
+      <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
+        <Card padding="lg" className="text-center">
+          <p className="text-text-secondary">Sezon bilgisi yükleniyor...</p>
+        </Card>
+      </div>
+    );
   }
 
   const { level, currentXP, nextLevelXP, progress } = calculateLevel(user.xp);
@@ -150,8 +168,13 @@ export default function DashboardPage() {
       ? Math.round((user.total_correct_answers / user.total_questions_answered) * 100)
       : 0;
 
-  const currentEntry = entries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
-  const tierEntries = entries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier);
+  const currentEntry = currentSeason
+    ? entries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id)
+    : undefined;
+  const currentSeasonTier = currentEntry?.tier_at_start ?? user.league_tier;
+  const tierEntries = currentSeason
+    ? entries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === currentSeasonTier)
+    : [];
   const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
   const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
   const leagueZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
@@ -283,7 +306,7 @@ export default function DashboardPage() {
 
       <motion.div variants={itemVariants} className="mb-6">
         <SeasonSummaryCard
-          tier={user.league_tier}
+          tier={currentSeasonTier}
           rank={currentRank || null}
           totalPlayers={totalTierPlayers}
           seasonScore={seasonScore}

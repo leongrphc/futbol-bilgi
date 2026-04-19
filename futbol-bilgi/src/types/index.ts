@@ -63,7 +63,7 @@ export interface UserSettings {
   vibration_enabled: boolean;
   notifications_enabled: boolean;
   language: string;
-  theme: 'dark' | 'light' | 'system';
+  theme: 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch';
 }
 
 export interface QuestionOption {

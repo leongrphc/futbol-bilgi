@@ -10,15 +10,22 @@ import { useSocialStore } from '@/lib/stores/social-store';
 import { useLeagueStore } from '@/lib/stores/league-store';
 import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import { getLeagueZone } from '@/lib/league/ranking';
-import { Badge } from '@/components/ui/badge';
 import { SeasonalLeaderboard } from '@/components/league/seasonal-leaderboard';
 import { ShareButton } from '@/components/social/share-button';
 import { buildFriendLeaderboardShare } from '@/lib/utils/share';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { cn } from '@/lib/utils/cn';
-import { MOCK_SOCIAL_PLAYERS } from '@/lib/data/mock-social';
 import type { LeagueTier } from '@/types';
+
+interface OverallPlayer {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  avatar_frame: string | null;
+  league_tier: LeagueTier;
+  score: number;
+}
 
 type Period = 'daily' | 'weekly' | 'monthly' | 'all_time';
 type Mode = 'overall' | 'millionaire' | 'duel';
@@ -62,12 +69,17 @@ export default function LeaderboardPage() {
   const [mode, setMode] = useState<Mode>('overall');
   const [scope, setScope] = useState<Scope>('all');
   const [message, setMessage] = useState<string | null>(null);
+  const [isFinalizingSeason, setIsFinalizingSeason] = useState(false);
+  const [overallPlayers, setOverallPlayers] = useState<OverallPlayer[]>([]);
 
   const user = useUserStore((state) => state.user);
+  const setUser = useUserStore((state) => state.setUser);
   const profiles = useSocialStore((state) => state.profiles);
   const friendships = useSocialStore((state) => state.friendships);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const leagueEntries = useLeagueStore((state) => state.entries);
+  const fetchCurrentSeason = useLeagueStore((state) => state.fetchCurrentSeason);
+  const fetchEntries = useLeagueStore((state) => state.fetchEntries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const finalizeSeasonForTier = useLeagueStore((state) => state.finalizeSeasonForTier);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
@@ -79,8 +91,35 @@ export default function LeaderboardPage() {
     if (!user) return;
     ensureCurrentUserProfile(user);
     markUserActive(user.id);
+    fetchCurrentSeason();
     ensurePlayerEntry(user.id, user.league_tier);
-  }, [user, ensureCurrentUserProfile, markUserActive, ensurePlayerEntry]);
+  }, [user, ensureCurrentUserProfile, markUserActive, fetchCurrentSeason, ensurePlayerEntry]);
+
+  useEffect(() => {
+    if (!currentSeason) return;
+    fetchEntries(currentSeason.id);
+  }, [currentSeason, fetchEntries]);
+
+  useEffect(() => {
+    const fetchOverall = async () => {
+      try {
+        const response = await fetch('/api/leaderboard/overall?limit=200');
+        const json = await response.json();
+        if (json.data) {
+          setOverallPlayers(
+            json.data.map((player: { xp: number }) => ({
+              ...player,
+              score: player.xp,
+            })),
+          );
+        }
+      } catch (error) {
+        console.error('Failed to fetch overall leaderboard:', error);
+      }
+    };
+
+    void fetchOverall();
+  }, []);
 
   const currentUserProfile = useMemo(() => {
     if (!user) return null;
@@ -98,21 +137,7 @@ export default function LeaderboardPage() {
   }, [profiles, user]);
 
   const allPlayers = useMemo(() => {
-    const merged: Array<{
-      id: string;
-      username: string;
-      avatar_url: string | null;
-      avatar_frame: string | null;
-      league_tier: LeagueTier;
-      score: number;
-    }> = [...MOCK_SOCIAL_PLAYERS.map((player) => ({
-      id: player.id,
-      username: player.username,
-      avatar_url: null,
-      avatar_frame: null,
-      league_tier: player.league_tier,
-      score: player.score,
-    }))];
+    const merged = [...overallPlayers];
 
     if (currentUserProfile && !merged.some((player) => player.id === currentUserProfile.id)) {
       merged.push({
@@ -126,7 +151,7 @@ export default function LeaderboardPage() {
     }
 
     return merged.sort((a, b) => b.score - a.score);
-  }, [currentUserProfile]);
+  }, [overallPlayers, currentUserProfile]);
 
   const friendIds = useMemo(
     () => friendships
@@ -147,9 +172,23 @@ export default function LeaderboardPage() {
   const topThree = rankedPlayers.slice(0, 3);
   const remaining = rankedPlayers.slice(3);
 
-  const currentTierEntries = user
-    ? leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === user.league_tier)
+  const currentEntry = user && currentSeason
+    ? leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id)
+    : undefined;
+  const currentSeasonTier = currentEntry?.tier_at_start ?? user?.league_tier;
+  const currentTierEntries = currentSeasonTier && currentSeason
+    ? leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === currentSeasonTier)
     : [];
+
+  if (user && !currentSeason) {
+    return (
+      <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
+        <Card padding="lg" className="text-center">
+          <p className="text-text-secondary">Sezon bilgisi yükleniyor...</p>
+        </Card>
+      </div>
+    );
+  }
 
   const rankedSeasonEntries = [...currentTierEntries]
     .sort((a, b) => {
@@ -188,6 +227,21 @@ export default function LeaderboardPage() {
     if (!user) return;
     const result = sendDuelInvite(user.id, playerId);
     setMessage(result.message);
+  };
+
+  const handleFinalizeSeason = async () => {
+    if (!user || isFinalizingSeason) return;
+
+    try {
+      setIsFinalizingSeason(true);
+      const result = await finalizeSeasonForTier(currentSeasonTier ?? user.league_tier);
+      setUser(result.profile);
+      setMessage('Bu lig için sezon sonuçları kaydedildi.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Sezon sonuçları kaydedilemedi.');
+    } finally {
+      setIsFinalizingSeason(false);
+    }
   };
 
   return (
@@ -325,11 +379,8 @@ export default function LeaderboardPage() {
                   <p className="text-xs text-text-secondary">Arkadaş ve genel skor görünümü</p>
                 </div>
                 {user && (
-                  <Button size="sm" variant="ghost" onClick={() => {
-                    finalizeSeasonForTier(user.league_tier);
-                    setMessage('Bu lig için sezon sonuçları hesaplandı.');
-                  }}>
-                    Sezonu Hesapla
+                  <Button size="sm" variant="ghost" onClick={handleFinalizeSeason} disabled={isFinalizingSeason}>
+                    {isFinalizingSeason ? 'Hesaplanıyor...' : 'Sezonu Hesapla'}
                   </Button>
                 )}
               </div>

@@ -1,143 +1,128 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { LeagueTier } from '@/types';
-import type { LeagueSeason, LeagueSeasonEntry, SeasonMovement } from '@/lib/league/season';
-import { getSeasonRewards } from '@/lib/league/rewards';
-import { getLeagueZone, getNextLeagueTier, rankLeagueEntries } from '@/lib/league/ranking';
+import type { LeagueTier, User } from '@/types';
+import type { LeagueSeason, LeagueSeasonEntry } from '@/lib/league/season';
 
 interface LeagueState {
-  currentSeason: LeagueSeason;
+  currentSeason: LeagueSeason | null;
   entries: LeagueSeasonEntry[];
+  loading: boolean;
 }
 
 interface LeagueActions {
-  ensurePlayerEntry: (userId: string, tier: LeagueTier) => void;
-  recordDuelResult: (userId: string, tier: LeagueTier, result: 'win' | 'draw' | 'loss') => void;
-  finalizeSeasonForTier: (tier: LeagueTier) => Array<{ userId: string; nextTier: LeagueTier; movement: SeasonMovement; rewards: ReturnType<typeof getSeasonRewards> }>;
+  fetchCurrentSeason: () => Promise<void>;
+  fetchEntries: (seasonId?: string, tier?: LeagueTier) => Promise<void>;
+  ensurePlayerEntry: (userId: string, tier: LeagueTier) => Promise<void>;
+  recordDuelResult: (userId: string, tier: LeagueTier, result: 'win' | 'draw' | 'loss') => Promise<void>;
+  finalizeSeasonForTier: (tier: LeagueTier) => Promise<{ entries: LeagueSeasonEntry[]; profile: User }>;
 }
 
-const now = new Date();
-const seasonStart = new Date(now);
-seasonStart.setHours(0, 0, 0, 0);
-const seasonEnd = new Date(seasonStart);
-seasonEnd.setDate(seasonEnd.getDate() + 7);
+export const useLeagueStore = create<LeagueState & LeagueActions>()((set, get) => ({
+  currentSeason: null,
+  entries: [],
+  loading: false,
 
-const initialSeason: LeagueSeason = {
-  id: `season_${seasonStart.toISOString().slice(0, 10)}`,
-  name: 'Haftalık Lig',
-  starts_at: seasonStart.toISOString(),
-  ends_at: seasonEnd.toISOString(),
-  status: 'active',
-};
+  fetchCurrentSeason: async () => {
+    try {
+      const response = await fetch('/api/league/season');
+      const json = await response.json();
+      if (json.data) {
+        set({ currentSeason: json.data });
+      }
+    } catch (error) {
+      console.error('Failed to fetch current season:', error);
+    }
+  },
 
-export const useLeagueStore = create<LeagueState & LeagueActions>()(
-  persist(
-    (set, get) => ({
-      currentSeason: initialSeason,
-      entries: [],
+  fetchEntries: async (seasonId, tier) => {
+    try {
+      set({ loading: true });
+      const params = new URLSearchParams();
+      if (seasonId) params.set('season_id', seasonId);
+      if (tier) params.set('tier', tier);
 
-      ensurePlayerEntry: (userId, tier) => {
-        const state = get();
-        const exists = state.entries.some(
-          (entry) => entry.user_id === userId && entry.season_id === state.currentSeason.id,
-        );
+      const response = await fetch(`/api/league/entries?${params}`);
+      const json = await response.json();
+      if (json.data) {
+        set({ entries: json.data });
+      }
+    } catch (error) {
+      console.error('Failed to fetch entries:', error);
+    } finally {
+      set({ loading: false });
+    }
+  },
 
-        if (exists) return;
+  ensurePlayerEntry: async (userId, tier) => {
+    const state = get();
+    if (!state.currentSeason) {
+      await get().fetchCurrentSeason();
+    }
 
+    const exists = state.entries.some(
+      (entry) => entry.user_id === userId && entry.season_id === state.currentSeason?.id,
+    );
+
+    if (exists) return;
+
+    try {
+      const response = await fetch('/api/league/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, tier }),
+      });
+
+      const json = await response.json();
+      if (json.data) {
         set((current) => ({
-          entries: [
-            ...current.entries,
-            {
-              user_id: userId,
-              season_id: current.currentSeason.id,
-              tier_at_start: tier,
-              season_score: 0,
-              wins: 0,
-              draws: 0,
-              losses: 0,
-              final_rank: null,
-              movement: 'stayed',
-              reward_coins: 0,
-              reward_gems: 0,
-              reward_theme_key: null,
-              reward_badge_key: null,
-              updated_at: new Date().toISOString(),
-            },
-          ],
+          entries: [...current.entries, json.data],
         }));
-      },
+      }
+    } catch (error) {
+      console.error('Failed to create entry:', error);
+    }
+  },
 
-      recordDuelResult: (userId, tier, result) => {
-        get().ensurePlayerEntry(userId, tier);
+  recordDuelResult: async (userId, tier, result) => {
+    await get().ensurePlayerEntry(userId, tier);
 
-        set((state) => ({
-          entries: state.entries.map((entry) => {
-            if (entry.user_id !== userId || entry.season_id !== state.currentSeason.id) {
-              return entry;
-            }
+    try {
+      const response = await fetch('/api/league/record-result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, tier, result }),
+      });
 
-            return {
-              ...entry,
-              season_score: entry.season_score + (result === 'win' ? 3 : result === 'draw' ? 1 : 0),
-              wins: entry.wins + (result === 'win' ? 1 : 0),
-              draws: entry.draws + (result === 'draw' ? 1 : 0),
-              losses: entry.losses + (result === 'loss' ? 1 : 0),
-              updated_at: new Date().toISOString(),
-            };
-          }),
-        }));
-      },
-
-      finalizeSeasonForTier: (tier) => {
+      if (response.ok) {
+        // Refresh entries
         const state = get();
-        const tierEntries = rankLeagueEntries(
-          state.entries.filter((entry) => entry.season_id === state.currentSeason.id && entry.tier_at_start === tier),
-        );
+        if (state.currentSeason) {
+          await get().fetchEntries(state.currentSeason.id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to record duel result:', error);
+    }
+  },
 
-        const results = tierEntries.map((entry) => {
-          const zone = getLeagueZone(entry.final_rank ?? tierEntries.length, tierEntries.length);
-          const movement: SeasonMovement =
-            zone === 'promotion' && tier !== 'champion'
-              ? 'promoted'
-              : zone === 'relegation' && tier !== 'bronze'
-                ? 'relegated'
-                : 'stayed';
-          const rewards = getSeasonRewards(tier);
-          return {
-            userId: entry.user_id,
-            nextTier: getNextLeagueTier(tier, movement),
-            movement,
-            rewards,
-          };
-        });
+  finalizeSeasonForTier: async (tier) => {
+    const state = get();
+    if (!state.currentSeason) {
+      throw new Error('Aktif sezon bulunamadı.');
+    }
 
-        set((current) => ({
-          entries: current.entries.map((entry) => {
-            const result = results.find((item) => item.userId === entry.user_id);
-            if (!result || entry.season_id !== current.currentSeason.id || entry.tier_at_start !== tier) {
-              return entry;
-            }
+    const response = await fetch('/api/league/finalize-season', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ season_id: state.currentSeason.id, tier }),
+    });
 
-            return {
-              ...entry,
-              movement: result.movement,
-              reward_coins: result.rewards.coins,
-              reward_gems: result.rewards.gems,
-              reward_theme_key: result.rewards.themeKey,
-              reward_badge_key: result.rewards.badgeKey,
-            };
-          }),
-        }));
+    const json = await response.json();
 
-        return results;
-      },
-    }),
-    {
-      name: 'futbol-bilgi-league',
-      partialize: (state) => ({
-        currentSeason: state.currentSeason,
-        entries: state.entries,
-      }),
-    },
-  ),
-);
+    if (!response.ok || !json.data) {
+      throw new Error(json.error ?? 'Sezon finalizasyonu başarısız oldu.');
+    }
+
+    set({ entries: json.data.entries });
+    return json.data;
+  },
+}));

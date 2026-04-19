@@ -22,7 +22,11 @@ export async function GET() {
     return NextResponse.json({ error: shopError?.message || inventoryError?.message }, { status: 500 });
   }
 
-  const shopItems = ensureDefaultThemeCatalog((rawShopItems ?? []).map(mapThemeShopItem).filter(Boolean));
+  const shopItems = ensureDefaultThemeCatalog(
+    (rawShopItems ?? [])
+      .map(mapThemeShopItem)
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+  );
   const inventory = ensureDefaultThemeInventory(user.id, rawInventory ?? []);
 
   return NextResponse.json({ data: { shopItems, inventory } });

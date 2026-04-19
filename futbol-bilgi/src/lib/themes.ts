@@ -186,7 +186,6 @@ export function getOwnedThemeItemIds(inventory: UserInventory[] = []) {
 
 export function getDisplayThemeKey(settings: UserSettings | null | undefined) {
   if (!settings) return 'dark';
-  if (settings.theme === 'light' || settings.theme === 'system') return 'dark';
   return settings.theme in THEME_DEFINITION_MAP ? (settings.theme as AppThemeKey) : 'dark';
 }
 
