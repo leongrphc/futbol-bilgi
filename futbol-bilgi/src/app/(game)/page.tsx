@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { RewardOverlay } from '@/components/game/reward-overlay';
 import { useUserStore } from '@/lib/stores/user-store';
+import { DAILY_CHALLENGE_CONFIG } from '@/lib/constants/game';
 import { calculateLevel, formatNumber } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
 
@@ -90,6 +93,15 @@ const gameModes = [
 
 export default function DashboardPage() {
   const user = useUserStore((state) => state.user);
+  const addXP = useUserStore((state) => state.addXP);
+  const updateCoins = useUserStore((state) => state.updateCoins);
+  const updateStreak = useUserStore((state) => state.updateStreak);
+  const [showRewardOverlay, setShowRewardOverlay] = useState(false);
+  const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({
+    xp: 0,
+    coins: 0,
+    levelUp: null,
+  });
 
   if (!user) {
     return null;
@@ -107,6 +119,33 @@ export default function DashboardPage() {
     month: 'long',
     year: 'numeric',
   });
+
+  const today = new Date();
+  const lastClaimDate = user.last_daily_claim ? new Date(user.last_daily_claim) : null;
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isClaimedToday = lastClaimDate?.toDateString() === today.toDateString();
+  const wasClaimedYesterday = lastClaimDate?.toDateString() === yesterday.toDateString();
+  const canClaimDailyReward = !isClaimedToday;
+  const nextStreak = !lastClaimDate ? 1 : wasClaimedYesterday ? user.streak_days + 1 : 1;
+
+  const handleClaimDailyReward = () => {
+    if (!canClaimDailyReward) return;
+
+    const xp = DAILY_CHALLENGE_CONFIG.base_xp;
+    const coins = DAILY_CHALLENGE_CONFIG.base_coins + (nextStreak * DAILY_CHALLENGE_CONFIG.streak_bonus_multiplier);
+
+    const currentLevel = calculateLevel(user.xp).level;
+    const newLevel = calculateLevel(user.xp + xp).level;
+    const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
+
+    addXP(xp);
+    updateCoins(coins);
+    updateStreak(nextStreak);
+    setRewardData({ xp, coins, levelUp });
+    setShowRewardOverlay(true);
+  };
 
   return (
     <motion.div
@@ -284,13 +323,13 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Daily Reward Banner */}
-      {!user.last_daily_claim ||
-        new Date(user.last_daily_claim).toDateString() !== new Date().toDateString() ? (
+      {canClaimDailyReward ? (
         <motion.div variants={itemVariants} className="mb-6">
           <Card
             variant="highlighted"
             padding="md"
             className="animate-pulse-glow cursor-pointer"
+            onClick={handleClaimDailyReward}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -302,7 +341,7 @@ export default function DashboardPage() {
                     Günlük Ödülünü Al!
                   </h3>
                   <p className="text-xs text-text-secondary">
-                    Streak bonusu: +{user.streak_days * 10} coin
+                    Bugün: +{DAILY_CHALLENGE_CONFIG.base_xp} XP, +{DAILY_CHALLENGE_CONFIG.base_coins + ((user.streak_days + 1) * DAILY_CHALLENGE_CONFIG.streak_bonus_multiplier)} coin
                   </p>
                 </div>
               </div>
@@ -342,6 +381,14 @@ export default function DashboardPage() {
           </Card>
         </div>
       </motion.div>
+
+      <RewardOverlay
+        isVisible={showRewardOverlay}
+        xp={rewardData.xp}
+        coins={rewardData.coins}
+        levelUp={rewardData.levelUp}
+        onComplete={() => setShowRewardOverlay(false)}
+      />
     </motion.div>
   );
 }

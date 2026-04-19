@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/lib/stores/game-store';
+import { useUserStore } from '@/lib/stores/user-store';
 import { useTimer } from '@/lib/hooks/use-timer';
-import { MILLIONAIRE_STEPS } from '@/lib/constants/game';
+import { MILLIONAIRE_STEPS, ENERGY_CONFIG } from '@/lib/constants/game';
 import {
   calculateXP,
   calculateCoins,
+  calculateLevel,
   getSafePointScore,
   formatNumber,
   getMillionaireStep,
@@ -20,6 +22,7 @@ import { AnswerGrid } from '@/components/game/answer-option';
 import { JokerBar, AudienceResult, PhoneResult } from '@/components/game/joker-bar';
 import { PrizeLadder, MiniPrize } from '@/components/game/prize-ladder';
 import { GameResultScreen } from '@/components/game/game-result';
+import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
 
 import type { Question, JokerType } from '@/types';
 
@@ -64,6 +67,13 @@ export default function MillionairePage() {
     updateSafePoint,
   } = useGameStore();
 
+  // User store — economy integration
+  const user = useUserStore((s) => s.user);
+  const addXP = useUserStore((s) => s.addXP);
+  const updateCoins = useUserStore((s) => s.updateCoins);
+  const updateEnergy = useUserStore((s) => s.updateEnergy);
+  const incrementQuestionsAnswered = useUserStore((s) => s.incrementQuestionsAnswered);
+
   // Local state
   const [phase, setPhase] = useState<GamePhase>('loading');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -76,46 +86,87 @@ export default function MillionairePage() {
   const [doubleAnswerActive, setDoubleAnswerActive] = useState(false);
   const [firstWrongAnswer, setFirstWrongAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
 
+  // Economy UI state
+  const [showRewardOverlay, setShowRewardOverlay] = useState(false);
+  const [showEnergyWarning, setShowEnergyWarning] = useState(false);
+  const [pendingRewards, setPendingRewards] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({ xp: 0, coins: 0, levelUp: null });
+  const [energyChecked, setEnergyChecked] = useState(false);
+
   // Current question derived from state
   const currentQuestion = questions[questionNumber - 1] ?? null;
   const currentStep = getMillionaireStep(questionNumber);
   const safePointScore = getSafePointScore(questionNumber);
+  const phaseRef = useRef(phase);
+  const safePointReachedRef = useRef(safePointReached);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    safePointReachedRef.current = safePointReached;
+  }, [safePointReached]);
 
   // Timer
   const timer = useTimer({
     initialTime: currentStep?.timeLimit ?? 30,
     autoStart: false,
-    onExpire: useCallback(() => {
-      handleTimeExpired();
-    }, []),
+    onExpire: () => {
+      if (phaseRef.current === 'playing') {
+        const finalScore = safePointReachedRef.current;
+        const xp = calculateXP(finalScore, 'millionaire');
+        const coins = calculateCoins(finalScore, 'millionaire');
+        endGame('timeout', xp, coins);
+        awardRewards(xp, coins);
+      }
+    },
   });
 
   // ==========================================
-  // Initialize Game
+  // Initialize Game — with energy check
   // ==========================================
 
-  useEffect(() => {
+  const initializeGame = useCallback(() => {
     const gameQuestions = getMillionaireQuestions();
     setQuestions(gameQuestions);
 
-    // Start fresh game
     const sessionId = `session_${Date.now()}`;
     resetGame();
     startGame('millionaire', 'turkey', sessionId);
 
-    // Set first question
+    // Deduct energy
+    if (user) {
+      updateEnergy(-ENERGY_CONFIG.cost_millionaire);
+    }
+
     if (gameQuestions.length > 0) {
       setCurrentQuestion(gameQuestions[0]);
       setPhase('playing');
 
-      // Small delay before starting timer
       setTimeout(() => {
         timer.reset(MILLIONAIRE_STEPS[0].timeLimit);
         timer.start();
       }, 500);
     }
+  }, [resetGame, startGame, setCurrentQuestion, timer, user, updateEnergy]);
+
+  useEffect(() => {
+    // Check energy before starting
+    if (!energyChecked) {
+      setEnergyChecked(true);
+      const currentEnergy = user?.energy ?? 0;
+
+      if (currentEnergy < ENERGY_CONFIG.cost_millionaire) {
+        // Not enough energy — show warning
+        setShowEnergyWarning(true);
+        return;
+      }
+
+      // Enough energy — start directly
+      initializeGame();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [energyChecked]);
 
   // ==========================================
   // Handle Answer Selection
@@ -158,8 +209,13 @@ export default function MillionairePage() {
 
       const isCorrect = selected === currentQuestion.correct_answer;
 
-      // Record answer in store
+      // Record answer in game store
       answerQuestion(isCorrect, isCorrect ? currentStep.points : 0);
+
+      // Record answer in user store (persistent stats)
+      if (user) {
+        incrementQuestionsAnswered(isCorrect);
+      }
 
       // Update safe point if at a safe point
       if (isCorrect && currentStep.isSafePoint) {
@@ -178,6 +234,26 @@ export default function MillionairePage() {
   );
 
   // ==========================================
+  // Award Rewards to User Store
+  // ==========================================
+
+  const awardRewards = useCallback((xp: number, coins: number) => {
+    if (!user) {
+      setPhase('result');
+      return;
+    }
+
+    const currentLevel = calculateLevel(user.xp).level;
+    const newLevel = calculateLevel(user.xp + xp).level;
+    const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
+
+    addXP(xp);
+    updateCoins(coins);
+    setPendingRewards({ xp, coins, levelUp });
+    setShowRewardOverlay(true);
+  }, [user, addXP, updateCoins]);
+
+  // ==========================================
   // Correct Answer Flow
   // ==========================================
 
@@ -187,7 +263,7 @@ export default function MillionairePage() {
       const xp = calculateXP(1000000, 'millionaire');
       const coins = calculateCoins(1000000, 'millionaire');
       endGame('win', xp, coins);
-      setPhase('result');
+      awardRewards(xp, coins);
       return;
     }
 
@@ -224,8 +300,8 @@ export default function MillionairePage() {
     const xp = calculateXP(finalScore, 'millionaire');
     const coins = calculateCoins(finalScore, 'millionaire');
     endGame('loss', xp, coins);
-    setPhase('result');
-  }, [safePointReached, endGame]);
+    awardRewards(xp, coins);
+  }, [safePointReached, endGame, awardRewards]);
 
   // ==========================================
   // Time Expired
@@ -237,9 +313,9 @@ export default function MillionairePage() {
       const xp = calculateXP(finalScore, 'millionaire');
       const coins = calculateCoins(finalScore, 'millionaire');
       endGame('timeout', xp, coins);
-      setPhase('result');
+      awardRewards(xp, coins);
     }
-  }, [phase, safePointReached, endGame]);
+  }, [phase, safePointReached, endGame, awardRewards]);
 
   // ==========================================
   // Joker Handlers
@@ -345,6 +421,13 @@ export default function MillionairePage() {
   // ==========================================
 
   const handlePlayAgain = useCallback(() => {
+    // Check energy before replaying
+    const currentEnergy = user?.energy ?? 0;
+    if (currentEnergy < ENERGY_CONFIG.cost_millionaire) {
+      setShowEnergyWarning(true);
+      return;
+    }
+
     setPhase('loading');
     setSelectedAnswer(null);
     setCorrectAnswer(null);
@@ -353,6 +436,7 @@ export default function MillionairePage() {
     setPhoneResult(null);
     setDoubleAnswerActive(false);
     setFirstWrongAnswer(null);
+    setShowRewardOverlay(false);
 
     const gameQuestions = getMillionaireQuestions();
     setQuestions(gameQuestions);
@@ -360,6 +444,11 @@ export default function MillionairePage() {
     const sessionId = `session_${Date.now()}`;
     resetGame();
     startGame('millionaire', 'turkey', sessionId);
+
+    // Deduct energy
+    if (user) {
+      updateEnergy(-ENERGY_CONFIG.cost_millionaire);
+    }
 
     if (gameQuestions.length > 0) {
       setCurrentQuestion(gameQuestions[0]);
@@ -369,12 +458,35 @@ export default function MillionairePage() {
         timer.start();
       }, 500);
     }
-  }, [resetGame, startGame, setCurrentQuestion, timer]);
+  }, [resetGame, startGame, setCurrentQuestion, timer, user, updateEnergy]);
 
   const handleGoHome = useCallback(() => {
     resetGame();
     router.push('/');
   }, [resetGame, router]);
+
+  // ==========================================
+  // Energy Warning Handlers
+  // ==========================================
+
+  const handleEnergyConfirm = useCallback(() => {
+    setShowEnergyWarning(false);
+    initializeGame();
+  }, [initializeGame]);
+
+  const handleEnergyCancel = useCallback(() => {
+    setShowEnergyWarning(false);
+    router.push('/');
+  }, [router]);
+
+  // ==========================================
+  // Reward Overlay Complete → show result screen
+  // ==========================================
+
+  const handleRewardComplete = useCallback(() => {
+    setShowRewardOverlay(false);
+    setPhase('result');
+  }, []);
 
   // ==========================================
   // Loading State
@@ -397,7 +509,31 @@ export default function MillionairePage() {
           </motion.div>
           <p className="text-sm text-text-secondary">Sorular yükleniyor...</p>
         </motion.div>
+
+        {/* Energy warning overlay */}
+        <EnergyWarning
+          isVisible={showEnergyWarning}
+          currentEnergy={user?.energy ?? 0}
+          onConfirm={handleEnergyConfirm}
+          onCancel={handleEnergyCancel}
+        />
       </div>
+    );
+  }
+
+  // ==========================================
+  // Reward Overlay (shown before result screen)
+  // ==========================================
+
+  if (showRewardOverlay) {
+    return (
+      <RewardOverlay
+        isVisible={true}
+        xp={pendingRewards.xp}
+        coins={pendingRewards.coins}
+        levelUp={pendingRewards.levelUp}
+        onComplete={handleRewardComplete}
+      />
     );
   }
 
@@ -555,6 +691,14 @@ export default function MillionairePage() {
           onClose={() => setShowPrizeLadder(false)}
         />
       </AnimatePresence>
+
+      {/* Energy warning for play again */}
+      <EnergyWarning
+        isVisible={showEnergyWarning}
+        currentEnergy={user?.energy ?? 0}
+        onConfirm={handleEnergyConfirm}
+        onCancel={handleEnergyCancel}
+      />
     </div>
   );
 }

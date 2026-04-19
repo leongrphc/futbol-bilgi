@@ -851,14 +851,14 @@ src/
 - [x] Custom hook'lar (useTimer, useSound)
 - [x] Kullanıcı kayıt/giriş (email + sosyal)
 - [x] Veritabanı şeması (13 tablo, RLS, triggers, seed data)
-- [ ] Milyoner modu (tam akış)
+- [x] Milyoner modu (tam akış)
 - [ ] Temel soru havuzu (500+ Türkiye ligi sorusu)
-- [ ] Joker sistemi (3 temel joker)
-- [ ] XP & seviye sistemi
-- [ ] Coin ekonomisi
-- [ ] Basit leaderboard
-- [ ] Günlük giriş ödülü
-- [ ] Temel profil sayfası
+- [x] Joker sistemi (3 temel joker)
+- [x] XP & seviye sistemi
+- [x] Coin ekonomisi
+- [x] Basit leaderboard
+- [x] Günlük giriş ödülü
+- [x] Temel profil sayfası
 - [ ] PWA desteği
 
 ### Faz 2 — Sosyal & Rekabet (6-8 hafta)
