@@ -14,8 +14,6 @@ import { useGameStore } from '@/lib/stores/game-store';
 import { buildQuestionChallengeShare } from '@/lib/utils/share';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { Button } from '@/components/ui/button';
-import { Home } from 'lucide-react';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { QUICK_PLAY_CONFIG } from '@/lib/constants/game';
@@ -51,8 +49,7 @@ export default function QuickPage() {
   } = useGameStore();
 
   const user = useUserStore((state) => state.user);
-  const addXP = useUserStore((state) => state.addXP);
-  const incrementQuestionsAnswered = useUserStore((state) => state.incrementQuestionsAnswered);
+  const setUser = useUserStore((state) => state.setUser);
 
   const [phase, setPhase] = useState<QuickPhase>('loading');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -69,6 +66,49 @@ export default function QuickPage() {
   const sessionIdRef = useRef<string | null>(null);
   const currentQuestion = questions[questionNumber - 1] ?? null;
 
+  async function finalizeQuick(gameResult: 'win' | 'timeout', finalScore: number, finalCorrectAnswers: number, finalTotalAnswered: number) {
+    const response = await fetch('/api/game/quick', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: sessionIdRef.current,
+        result: gameResult,
+        score: finalScore,
+        correctAnswers: finalCorrectAnswers,
+        totalAnswered: finalTotalAnswered,
+      }),
+    });
+
+    const json = await response.json();
+    if (!response.ok || !json.data) {
+      return null;
+    }
+
+    return json.data;
+  }
+
+  function applyPersistedRewards(profile: typeof user, xp: number) {
+    if (!user || !profile) {
+      setPhase('result');
+      return;
+    }
+
+    const currentLevel = calculateLevel(user.xp).level;
+    const newLevel = calculateLevel(profile.xp).level;
+    const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
+
+    setUser({
+      ...user,
+      ...profile,
+    });
+    setRewardData({
+      xp,
+      coins: 0,
+      levelUp,
+    });
+    setShowRewardOverlay(true);
+  }
+
   const timer = useTimer({
     initialTime: QUICK_PLAY_CONFIG.total_time,
     autoStart: false,
@@ -77,14 +117,15 @@ export default function QuickPage() {
     },
     onExpire: () => {
       if (phase === 'playing' || phase === 'revealing') {
-        finalizeGame('timeout');
+        void finalizeGame('timeout');
       }
     },
   });
 
-  const finalizeGame = useCallback((gameResult: 'win' | 'timeout') => {
+  const finalizeGame = useCallback(async (gameResult: 'win' | 'timeout') => {
     const timeBonus = calculateQuickTimeBonus(timer.timeRemaining);
     const xp = calculateQuickXP(correctAnswers);
+    const finalScore = score + timeBonus;
 
     if (timeBonus > 0) {
       applyScoreBonus(timeBonus);
@@ -94,7 +135,7 @@ export default function QuickPage() {
       mode: 'quick',
       session_id: sessionIdRef.current,
       result: gameResult,
-      score: score + timeBonus,
+      score: finalScore,
       correct_answers: correctAnswers,
       total_answered: totalAnswered,
       xp_earned: xp,
@@ -102,47 +143,44 @@ export default function QuickPage() {
       time_remaining: timer.timeRemaining,
     });
 
-    if (!user) {
-      endGame(gameResult, xp, 0);
-      setPhase('result');
-      return;
-    }
-
-    const currentLevel = calculateLevel(user.xp).level;
-    const newLevel = calculateLevel(user.xp + xp).level;
-
-    addXP(xp);
+    const data = await finalizeQuick(gameResult, finalScore, correctAnswers, totalAnswered);
     endGame(gameResult, xp, 0);
-    setRewardData({
-      xp,
-      coins: 0,
-      levelUp: newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null,
-    });
-    setShowRewardOverlay(true);
-  }, [timer.timeRemaining, correctAnswers, totalAnswered, score, applyScoreBonus, user, endGame, addXP]);
+    applyPersistedRewards(data?.profile ?? null, xp);
+  }, [timer.timeRemaining, correctAnswers, totalAnswered, score, applyScoreBonus, endGame, setUser, user]);
 
   useEffect(() => {
-    const gameQuestions = getQuickPlayQuestions();
-    setQuestions(gameQuestions);
+    const initializeQuick = async () => {
+      const response = await fetch('/api/game/quick', { method: 'POST' });
+      const json = await response.json();
 
-    const sessionId = `quick_${Date.now()}`;
-    sessionIdRef.current = sessionId;
-    resetGame();
-    startGame('quick', 'turkey', sessionId);
-    trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
-      mode: 'quick',
-      session_id: sessionId,
-      league_scope: 'turkey',
-      question_count: QUICK_PLAY_CONFIG.total_questions,
-    });
+      if (!response.ok || !json.data) {
+        return;
+      }
 
-    if (gameQuestions.length > 0) {
-      setCurrentQuestion(gameQuestions[0]);
-      setPhase('playing');
-      timer.reset(QUICK_PLAY_CONFIG.total_time);
-      setTimeRemaining(QUICK_PLAY_CONFIG.total_time);
-      timer.start();
-    }
+      const gameQuestions = getQuickPlayQuestions();
+      setQuestions(gameQuestions);
+
+      const sessionId = json.data.sessionId as string;
+      sessionIdRef.current = sessionId;
+      resetGame();
+      startGame('quick', 'turkey', sessionId);
+      trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
+        mode: 'quick',
+        session_id: sessionId,
+        league_scope: 'turkey',
+        question_count: QUICK_PLAY_CONFIG.total_questions,
+      });
+
+      if (gameQuestions.length > 0) {
+        setCurrentQuestion(gameQuestions[0]);
+        setPhase('playing');
+        timer.reset(QUICK_PLAY_CONFIG.total_time);
+        setTimeRemaining(QUICK_PLAY_CONFIG.total_time);
+        timer.start();
+      }
+    };
+
+    void initializeQuick();
   }, [resetGame, startGame, setCurrentQuestion, timer, setTimeRemaining]);
 
   const handleSelectAnswer = useCallback((answer: 'A' | 'B' | 'C' | 'D') => {
@@ -157,13 +195,12 @@ export default function QuickPage() {
     setPhase('revealing');
 
     answerQuestion(isCorrect, points);
-    incrementQuestionsAnswered(isCorrect);
 
     const timeout = setTimeout(() => {
       pendingRevealRef.current = false;
 
       if (questionNumber >= QUICK_PLAY_CONFIG.total_questions) {
-        finalizeGame('win');
+        void finalizeGame('win');
         return;
       }
 
@@ -178,7 +215,7 @@ export default function QuickPage() {
     }, 900);
 
     return () => clearTimeout(timeout);
-  }, [currentQuestion, phase, answerQuestion, incrementQuestionsAnswered, questionNumber, finalizeGame, nextQuestion, questions, setCurrentQuestion]);
+  }, [currentQuestion, phase, answerQuestion, questionNumber, finalizeGame, nextQuestion, questions, setCurrentQuestion]);
 
   const handleRewardComplete = useCallback(() => {
     setShowRewardOverlay(false);
@@ -227,7 +264,7 @@ export default function QuickPage() {
   if (!currentQuestion) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4 pb-24">
-        <Card padding="lg" className="text-center max-w-sm w-full">
+        <Card padding="lg" className="w-full max-w-sm text-center">
           <Zap className="mx-auto mb-4 h-16 w-16 text-blue-500" />
           <p className="text-text-secondary">Sorular yükleniyor...</p>
         </Card>
