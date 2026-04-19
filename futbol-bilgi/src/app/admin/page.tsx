@@ -1,24 +1,40 @@
+import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+
+const adminModules = [
+  {
+    title: 'Soru Yönetimi',
+    description: 'Soruları düzenle, aktif/pasif yap.',
+    href: '/admin/questions',
+  },
+  {
+    title: 'Kullanıcı Yönetimi',
+    description: 'Premium ve ekonomi ayarları.',
+    href: '/admin/users',
+  },
+  {
+    title: 'Mağaza',
+    description: 'Shop item fiyatlarını güncelle.',
+    href: '/admin/shop',
+  },
+  {
+    title: 'Başarımlar',
+    description: 'Reward ve koşulları yönet.',
+    href: '/admin/achievements',
+  },
+];
 
 export default function AdminDashboard() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Card padding="lg">
-        <h2 className="font-display text-lg font-semibold">Soru Yönetimi</h2>
-        <p className="text-sm text-text-secondary mt-2">Soruları düzenle, aktif/pasif yap.</p>
-      </Card>
-      <Card padding="lg">
-        <h2 className="font-display text-lg font-semibold">Kullanıcı Yönetimi</h2>
-        <p className="text-sm text-text-secondary mt-2">Premium ve ekonomi ayarları.</p>
-      </Card>
-      <Card padding="lg">
-        <h2 className="font-display text-lg font-semibold">Mağaza</h2>
-        <p className="text-sm text-text-secondary mt-2">Shop item fiyatlarını güncelle.</p>
-      </Card>
-      <Card padding="lg">
-        <h2 className="font-display text-lg font-semibold">Başarımlar</h2>
-        <p className="text-sm text-text-secondary mt-2">Reward ve koşulları yönet.</p>
-      </Card>
+      {adminModules.map((module) => (
+        <Link key={module.href} href={module.href} className="block">
+          <Card padding="lg" hoverable className="h-full">
+            <h2 className="font-display text-lg font-semibold">{module.title}</h2>
+            <p className="mt-2 text-sm text-text-secondary">{module.description}</p>
+          </Card>
+        </Link>
+      ))}
     </div>
   );
 }
