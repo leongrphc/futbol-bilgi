@@ -850,6 +850,7 @@ src/
 - [x] Zustand store'ları (game-store, user-store)
 - [x] Custom hook'lar (useTimer, useSound)
 - [x] Kullanıcı kayıt/giriş (email + sosyal)
+- [x] Veritabanı şeması (13 tablo, RLS, triggers, seed data)
 - [ ] Milyoner modu (tam akış)
 - [ ] Temel soru havuzu (500+ Türkiye ligi sorusu)
 - [ ] Joker sistemi (3 temel joker)

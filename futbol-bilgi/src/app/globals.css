@@ -281,3 +281,22 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* ==========================================
+   Utility Classes
+   ========================================== */
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe area padding for notch devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}

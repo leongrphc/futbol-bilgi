@@ -1,15 +1,15 @@
--- ==========================================
+-- ============================================================================
 -- FutbolBilgi - Initial Database Schema
--- Supabase PostgreSQL Migration
--- ==========================================
+-- Türk Futbolu Bilgi Yarışması Oyunu
+-- Production-Ready PostgreSQL Migration for Supabase
+-- ============================================================================
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ==========================================
--- 1. Lig Scope & Lig Tanımlari
--- ==========================================
-
+-- ============================================================================
+-- 1. LEAGUE SCOPES (Lig Kapsamları)
+-- ============================================================================
 CREATE TABLE league_scopes (
     code VARCHAR(20) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -19,6 +19,11 @@ CREATE TABLE league_scopes (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+COMMENT ON TABLE league_scopes IS 'Oyun kapsamları: Türkiye, Avrupa, Dünya';
+
+-- ============================================================================
+-- 2. LEAGUES (Ligler)
+-- ============================================================================
 CREATE TABLE leagues (
     code VARCHAR(50) PRIMARY KEY,
     scope_code VARCHAR(20) NOT NULL REFERENCES league_scopes(code) ON DELETE CASCADE,
@@ -27,133 +32,149 @@ CREATE TABLE leagues (
     tier SMALLINT DEFAULT 1,
     icon_url VARCHAR(500),
     is_active BOOLEAN DEFAULT TRUE,
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 2. Kullanici Profilleri (auth.users ile bagli)
--- ==========================================
+COMMENT ON TABLE leagues IS 'Lig tanımları: Süper Lig, 1. Lig, vb.';
 
+-- ============================================================================
+-- 3. PROFILES (Kullanıcı Profilleri - auth.users ile bağlı)
+-- ============================================================================
 CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     username VARCHAR(30) UNIQUE NOT NULL,
-    email VARCHAR(255),
     avatar_url VARCHAR(500),
     avatar_frame VARCHAR(100) DEFAULT 'default',
     favorite_team VARCHAR(100),
-    level INTEGER DEFAULT 1,
-    xp INTEGER DEFAULT 0,
-    coins INTEGER DEFAULT 100,
-    gems INTEGER DEFAULT 0,
-    energy INTEGER DEFAULT 5,
+    level INTEGER DEFAULT 1 CHECK (level >= 1),
+    xp INTEGER DEFAULT 0 CHECK (xp >= 0),
+    coins INTEGER DEFAULT 500 CHECK (coins >= 0),
+    gems INTEGER DEFAULT 0 CHECK (gems >= 0),
+    energy INTEGER DEFAULT 5 CHECK (energy >= 0 AND energy <= 5),
     energy_last_refill TIMESTAMPTZ DEFAULT NOW(),
     league_tier VARCHAR(20) DEFAULT 'bronze',
-    elo_rating INTEGER DEFAULT 1000,
-    streak_days INTEGER DEFAULT 0,
+    elo_rating INTEGER DEFAULT 1000 CHECK (elo_rating >= 0),
+    streak_days INTEGER DEFAULT 0 CHECK (streak_days >= 0),
     last_daily_claim DATE,
-    total_questions_answered INTEGER DEFAULT 0,
-    total_correct_answers INTEGER DEFAULT 0,
-    settings JSONB DEFAULT '{"sound_enabled": true, "music_enabled": true, "vibration_enabled": true, "notifications_enabled": true, "language": "tr", "theme": "dark"}'::jsonb,
+    total_questions_answered INTEGER DEFAULT 0 CHECK (total_questions_answered >= 0),
+    total_correct_answers INTEGER DEFAULT 0 CHECK (total_correct_answers >= 0),
+    settings JSONB DEFAULT '{}',
     is_premium BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 3. Soru Havuzu
--- ==========================================
+COMMENT ON TABLE profiles IS 'Kullanıcı profil bilgileri ve oyun istatistikleri';
+COMMENT ON COLUMN profiles.coins IS 'Başlangıç: 500 coin';
 
+-- ============================================================================
+-- 4. QUESTIONS (Sorular)
+-- ============================================================================
 CREATE TABLE questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    league_scope VARCHAR(20) NOT NULL DEFAULT 'turkey' REFERENCES league_scopes(code),
-    league VARCHAR(50) NOT NULL REFERENCES leagues(code),
+    league_scope VARCHAR(20) NOT NULL REFERENCES league_scopes(code),
+    league VARCHAR(50) REFERENCES leagues(code),
     category VARCHAR(50) NOT NULL,
     sub_category VARCHAR(50),
     difficulty SMALLINT NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
-    season_range VARCHAR(50),
-    team_tags TEXT[] DEFAULT '{}',
-    era_tag VARCHAR(20),
+    season_range VARCHAR(20),
+    team_tags TEXT[],
+    era_tag VARCHAR(30),
     question_text TEXT NOT NULL,
-    options JSONB NOT NULL, -- [{"key":"A","text":"..."}, {"key":"B","text":"..."}, ...]
-    correct_answer CHAR(1) NOT NULL CHECK (correct_answer IN ('A', 'B', 'C', 'D')),
+    options JSONB NOT NULL,
+    correct_answer VARCHAR(10) NOT NULL,
     explanation TEXT,
-    media JSONB, -- {"type":"image","url":"...","alt":"..."}
+    media JSONB DEFAULT '{}',
     times_shown INTEGER DEFAULT 0,
     times_correct INTEGER DEFAULT 0,
-    avg_answer_time_ms INTEGER DEFAULT 0,
+    avg_answer_time_ms INTEGER,
     is_active BOOLEAN DEFAULT TRUE,
     reported_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 4. Oyun Oturumlari
--- ==========================================
+COMMENT ON TABLE questions IS 'Oyun soruları ve istatistikleri';
+COMMENT ON COLUMN questions.options IS 'JSON: {"A": "text", "B": "text", "C": "text", "D": "text"}';
+COMMENT ON COLUMN questions.correct_answer IS 'A, B, C, veya D';
+COMMENT ON COLUMN questions.media IS 'JSON: {"type": "image|video", "url": "...", "thumbnail": "..."}';
+COMMENT ON COLUMN questions.team_tags IS 'Takım etiketleri array: ["Galatasaray", "Fenerbahçe"]';
 
+-- ============================================================================
+-- 5. GAME SESSIONS (Oyun Oturumları)
+-- ============================================================================
 CREATE TABLE game_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    mode VARCHAR(30) NOT NULL CHECK (mode IN ('millionaire', 'quick', 'duel', 'daily')),
-    league_scope VARCHAR(20) DEFAULT 'turkey' REFERENCES league_scopes(code),
+    mode VARCHAR(30) NOT NULL,
+    league_scope VARCHAR(20) NOT NULL REFERENCES league_scopes(code),
     started_at TIMESTAMPTZ DEFAULT NOW(),
     ended_at TIMESTAMPTZ,
     score INTEGER DEFAULT 0,
     questions_answered INTEGER DEFAULT 0,
     correct_answers INTEGER DEFAULT 0,
-    jokers_used JSONB DEFAULT '[]'::jsonb,
+    jokers_used JSONB DEFAULT '{}',
     safe_point_reached INTEGER DEFAULT 0,
-    result VARCHAR(20) CHECK (result IN ('completed', 'failed', 'timeout', 'quit', NULL)),
+    result VARCHAR(20),
     xp_earned INTEGER DEFAULT 0,
-    coins_earned INTEGER DEFAULT 0
+    coins_earned INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 5. Soru Cevap Gecmisi
--- ==========================================
+COMMENT ON TABLE game_sessions IS 'Oyun oturumu kayıtları';
+COMMENT ON COLUMN game_sessions.mode IS 'classic, duel, daily_challenge, quick_play, vb.';
+COMMENT ON COLUMN game_sessions.jokers_used IS 'JSON: {"fifty_fifty": 1, "audience": 0, "phone": 1}';
+COMMENT ON COLUMN game_sessions.result IS 'completed, failed, timeout, quit';
 
+-- ============================================================================
+-- 6. QUESTION ANSWERS (Soru Cevapları)
+-- ============================================================================
 CREATE TABLE question_answers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    question_id UUID NOT NULL REFERENCES questions(id),
-    user_answer CHAR(1) CHECK (user_answer IN ('A', 'B', 'C', 'D', NULL)),
+    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    user_answer VARCHAR(10),
     is_correct BOOLEAN NOT NULL,
     answer_time_ms INTEGER,
     joker_used VARCHAR(30),
-    question_number SMALLINT,
+    question_number INTEGER NOT NULL,
     answered_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 6. Duello Eslesmeleri
--- ==========================================
+COMMENT ON TABLE question_answers IS 'Kullanıcı cevap kayıtları';
+COMMENT ON COLUMN question_answers.joker_used IS 'fifty_fifty, audience, phone, time_freeze, skip, double_answer';
 
+-- ============================================================================
+-- 7. DUELS (Düellolar)
+-- ============================================================================
 CREATE TABLE duels (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    challenger_id UUID NOT NULL REFERENCES profiles(id),
-    opponent_id UUID REFERENCES profiles(id),
-    challenger_score INTEGER DEFAULT 0,
-    opponent_score INTEGER DEFAULT 0,
+    player1_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    player2_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    player1_score INTEGER DEFAULT 0,
+    player2_score INTEGER DEFAULT 0,
     winner_id UUID REFERENCES profiles(id),
-    questions JSONB NOT NULL DEFAULT '[]'::jsonb,
-    league_scope VARCHAR(20) DEFAULT 'turkey' REFERENCES league_scopes(code),
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'completed', 'expired', 'cancelled')),
+    questions JSONB NOT NULL DEFAULT '[]',
+    status VARCHAR(20) DEFAULT 'pending',
     started_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ,
+    ended_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 7. Liderlik Tablolari
--- ==========================================
+COMMENT ON TABLE duels IS 'Oyuncu düelloları';
+COMMENT ON COLUMN duels.status IS 'pending, active, completed, cancelled';
+COMMENT ON COLUMN duels.questions IS 'JSON array: [{"question_id": "...", "p1_answer": "A", "p2_answer": "B"}]';
 
+-- ============================================================================
+-- 8. LEADERBOARDS (Lider Tablosu)
+-- ============================================================================
 CREATE TABLE leaderboards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    period VARCHAR(20) NOT NULL CHECK (period IN ('daily', 'weekly', 'monthly', 'alltime')),
-    league_scope VARCHAR(20) DEFAULT 'turkey' REFERENCES league_scopes(code),
+    period VARCHAR(20) NOT NULL,
+    league_scope VARCHAR(20) NOT NULL REFERENCES league_scopes(code),
     score BIGINT DEFAULT 0,
     rank INTEGER,
     period_start DATE NOT NULL,
@@ -161,173 +182,174 @@ CREATE TABLE leaderboards (
     UNIQUE(user_id, period, period_start, league_scope)
 );
 
--- ==========================================
--- 8. Magaza Ogeleri
--- ==========================================
+COMMENT ON TABLE leaderboards IS 'Periyodik lider tablosu kayıtları';
+COMMENT ON COLUMN leaderboards.period IS 'daily, weekly, monthly, all_time';
 
+-- ============================================================================
+-- 9. SHOP ITEMS (Mağaza Ürünleri)
+-- ============================================================================
 CREATE TABLE shop_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_type VARCHAR(30) NOT NULL CHECK (item_type IN ('joker', 'avatar', 'frame', 'energy', 'cosmetic', 'theme', 'joker_pack', 'energy_pack')),
+    item_type VARCHAR(30) NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
-    sub_type VARCHAR(50),
     preview_url VARCHAR(500),
-    price_coins INTEGER,
-    price_gems INTEGER,
-    rarity VARCHAR(20) DEFAULT 'common' CHECK (rarity IN ('common', 'rare', 'epic', 'legendary')),
+    price_coins INTEGER DEFAULT 0,
+    price_gems INTEGER DEFAULT 0,
     league_scope VARCHAR(20) REFERENCES league_scopes(code),
     is_premium BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
-    metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 9. Kullanici Envanteri
--- ==========================================
+COMMENT ON TABLE shop_items IS 'Satın alınabilir ürünler: temalar, çerçeveler, joker paketleri, vb.';
+COMMENT ON COLUMN shop_items.item_type IS 'theme, avatar_frame, joker_pack, energy_pack, cosmetic';
 
+-- ============================================================================
+-- 10. USER INVENTORY (Kullanıcı Envanteri)
+-- ============================================================================
 CREATE TABLE user_inventory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    item_id UUID NOT NULL REFERENCES shop_items(id),
-    quantity INTEGER DEFAULT 1,
-    is_equipped BOOLEAN DEFAULT FALSE,
+    item_id UUID NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
     purchased_at TIMESTAMPTZ DEFAULT NOW(),
+    is_equipped BOOLEAN DEFAULT FALSE,
     UNIQUE(user_id, item_id)
 );
 
--- ==========================================
--- 10. Basarimlar (Achievements)
--- ==========================================
+COMMENT ON TABLE user_inventory IS 'Kullanıcının sahip olduğu ürünler';
 
+-- ============================================================================
+-- 11. ACHIEVEMENTS (Başarımlar)
+-- ============================================================================
 CREATE TABLE achievements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    key VARCHAR(50) UNIQUE NOT NULL,
+    code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
     icon_url VARCHAR(500),
-    category VARCHAR(50) DEFAULT 'general',
-    tier VARCHAR(20) DEFAULT 'bronze' CHECK (tier IN ('bronze', 'silver', 'gold', 'platinum')),
-    requirement_type VARCHAR(50) NOT NULL,
-    requirement_value INTEGER NOT NULL DEFAULT 1,
-    xp_reward INTEGER DEFAULT 0,
-    coins_reward INTEGER DEFAULT 0,
-    gems_reward INTEGER DEFAULT 0,
+    reward_coins INTEGER DEFAULT 0,
+    reward_gems INTEGER DEFAULT 0,
+    reward_xp INTEGER DEFAULT 0,
+    condition JSONB NOT NULL,
     league_scope VARCHAR(20) REFERENCES league_scopes(code),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ==========================================
--- 11. Kullanici Basarimlari
--- ==========================================
+COMMENT ON TABLE achievements IS 'Başarım tanımları';
+COMMENT ON COLUMN achievements.condition IS 'JSON: {"type": "answer_count", "target": 100, ...}';
 
+-- ============================================================================
+-- 12. USER ACHIEVEMENTS (Kullanıcı Başarımları)
+-- ============================================================================
 CREATE TABLE user_achievements (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    achievement_id UUID NOT NULL REFERENCES achievements(id),
+    achievement_id UUID NOT NULL REFERENCES achievements(id) ON DELETE CASCADE,
     progress INTEGER DEFAULT 0,
-    is_completed BOOLEAN DEFAULT FALSE,
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, achievement_id)
+    unlocked_at TIMESTAMPTZ,
+    PRIMARY KEY (user_id, achievement_id)
 );
 
--- ==========================================
--- 12. Arkadaslik Sistemi
--- ==========================================
+COMMENT ON TABLE user_achievements IS 'Kullanıcı başarım ilerlemeleri';
 
+-- ============================================================================
+-- 13. FRIENDSHIPS (Arkadaşlıklar)
+-- ============================================================================
 CREATE TABLE friendships (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     friend_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'blocked')),
+    status VARCHAR(20) DEFAULT 'pending',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, friend_id),
+    PRIMARY KEY (user_id, friend_id),
     CHECK (user_id != friend_id)
 );
 
--- ==========================================
--- INDEXES
--- ==========================================
+COMMENT ON TABLE friendships IS 'Kullanıcı arkadaşlık ilişkileri';
+COMMENT ON COLUMN friendships.status IS 'pending, accepted, blocked';
 
--- Questions
+-- ============================================================================
+-- INDEXES
+-- ============================================================================
+
+-- League indexes
+CREATE INDEX idx_leagues_scope ON leagues(scope_code);
+CREATE INDEX idx_leagues_active ON leagues(is_active);
+
+-- Profile indexes
+CREATE INDEX idx_profiles_username ON profiles(username);
+CREATE INDEX idx_profiles_league_tier ON profiles(league_tier);
+CREATE INDEX idx_profiles_elo ON profiles(elo_rating DESC);
+CREATE INDEX idx_profiles_level ON profiles(level DESC);
+
+-- Question indexes
 CREATE INDEX idx_questions_league_scope ON questions(league_scope);
 CREATE INDEX idx_questions_league ON questions(league);
 CREATE INDEX idx_questions_difficulty ON questions(difficulty);
 CREATE INDEX idx_questions_category ON questions(category);
-CREATE INDEX idx_questions_active ON questions(is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_questions_active ON questions(is_active);
 CREATE INDEX idx_questions_team_tags ON questions USING GIN(team_tags);
 CREATE INDEX idx_questions_scope_difficulty ON questions(league_scope, difficulty) WHERE is_active = TRUE;
 
--- Game Sessions
-CREATE INDEX idx_game_sessions_user ON game_sessions(user_id);
-CREATE INDEX idx_game_sessions_mode ON game_sessions(mode);
-CREATE INDEX idx_game_sessions_user_mode ON game_sessions(user_id, mode);
-CREATE INDEX idx_game_sessions_started ON game_sessions(started_at DESC);
+-- Game Session indexes
+CREATE INDEX idx_sessions_user ON game_sessions(user_id);
+CREATE INDEX idx_sessions_mode ON game_sessions(mode);
+CREATE INDEX idx_sessions_started ON game_sessions(started_at DESC);
+CREATE INDEX idx_sessions_scope ON game_sessions(league_scope);
+CREATE INDEX idx_sessions_user_mode ON game_sessions(user_id, mode);
+CREATE INDEX idx_sessions_user_started ON game_sessions(user_id, started_at DESC);
 
--- Question Answers
-CREATE INDEX idx_question_answers_session ON question_answers(session_id);
-CREATE INDEX idx_question_answers_user ON question_answers(user_id);
-CREATE INDEX idx_question_answers_question ON question_answers(question_id);
+-- Question Answer indexes
+CREATE INDEX idx_answers_session ON question_answers(session_id);
+CREATE INDEX idx_answers_user ON question_answers(user_id);
+CREATE INDEX idx_answers_question ON question_answers(question_id);
+CREATE INDEX idx_answers_correct ON question_answers(is_correct);
+CREATE INDEX idx_answers_session_number ON question_answers(session_id, question_number);
 
--- Duels
-CREATE INDEX idx_duels_challenger ON duels(challenger_id);
-CREATE INDEX idx_duels_opponent ON duels(opponent_id);
+-- Duel indexes
+CREATE INDEX idx_duels_player1 ON duels(player1_id);
+CREATE INDEX idx_duels_player2 ON duels(player2_id);
 CREATE INDEX idx_duels_status ON duels(status);
+CREATE INDEX idx_duels_created ON duels(created_at DESC);
 
--- Leaderboards
+-- Leaderboard indexes
 CREATE INDEX idx_leaderboards_period ON leaderboards(period, period_start);
+CREATE INDEX idx_leaderboards_scope ON leaderboards(league_scope);
 CREATE INDEX idx_leaderboards_score ON leaderboards(score DESC);
-CREATE INDEX idx_leaderboards_rank ON leaderboards(period, period_start, rank);
+CREATE INDEX idx_leaderboards_rank ON leaderboards(rank);
+CREATE INDEX idx_leaderboards_period_scope_score ON leaderboards(period, league_scope, score DESC);
 
--- Profiles
-CREATE INDEX idx_profiles_username ON profiles(username);
-CREATE INDEX idx_profiles_league_tier ON profiles(league_tier);
-CREATE INDEX idx_profiles_level ON profiles(level DESC);
-CREATE INDEX idx_profiles_elo ON profiles(elo_rating DESC);
+-- Shop Item indexes
+CREATE INDEX idx_shop_items_type ON shop_items(item_type);
+CREATE INDEX idx_shop_items_active ON shop_items(is_active);
 
--- User Achievements
+-- User Inventory indexes
+CREATE INDEX idx_inventory_user ON user_inventory(user_id);
+CREATE INDEX idx_inventory_equipped ON user_inventory(user_id, is_equipped);
+
+-- Achievement indexes
+CREATE INDEX idx_achievements_code ON achievements(code);
+
+-- User Achievement indexes
 CREATE INDEX idx_user_achievements_user ON user_achievements(user_id);
+CREATE INDEX idx_user_achievements_unlocked ON user_achievements(unlocked_at DESC);
 
--- Friendships
+-- Friendship indexes
+CREATE INDEX idx_friendships_user ON friendships(user_id);
 CREATE INDEX idx_friendships_friend ON friendships(friend_id);
 CREATE INDEX idx_friendships_status ON friendships(status);
 
--- ==========================================
+-- ============================================================================
 -- TRIGGERS
--- ==========================================
+-- ============================================================================
 
--- Auto-update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at()
+-- Profil otomatik oluşturma trigger'ı
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_profiles_updated_at
-    BEFORE UPDATE ON profiles
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE TRIGGER trigger_questions_updated_at
-    BEFORE UPDATE ON questions
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE TRIGGER trigger_friendships_updated_at
-    BEFORE UPDATE ON friendships
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- Auto-create profile on user signup
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (id, username, email)
+    INSERT INTO public.profiles (id, username)
     VALUES (
         NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'username', 'user_' || LEFT(NEW.id::TEXT, 8)),
-        NEW.email
+        COALESCE(NEW.raw_user_meta_data->>'username', 'user_' || substr(NEW.id::text, 1, 8))
     );
     RETURN NEW;
 END;
@@ -335,13 +357,35 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user();
 
--- ==========================================
--- ROW LEVEL SECURITY (RLS)
--- ==========================================
+-- Profil güncelleme zamanı trigger'ı
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_profile_updated
+    BEFORE UPDATE ON profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER on_question_updated
+    BEFORE UPDATE ON questions
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at();
+
+-- ============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ============================================================================
 
 -- Enable RLS on all tables
+ALTER TABLE league_scopes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leagues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE game_sessions ENABLE ROW LEVEL SECURITY;
@@ -353,42 +397,49 @@ ALTER TABLE user_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE achievements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE league_scopes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE leagues ENABLE ROW LEVEL SECURITY;
 
--- Profiles: users can read all, update own
+-- League Scopes: Herkes okuyabilir
+CREATE POLICY "League scopes are viewable by everyone"
+    ON league_scopes FOR SELECT
+    USING (true);
+
+-- Leagues: Herkes okuyabilir
+CREATE POLICY "Leagues are viewable by everyone"
+    ON leagues FOR SELECT
+    USING (true);
+
+-- Profiles: Herkes okuyabilir, sadece kendi profilini güncelleyebilir
 CREATE POLICY "Profiles are viewable by everyone"
     ON profiles FOR SELECT
     USING (true);
 
 CREATE POLICY "Users can update own profile"
     ON profiles FOR UPDATE
-    USING (auth.uid() = id)
-    WITH CHECK (auth.uid() = id);
+    USING (auth.uid() = id);
 
 CREATE POLICY "Users can insert own profile"
     ON profiles FOR INSERT
     WITH CHECK (auth.uid() = id);
 
--- Questions: everyone can read active questions
-CREATE POLICY "Active questions are viewable by everyone"
+-- Questions: Kimlik doğrulaması yapanlar aktif soruları okuyabilir
+CREATE POLICY "Active questions are viewable by authenticated users"
     ON questions FOR SELECT
-    USING (is_active = true);
+    USING (auth.role() = 'authenticated' AND is_active = true);
 
--- Game Sessions: users can CRUD own sessions
-CREATE POLICY "Users can view own game sessions"
+-- Game Sessions: Kullanıcılar sadece kendi oturumlarını yönetebilir
+CREATE POLICY "Users can view own sessions"
     ON game_sessions FOR SELECT
     USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can create own game sessions"
+CREATE POLICY "Users can insert own sessions"
     ON game_sessions FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own game sessions"
+CREATE POLICY "Users can update own sessions"
     ON game_sessions FOR UPDATE
     USING (auth.uid() = user_id);
 
--- Question Answers: users can CRUD own answers
+-- Question Answers: Kullanıcılar sadece kendi cevaplarını yönetebilir
 CREATE POLICY "Users can view own answers"
     ON question_answers FOR SELECT
     USING (auth.uid() = user_id);
@@ -397,43 +448,39 @@ CREATE POLICY "Users can insert own answers"
     ON question_answers FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
--- Duels: participants can view and update
-CREATE POLICY "Duel participants can view"
+-- Duels: Oyuncular kendi düellolarını görebilir
+CREATE POLICY "Players can view their duels"
     ON duels FOR SELECT
-    USING (auth.uid() = challenger_id OR auth.uid() = opponent_id);
+    USING (auth.uid() = player1_id OR auth.uid() = player2_id);
 
-CREATE POLICY "Users can create duels"
+CREATE POLICY "Players can create duels"
     ON duels FOR INSERT
-    WITH CHECK (auth.uid() = challenger_id);
+    WITH CHECK (auth.uid() = player1_id);
 
-CREATE POLICY "Duel participants can update"
+CREATE POLICY "Players can update their duels"
     ON duels FOR UPDATE
-    USING (auth.uid() = challenger_id OR auth.uid() = opponent_id);
+    USING (auth.uid() = player1_id OR auth.uid() = player2_id);
 
--- Leaderboards: everyone can read
-CREATE POLICY "Leaderboards are viewable by everyone"
+-- Leaderboards: Herkes okuyabilir
+CREATE POLICY "Leaderboards are viewable by authenticated users"
     ON leaderboards FOR SELECT
-    USING (true);
+    USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Users can upsert own leaderboard"
-    ON leaderboards FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "System can manage leaderboards"
+    ON leaderboards FOR ALL
+    USING (auth.role() = 'service_role');
 
-CREATE POLICY "Users can update own leaderboard"
-    ON leaderboards FOR UPDATE
-    USING (auth.uid() = user_id);
-
--- Shop Items: everyone can read active items
-CREATE POLICY "Active shop items are viewable by everyone"
+-- Shop Items: Herkes aktif ürünleri görebilir
+CREATE POLICY "Active shop items are viewable by authenticated users"
     ON shop_items FOR SELECT
-    USING (is_active = true);
+    USING (auth.role() = 'authenticated' AND is_active = true);
 
--- User Inventory: users can CRUD own inventory
+-- User Inventory: Kullanıcılar sadece kendi envanterlerini yönetebilir
 CREATE POLICY "Users can view own inventory"
     ON user_inventory FOR SELECT
     USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert own inventory"
+CREATE POLICY "Users can insert to own inventory"
     ON user_inventory FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
@@ -441,26 +488,26 @@ CREATE POLICY "Users can update own inventory"
     ON user_inventory FOR UPDATE
     USING (auth.uid() = user_id);
 
--- Achievements: everyone can read
-CREATE POLICY "Achievements are viewable by everyone"
+-- Achievements: Herkes okuyabilir
+CREATE POLICY "Achievements are viewable by authenticated users"
     ON achievements FOR SELECT
-    USING (true);
+    USING (auth.role() = 'authenticated');
 
--- User Achievements: users can CRUD own achievements
-CREATE POLICY "Users can view own achievements"
+-- User Achievements: Herkes okuyabilir, sadece kendi başarımını güncelleyebilir
+CREATE POLICY "User achievements are viewable by authenticated users"
     ON user_achievements FOR SELECT
-    USING (auth.uid() = user_id);
+    USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Users can insert own achievements"
     ON user_achievements FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own achievements"
+CREATE POLICY "Users can update own achievement progress"
     ON user_achievements FOR UPDATE
     USING (auth.uid() = user_id);
 
--- Friendships: participants can view and manage
-CREATE POLICY "Users can view own friendships"
+-- Friendships: Kullanıcılar kendi arkadaşlıklarını yönetebilir
+CREATE POLICY "Users can view their friendships"
     ON friendships FOR SELECT
     USING (auth.uid() = user_id OR auth.uid() = friend_id);
 
@@ -468,102 +515,194 @@ CREATE POLICY "Users can create friendships"
     ON friendships FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update own friendships"
+CREATE POLICY "Users can update their friendships"
     ON friendships FOR UPDATE
-    USING (auth.uid() = user_id OR auth.uid() = friend_id);
+    USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete own friendships"
+CREATE POLICY "Users can delete their friendships"
     ON friendships FOR DELETE
     USING (auth.uid() = user_id);
 
--- League Scopes & Leagues: everyone can read
-CREATE POLICY "League scopes are viewable by everyone"
-    ON league_scopes FOR SELECT
-    USING (true);
-
-CREATE POLICY "Leagues are viewable by everyone"
-    ON leagues FOR SELECT
-    USING (true);
-
--- ==========================================
+-- ============================================================================
 -- SEED DATA
--- ==========================================
+-- ============================================================================
 
 -- League Scopes
-INSERT INTO league_scopes (code, name, sort_order) VALUES
-    ('turkey', 'Türkiye Ligleri', 1),
-    ('europe', 'Avrupa Ligleri', 2),
-    ('world', 'Dünya Futbolu', 3);
+INSERT INTO league_scopes (code, name, icon_url, is_active, sort_order) VALUES
+('turkey', 'Türkiye Ligleri', '/icons/turkey.svg', true, 1),
+('europe', 'Avrupa Ligleri', '/icons/europe.svg', false, 2),
+('world', 'Dünya Futbolu', '/icons/world.svg', false, 3);
 
 -- Turkish Leagues
-INSERT INTO leagues (code, scope_code, name, country, tier, sort_order) VALUES
-    ('super_lig', 'turkey', 'Süper Lig', 'Türkiye', 1, 1),
-    ('1_lig', 'turkey', '1. Lig (TFF 1. Lig)', 'Türkiye', 2, 2),
-    ('2_lig', 'turkey', '2. Lig (TFF 2. Lig)', 'Türkiye', 3, 3),
-    ('3_lig', 'turkey', '3. Lig (TFF 3. Lig)', 'Türkiye', 4, 4),
-    ('turkiye_kupasi', 'turkey', 'Türkiye Kupası', 'Türkiye', 1, 5),
-    ('super_kupa', 'turkey', 'Süper Kupa', 'Türkiye', 1, 6),
-    ('milli_takim', 'turkey', 'Milli Takım', 'Türkiye', 1, 7);
+INSERT INTO leagues (code, scope_code, name, country, tier, icon_url, is_active, sort_order) VALUES
+('super_lig', 'turkey', 'Süper Lig', 'Türkiye', 1, '/icons/leagues/super_lig.svg', true, 1),
+('lig_1', 'turkey', '1. Lig', 'Türkiye', 2, '/icons/leagues/lig_1.svg', true, 2),
+('lig_2', 'turkey', '2. Lig', 'Türkiye', 3, '/icons/leagues/lig_2.svg', true, 3),
+('lig_3', 'turkey', '3. Lig', 'Türkiye', 4, '/icons/leagues/lig_3.svg', true, 4),
+('turkiye_kupasi', 'turkey', 'Türkiye Kupası', 'Türkiye', 1, '/icons/leagues/turkiye_kupasi.svg', true, 5),
+('super_kupa', 'turkey', 'Süper Kupa', 'Türkiye', 1, '/icons/leagues/super_kupa.svg', true, 6),
+('milli_takim', 'turkey', 'A Milli Takım', 'Türkiye', 1, '/icons/leagues/milli_takim.svg', true, 7);
 
 -- Achievements
-INSERT INTO achievements (key, name, description, category, tier, requirement_type, requirement_value, xp_reward, coins_reward) VALUES
-    -- Oyun Basarimlari
-    ('first_game', 'İlk Adım', 'İlk oyununu tamamla', 'game', 'bronze', 'games_played', 1, 50, 25),
-    ('ten_games', 'Deneyimli', '10 oyun tamamla', 'game', 'bronze', 'games_played', 10, 100, 50),
-    ('fifty_games', 'Veteran', '50 oyun tamamla', 'game', 'silver', 'games_played', 50, 250, 100),
-    ('hundred_games', 'Efsane', '100 oyun tamamla', 'game', 'gold', 'games_played', 100, 500, 250),
+INSERT INTO achievements (code, name, description, icon_url, reward_coins, reward_gems, reward_xp, condition, league_scope) VALUES
+(
+    'ilk_adim',
+    'İlk Adım',
+    'İlk soruyu cevapla',
+    '/icons/achievements/first_step.svg',
+    50,
+    0,
+    10,
+    '{"type": "answer_count", "target": 1}',
+    NULL
+),
+(
+    'mukemmel_10',
+    'Mükemmel 10',
+    '10 doğru cevap üst üste',
+    '/icons/achievements/perfect_10.svg',
+    200,
+    5,
+    100,
+    '{"type": "streak_correct", "target": 10}',
+    NULL
+),
+(
+    'milyoner',
+    'Milyoner',
+    '1.000.000 puana ulaş',
+    '/icons/achievements/millionaire.svg',
+    500,
+    10,
+    500,
+    '{"type": "total_score", "target": 1000000}',
+    NULL
+),
+(
+    'bilgi_krali',
+    'Bilgi Kralı',
+    '1000 doğru cevap ver',
+    '/icons/achievements/knowledge_king.svg',
+    1000,
+    20,
+    1000,
+    '{"type": "correct_answers", "target": 1000}',
+    NULL
+),
+(
+    'streak_ustasi',
+    'Streak Ustası',
+    '30 gün üst üste giriş yap',
+    '/icons/achievements/streak_master.svg',
+    0,
+    50,
+    500,
+    '{"type": "daily_streak", "target": 30}',
+    NULL
+),
+(
+    'duello_sampiyonu',
+    'Düello Şampiyonu',
+    '50 düello kazan',
+    '/icons/achievements/duel_champion.svg',
+    500,
+    15,
+    750,
+    '{"type": "duel_wins", "target": 50}',
+    NULL
+),
+(
+    'hiz_seytani',
+    'Hız Şeytanı',
+    '5 saniyenin altında 10 doğru cevap ver',
+    '/icons/achievements/speed_demon.svg',
+    300,
+    10,
+    300,
+    '{"type": "fast_answers", "target": 10, "max_time_ms": 5000}',
+    NULL
+);
 
-    -- Dogru Cevap Basarimlari
-    ('first_correct', 'Doğru!', 'İlk doğru cevabını ver', 'answer', 'bronze', 'correct_answers', 1, 25, 10),
-    ('hundred_correct', 'Bilgi Küpü', '100 doğru cevap ver', 'answer', 'silver', 'correct_answers', 100, 200, 100),
-    ('five_hundred_correct', 'Ansiklopedi', '500 doğru cevap ver', 'answer', 'gold', 'correct_answers', 500, 500, 250),
-    ('thousand_correct', 'Profesör', '1000 doğru cevap ver', 'answer', 'platinum', 'correct_answers', 1000, 1000, 500),
+-- Shop Items - Themes
+INSERT INTO shop_items (item_type, name, description, preview_url, price_coins, price_gems, is_premium, is_active) VALUES
+('theme', 'Stadyum Gecesi', 'Varsayılan tema', '/previews/theme_stadium_night.jpg', 0, 0, false, true),
+('theme', 'Yeşil Çim', 'Taze çim kokusu', '/previews/theme_green_grass.jpg', 5000, 0, false, true),
+('theme', 'Altın Kupa', 'Şampiyonlar için', '/previews/theme_golden_cup.jpg', 10000, 0, false, true),
+('theme', 'Retro', 'Nostaljik futbol', '/previews/theme_retro.jpg', 15000, 0, false, true);
 
-    -- Milyoner Basarimlari
-    ('safe_point_1', 'Güvenli!', 'İlk güvenli noktaya ulaş', 'millionaire', 'bronze', 'safe_point_reached', 1, 100, 50),
-    ('safe_point_2', 'İkinci Basamak', 'İkinci güvenli noktaya ulaş', 'millionaire', 'silver', 'safe_point_reached', 2, 250, 100),
-    ('millionaire', 'Milyoner!', '1.000.000 puana ulaş', 'millionaire', 'platinum', 'millionaire_completed', 1, 2000, 1000),
+-- Shop Items - Avatar Frames
+INSERT INTO shop_items (item_type, name, description, preview_url, price_coins, price_gems, league_scope, is_premium, is_active) VALUES
+('avatar_frame', 'Bronz Çerçeve', 'Bronz lig çerçevesi', '/previews/frame_bronze.png', 0, 0, 'turkey', false, true),
+('avatar_frame', 'Gümüş Çerçeve', 'Gümüş lig çerçevesi', '/previews/frame_silver.png', 5000, 0, 'turkey', false, true),
+('avatar_frame', 'Altın Çerçeve', 'Altın lig çerçevesi', '/previews/frame_gold.png', 10000, 0, 'turkey', false, true),
+('avatar_frame', 'Platin Çerçeve', 'Platin lig çerçevesi', '/previews/frame_platinum.png', 20000, 0, 'turkey', false, true),
+('avatar_frame', 'Elmas Çerçeve', 'Elmas lig çerçevesi', '/previews/frame_diamond.png', 0, 50, 'turkey', true, true),
+('avatar_frame', 'Şampiyon Çerçeve', 'Şampiyon lig çerçevesi', '/previews/frame_champion.png', 0, 100, 'turkey', true, true);
 
-    -- Streak Basarimlari
-    ('streak_3', 'Başlangıç', '3 gün üst üste oyna', 'streak', 'bronze', 'streak_days', 3, 75, 30),
-    ('streak_7', 'Haftalık', '7 gün üst üste oyna', 'streak', 'silver', 'streak_days', 7, 200, 100),
-    ('streak_30', 'Aylık', '30 gün üst üste oyna', 'streak', 'gold', 'streak_days', 30, 500, 300),
+-- Shop Items - Joker Packs
+INSERT INTO shop_items (item_type, name, description, preview_url, price_coins, price_gems, is_premium, is_active) VALUES
+('joker_pack', 'Joker Paketi (3)', '3 adet joker hakkı', '/previews/joker_pack_3.png', 1000, 0, false, true),
+('joker_pack', 'Joker Paketi (10)', '10 adet joker hakkı', '/previews/joker_pack_10.png', 3000, 0, false, true),
+('joker_pack', 'Mega Joker Paketi', '25 adet joker hakkı', '/previews/joker_pack_25.png', 0, 10, true, true);
 
-    -- Duello Basarimlari
-    ('first_duel_win', 'İlk Galibiyet', 'İlk düelloyu kazan', 'duel', 'bronze', 'duel_wins', 1, 100, 50),
-    ('ten_duel_wins', 'Rakipsiz', '10 düello kazan', 'duel', 'silver', 'duel_wins', 10, 250, 125),
+-- Shop Items - Energy Packs
+INSERT INTO shop_items (item_type, name, description, preview_url, price_coins, price_gems, is_premium, is_active) VALUES
+('energy_pack', 'Enerji Doldur', 'Enerjini hemen doldur', '/previews/energy_refill.png', 500, 0, false, true),
+('energy_pack', 'Sınırsız Enerji (1 Gün)', '24 saat sınırsız enerji', '/previews/energy_unlimited_1d.png', 0, 20, true, true),
+('energy_pack', 'Sınırsız Enerji (7 Gün)', '7 gün sınırsız enerji', '/previews/energy_unlimited_7d.png', 0, 100, true, true);
 
-    -- Seviye Basarimlari
-    ('level_5', 'Çaylak', 'Seviye 5''e ulaş', 'level', 'bronze', 'level_reached', 5, 100, 50),
-    ('level_10', 'Amatör', 'Seviye 10''a ulaş', 'level', 'silver', 'level_reached', 10, 250, 100),
-    ('level_25', 'Profesyonel', 'Seviye 25''e ulaş', 'level', 'gold', 'level_reached', 25, 500, 250),
-    ('level_50', 'Usta', 'Seviye 50''ye ulaş', 'level', 'platinum', 'level_reached', 50, 1000, 500);
+-- ============================================================================
+-- UTILITY FUNCTIONS
+-- ============================================================================
 
--- Shop Items
-INSERT INTO shop_items (item_type, name, description, price_coins, price_gems, rarity) VALUES
-    -- Joker Paketleri
-    ('joker', '%50 Joker', '2 yanlış şıkkı eler', 50, NULL, 'common'),
-    ('joker', 'Seyirci Joker', 'Doğru cevap olasılık dağılımı gösterir', 75, NULL, 'common'),
-    ('joker', 'Telefon Joker', 'Doğru cevabı %80 ihtimalle söyler', 100, NULL, 'rare'),
-    ('joker', 'Süre Dondur', 'Süreyi 15 saniye durdurur', 60, NULL, 'common'),
-    ('joker', 'Pas Geç', 'Soruyu değiştirir', 120, NULL, 'rare'),
-    ('joker', 'Çift Cevap', '2 cevap hakkı verir', 80, NULL, 'common'),
+-- Kullanıcı istatistiklerini güncelleme fonksiyonu
+CREATE OR REPLACE FUNCTION update_user_stats(
+    p_user_id UUID,
+    p_xp_gain INTEGER DEFAULT 0,
+    p_coins_gain INTEGER DEFAULT 0,
+    p_questions_answered INTEGER DEFAULT 0,
+    p_correct_answers INTEGER DEFAULT 0
+)
+RETURNS void AS $$
+BEGIN
+    UPDATE profiles
+    SET
+        xp = xp + p_xp_gain,
+        coins = coins + p_coins_gain,
+        total_questions_answered = total_questions_answered + p_questions_answered,
+        total_correct_answers = total_correct_answers + p_correct_answers,
+        updated_at = NOW()
+    WHERE id = p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-    -- Enerji
-    ('energy', 'Enerji Paketi (3)', '3 enerji kazanır', 30, NULL, 'common'),
-    ('energy', 'Enerji Paketi (5)', 'Tam enerji yeniler', 50, NULL, 'common'),
+COMMENT ON FUNCTION update_user_stats IS 'Oyun sonrası kullanıcı istatistiklerini günceller';
 
-    -- Avatar Çerçeveleri
-    ('frame', 'Altın Çerçeve', 'Altın avatar çerçevesi', NULL, 50, 'rare'),
-    ('frame', 'Elmas Çerçeve', 'Elmas avatar çerçevesi', NULL, 100, 'epic'),
-    ('frame', 'Efsane Çerçeve', 'Efsanevi avatar çerçevesi', NULL, 200, 'legendary'),
+-- Soru istatistiklerini güncelleme fonksiyonu
+CREATE OR REPLACE FUNCTION update_question_stats(
+    p_question_id UUID,
+    p_is_correct BOOLEAN,
+    p_answer_time_ms INTEGER
+)
+RETURNS void AS $$
+BEGIN
+    UPDATE questions
+    SET
+        times_shown = times_shown + 1,
+        times_correct = times_correct + CASE WHEN p_is_correct THEN 1 ELSE 0 END,
+        avg_answer_time_ms = CASE
+            WHEN avg_answer_time_ms IS NULL THEN p_answer_time_ms
+            ELSE (avg_answer_time_ms * times_shown + p_answer_time_ms) / (times_shown + 1)
+        END,
+        updated_at = NOW()
+    WHERE id = p_question_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-    -- Temalar
-    ('theme', 'Gece Stadyumu', 'Varsayılan karanlık tema', 0, NULL, 'common'),
-    ('theme', 'Yeşil Saha', 'Yeşil tonlarında tema', NULL, 30, 'common'),
-    ('theme', 'Kırmızı Tribün', 'Kırmızı tonlarında tema', NULL, 30, 'common'),
-    ('theme', 'Altın Kupa', 'Altın tonlarında premium tema', NULL, 75, 'rare');
+COMMENT ON FUNCTION update_question_stats IS 'Soru istatistiklerini günceller (gösterilme, doğru cevap, ortalama süre)';
 
--- ==========================================
--- DONE
--- ==========================================
+-- ============================================================================
+-- MIGRATION COMPLETE
+-- ============================================================================
+
+COMMENT ON SCHEMA public IS 'FutbolBilgi - Türk Futbolu Bilgi Yarışması v1.0';
