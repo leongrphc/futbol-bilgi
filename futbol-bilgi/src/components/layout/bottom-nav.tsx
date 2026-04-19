@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Gamepad2, Trophy, User } from 'lucide-react';
+import { Home, Gamepad2, Trophy, User, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 
@@ -31,6 +31,11 @@ const navItems = [
     href: '/profile',
     icon: User,
   },
+  {
+    label: 'Admin',
+    href: '/admin',
+    icon: Shield,
+  },
 ];
 
 export function BottomNav() {
@@ -40,7 +45,7 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass-card border-t border-white/[0.08] pb-safe">
       <div className="mx-auto flex h-16 max-w-[480px] items-center justify-around px-2">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
 
           return (

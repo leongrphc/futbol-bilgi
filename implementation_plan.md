@@ -867,16 +867,16 @@ src/
 - [x] Arkadaş sistemi
 - [x] Lig yarışması (seasonal)
 - [x] Paylaşım özellikleri
-- [ ] Push notification
+- [x] Push notification
 - [x] Achievement sistemi
-- [ ] Streak sistemi genişletme
+- [x] Streak sistemi genişletme
 
 ### Faz 3 — Monetizasyon & Polish (4-6 hafta)
 - [ ] Reklam entegrasyonu (Rewarded + Interstitial)
 - [ ] IAP (Gem paketleri, Season Pass)
 - [ ] Tema mağazası
 - [ ] Gelişmiş animasyonlar & efektler
-- [ ] Admin panel & CMS
+- [x] Admin panel & CMS
 - [ ] Analytics entegrasyonu
 
 ### Faz 4 — Genişleme (Sürekli)
