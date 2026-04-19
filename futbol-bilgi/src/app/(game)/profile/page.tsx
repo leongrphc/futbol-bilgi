@@ -84,8 +84,6 @@ export default function ProfilePage() {
   const updateAchievementStats = useAchievementStore((state) => state.updateStats);
   const evaluateAchievements = useAchievementStore((state) => state.evaluate);
   const clearNewlyUnlocked = useAchievementStore((state) => state.clearNewlyUnlocked);
-  const socialStore = useSocialStore();
-  const leagueStore = useLeagueStore();
   const { toggleSubscription, isSupported } = useNotifications();
   const updateGems = useUserStore((state) => state.updateGems);
   const addXP = useUserStore((state) => state.addXP);
@@ -107,16 +105,20 @@ export default function ProfilePage() {
     if (!user) return;
     ensureCurrentUserProfile(user);
     markUserActive(user.id);
+  }, [user, ensureCurrentUserProfile, markUserActive]);
+
+  useEffect(() => {
+    if (!user) return;
 
     const stats = updateAchievementStatsFromStores({
       user,
-      social: socialStore,
-      league: leagueStore,
+      social: { friendships },
+      league: { entries: leagueEntries },
       currentSeasonId: currentSeason.id,
     });
 
     updateAchievementStats(stats);
-  }, [user, ensureCurrentUserProfile, markUserActive, updateAchievementStats, socialStore, leagueStore, currentSeason.id]);
+  }, [user, friendships, leagueEntries, currentSeason.id, updateAchievementStats]);
 
   if (!user) {
     return (
@@ -213,8 +215,8 @@ export default function ProfilePage() {
   const evaluatedAchievements = evaluateAchievementProgress(
     updateAchievementStatsFromStores({
       user,
-      social: socialStore,
-      league: leagueStore,
+      social: { friendships },
+      league: { entries: leagueEntries },
       currentSeasonId: currentSeason.id,
     }),
   );
