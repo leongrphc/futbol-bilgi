@@ -1,5 +1,5 @@
 import type { GameMode, DifficultyLevel, LevelInfo } from '@/types';
-import { MILLIONAIRE_STEPS, XP_TABLE, DAILY_CHALLENGE_CONFIG, DUEL_CONFIG, GAME_CONFIG } from '@/lib/constants/game';
+import { MILLIONAIRE_STEPS, XP_TABLE, DAILY_CHALLENGE_CONFIG, DUEL_CONFIG, GAME_CONFIG, QUICK_PLAY_CONFIG } from '@/lib/constants/game';
 
 /**
  * Calculate XP earned from a game session.
@@ -236,4 +236,21 @@ export function generateMockOpponentResponse(difficulty: DifficultyLevel, totalT
  */
 export function sumAnswerTimesMs(timesInSeconds: number[]): number {
   return timesInSeconds.reduce((total, value) => total + value * 1000, 0);
+}
+
+/**
+ * Calculate quick mode time bonus.
+ */
+export function calculateQuickTimeBonus(timeRemaining: number): number {
+  return Math.max(0, timeRemaining) * QUICK_PLAY_CONFIG.time_bonus_multiplier;
+}
+
+/**
+ * Calculate quick mode XP reward in the 50-200 range.
+ */
+export function calculateQuickXP(correctAnswers: number): number {
+  if (correctAnswers >= 9) return 200;
+  if (correctAnswers >= 7) return 150;
+  if (correctAnswers >= 4) return 100;
+  return 50;
 }

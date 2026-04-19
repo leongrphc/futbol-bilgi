@@ -1148,16 +1148,16 @@ export function getQuestionsByDifficulty(difficulty: number): Question[] {
   return MOCK_QUESTIONS.filter((question) => question.difficulty === difficulty);
 }
 
-export function getMillionaireQuestions(): Question[] {
-  const shuffle = <T>(items: T[]): T[] => {
-    const shuffled = [...items];
-    for (let i = shuffled.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
+function shuffle<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
+export function getMillionaireQuestions(): Question[] {
   const d1 = shuffle(getQuestionsByDifficulty(1)).slice(0, 3);
   const d2 = shuffle(getQuestionsByDifficulty(2)).slice(0, 2);
   const d3 = shuffle(getQuestionsByDifficulty(3)).slice(0, 2);
@@ -1165,4 +1165,23 @@ export function getMillionaireQuestions(): Question[] {
   const d5 = shuffle(getQuestionsByDifficulty(5)).slice(0, 3);
 
   return [...d1, ...d2, ...d3, ...d4, ...d5];
+}
+
+export function getQuickPlayQuestions(): Question[] {
+  const pattern = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+  const usedIds = new Set<string>();
+
+  const questions = pattern.map((difficulty, index) => {
+    const pool = shuffle(getQuestionsByDifficulty(difficulty)).filter((question) => !usedIds.has(question.id));
+    const fallbackPool = shuffle(MOCK_QUESTIONS).filter((question) => !usedIds.has(question.id));
+    const picked = pool[0] ?? fallbackPool[index];
+
+    if (picked) {
+      usedIds.add(picked.id);
+    }
+
+    return picked;
+  }).filter(Boolean) as Question[];
+
+  return shuffle(questions).slice(0, 10);
 }

@@ -132,6 +132,11 @@ export function GameResultScreen({
                 🔒 Güvenli nokta puanı: {formatNumber(safePointScore)}
               </p>
             )}
+            {safePointScore === 0 && result === 'timeout' && (
+              <p className="mt-1 text-xs text-text-muted">
+                ⏱ Süre bonusu skoruna dahil edildi.
+              </p>
+            )}
           </div>
 
           {/* Stats grid */}

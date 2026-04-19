@@ -61,6 +61,7 @@ interface GameActions {
   setCurrentQuestion: (question: Question) => void;
   nextQuestion: () => void;
   answerQuestion: (isCorrect: boolean, points: number) => void;
+  applyScoreBonus: (points: number) => void;
 
   // Jokers
   useJoker: (type: JokerType) => void;
@@ -119,20 +120,19 @@ export const useGameStore = create<GameStore>()((set, get) => ({
   },
 
   nextQuestion: () => {
-    const { questionNumber, mode } = get();
+    const { questionNumber, mode, timeRemaining } = get();
     const nextNum = questionNumber + 1;
 
-    // Get time limit for the next question
-    let timeLimit = 30;
+    let nextTimeRemaining = timeRemaining;
     if (mode === 'millionaire') {
       const step = MILLIONAIRE_STEPS.find((s) => s.questionNumber === nextNum);
-      timeLimit = step?.timeLimit ?? 30;
+      nextTimeRemaining = step?.timeLimit ?? 30;
     }
 
     set({
       questionNumber: nextNum,
       currentQuestion: null,
-      timeRemaining: timeLimit,
+      timeRemaining: nextTimeRemaining,
     });
   },
 
@@ -141,6 +141,12 @@ export const useGameStore = create<GameStore>()((set, get) => ({
       totalAnswered: state.totalAnswered + 1,
       correctAnswers: isCorrect ? state.correctAnswers + 1 : state.correctAnswers,
       score: isCorrect ? state.score + points : state.score,
+    }));
+  },
+
+  applyScoreBonus: (points) => {
+    set((state) => ({
+      score: state.score + Math.max(0, points),
     }));
   },
 
