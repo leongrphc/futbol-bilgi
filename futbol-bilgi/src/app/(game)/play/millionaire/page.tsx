@@ -73,9 +73,7 @@ export default function MillionairePage() {
 
   // User store — economy integration
   const user = useUserStore((s) => s.user);
-  const addXP = useUserStore((s) => s.addXP);
-  const updateCoins = useUserStore((s) => s.updateCoins);
-  const updateEnergy = useUserStore((s) => s.updateEnergy);
+  const setUser = useUserStore((s) => s.setUser);
   const incrementQuestionsAnswered = useUserStore((s) => s.incrementQuestionsAnswered);
 
   // Local state
@@ -138,16 +136,17 @@ export default function MillionairePage() {
     });
   }, []);
 
-  const handleTimeExpired = useCallback(() => {
+  const handleTimeExpired = useCallback(async () => {
     if (phaseRef.current === 'playing') {
       const finalScore = safePointReachedRef.current;
       const xp = calculateXP(finalScore, 'millionaire');
       const coins = calculateCoins(finalScore, 'millionaire');
       trackMillionaireCompleted('timeout', finalScore, xp, coins);
+      const data = await finalizeMillionaire('timeout', finalScore, correctAnswersRef.current, totalAnsweredRef.current);
       endGame('timeout', xp, coins);
-      awardRewards(xp, coins);
+      applyPersistedRewards(data?.profile ?? null, xp, coins);
     }
-  }, [trackMillionaireCompleted, endGame, awardRewards]);
+  }, [trackMillionaireCompleted, endGame]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -167,19 +166,31 @@ export default function MillionairePage() {
   // Initialize Game — with energy check
   // ==========================================
 
-  const initializeGame = useCallback(() => {
+  const initializeGame = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+
+    const response = await fetch('/api/game/millionaire', { method: 'POST' });
+    const json = await response.json();
+
+    if (!response.ok || !json.data) {
+      setShowEnergyWarning(true);
+      return;
+    }
+
     const gameQuestions = getMillionaireQuestions();
     setQuestions(gameQuestions);
 
-    const sessionId = `session_${Date.now()}`;
+    const sessionId = json.data.sessionId as string;
     resetGame();
     startGame('millionaire', 'turkey', sessionId);
     trackMillionaireStarted(sessionId);
-
-    // Deduct energy
-    if (user) {
-      updateEnergy(-ENERGY_CONFIG.cost_millionaire);
-    }
+    sessionIdRef.current = sessionId;
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
 
     if (gameQuestions.length > 0) {
       setCurrentQuestion(gameQuestions[0]);
@@ -190,31 +201,55 @@ export default function MillionairePage() {
         timer.start();
       }, 500);
     }
-  }, [resetGame, startGame, setCurrentQuestion, timer, user, updateEnergy]);
+  }, [resetGame, startGame, setCurrentQuestion, timer, trackMillionaireStarted, setUser, user]);
 
 
   // ==========================================
   // Handle Answer Selection
   // ==========================================
 
-  function awardRewards(xp: number, coins: number) {
-    if (!user) {
+  function applyPersistedRewards(profile: typeof user, xp: number, coins: number) {
+    if (!user || !profile) {
       setPhase('result');
       return;
     }
 
     const currentLevel = calculateLevel(user.xp).level;
-    const newLevel = calculateLevel(user.xp + xp).level;
+    const newLevel = calculateLevel(profile.xp).level;
     const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
 
-    addXP(xp);
-    updateCoins(coins);
+    setUser({
+      ...user,
+      ...profile,
+    });
     setPendingRewards({ xp, coins, levelUp });
     setShowRewardOverlay(true);
   }
 
-  function handleCorrectAnswer() {
-    // Check if this was the last question (WIN!)
+  async function finalizeMillionaire(resultValue: 'win' | 'loss' | 'timeout', finalScore: number, finalCorrectAnswers: number, finalTotalAnswered: number) {
+    const response = await fetch('/api/game/millionaire', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: sessionIdRef.current,
+        result: resultValue,
+        score: finalScore,
+        correctAnswers: finalCorrectAnswers,
+        totalAnswered: finalTotalAnswered,
+        safePointReached: safePointReachedRef.current,
+        jokersUsed: jokers.filter((joker) => joker.isUsed).map((joker) => joker.type),
+      }),
+    });
+
+    const json = await response.json();
+    if (!response.ok || !json.data) {
+      return null;
+    }
+
+    return json.data;
+  }
+
+  async function handleCorrectAnswer() {
     if (questionNumber >= 15) {
       const xp = calculateXP(1000000, 'millionaire');
       const coins = calculateCoins(1000000, 'millionaire');
@@ -222,8 +257,9 @@ export default function MillionairePage() {
       totalAnsweredRef.current = totalAnswered + 1;
       questionNumberRef.current = questionNumber;
       trackMillionaireCompleted('win', 1000000, xp, coins);
+      const data = await finalizeMillionaire('win', 1000000, correctAnswers + 1, totalAnswered + 1);
       endGame('win', xp, coins);
-      awardRewards(xp, coins);
+      applyPersistedRewards(data?.profile ?? null, xp, coins);
       return;
     }
 
@@ -251,13 +287,14 @@ export default function MillionairePage() {
     }, 1000);
   }
 
-  function handleWrongAnswer() {
+  async function handleWrongAnswer() {
     const finalScore = safePointReached;
     const xp = calculateXP(finalScore, 'millionaire');
     const coins = calculateCoins(finalScore, 'millionaire');
     trackMillionaireCompleted('loss', finalScore, xp, coins);
+    const data = await finalizeMillionaire('loss', finalScore, correctAnswersRef.current, totalAnsweredRef.current);
     endGame('loss', xp, coins);
-    awardRewards(xp, coins);
+    applyPersistedRewards(data?.profile ?? null, xp, coins);
   }
 
   function revealAnswer(selected: 'A' | 'B' | 'C' | 'D') {
@@ -280,9 +317,9 @@ export default function MillionairePage() {
 
     setTimeout(() => {
       if (isCorrect) {
-        handleCorrectAnswer();
+        void handleCorrectAnswer();
       } else {
-        handleWrongAnswer();
+        void handleWrongAnswer();
       }
     }, 2000);
   }
@@ -415,7 +452,6 @@ export default function MillionairePage() {
   // ==========================================
 
   const handlePlayAgain = useCallback(() => {
-    // Check energy before replaying
     const currentEnergy = user?.energy ?? 0;
     if (currentEnergy < ENERGY_CONFIG.cost_millionaire) {
       setShowEnergyWarning(true);
@@ -431,29 +467,8 @@ export default function MillionairePage() {
     setDoubleAnswerActive(false);
     setFirstWrongAnswer(null);
     setShowRewardOverlay(false);
-
-    const gameQuestions = getMillionaireQuestions();
-    setQuestions(gameQuestions);
-
-    const sessionId = `session_${Date.now()}`;
-    resetGame();
-    startGame('millionaire', 'turkey', sessionId);
-    trackMillionaireStarted(sessionId);
-
-    // Deduct energy
-    if (user) {
-      updateEnergy(-ENERGY_CONFIG.cost_millionaire);
-    }
-
-    if (gameQuestions.length > 0) {
-      setCurrentQuestion(gameQuestions[0]);
-      setPhase('playing');
-      setTimeout(() => {
-        timer.reset(MILLIONAIRE_STEPS[0].timeLimit);
-        timer.start();
-      }, 500);
-    }
-  }, [resetGame, startGame, setCurrentQuestion, timer, user, updateEnergy]);
+    void initializeGame();
+  }, [initializeGame, user]);
 
   const handleGoHome = useCallback(() => {
     resetGame();
