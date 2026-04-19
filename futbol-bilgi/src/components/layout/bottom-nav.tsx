@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Gamepad2, Trophy, User, Shield } from 'lucide-react';
+import { Home, Gamepad2, Trophy, User, Shield, Palette } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { trackEvent } from '@/lib/analytics';
@@ -32,6 +32,11 @@ const navItems = [
     label: 'Profil',
     href: '/profile',
     icon: User,
+  },
+  {
+    label: 'Mağaza',
+    href: '/themes',
+    icon: Palette,
   },
   {
     label: 'Admin',

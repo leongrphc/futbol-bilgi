@@ -152,6 +152,36 @@ export default function ThemesPage() {
         )}
 
         <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold text-text-primary">Koleksiyonum</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {THEME_DEFINITIONS.filter((theme) => {
+              const item = itemByThemeKey[theme.key];
+              return item ? ownedItemIds.has(item.id) : theme.key === 'dark';
+            }).map((theme) => {
+              const item = itemByThemeKey[theme.key];
+              const equipped = !!item && equippedItem?.item_id === item.id;
+
+              return (
+                <Card key={`owned-${theme.key}`} padding="lg" className="space-y-4">
+                  <div className="h-20 rounded-2xl" style={{ background: `linear-gradient(135deg, ${theme.preview.background} 0%, ${theme.preview.primary} 55%, ${theme.preview.secondary} 100%)` }} />
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="font-display text-lg font-semibold text-text-primary">{theme.label}</h3>
+                      <p className="mt-1 text-sm text-text-secondary">{theme.description}</p>
+                    </div>
+                    {equipped && <span className="text-xs font-semibold text-success">Aktif</span>}
+                  </div>
+                  <Button variant={equipped ? 'secondary' : 'primary'} onClick={() => equipTheme(theme.key)} disabled={!item}>
+                    <Check className="h-4 w-4" />
+                    {equipped ? 'Kuşanıldı' : 'Kuşan'}
+                  </Button>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-text-primary">Mağaza</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {THEME_DEFINITIONS.map((theme) => {
