@@ -19,6 +19,7 @@ export const metadata: Metadata = {
     default: 'FutbolBilgi - Futbol Bilgi Yarismasi',
     template: '%s | FutbolBilgi',
   },
+  applicationName: 'FutbolBilgi',
   description:
     'Futbol bilgini test et! Turkiye ve dunya futbolu hakkinda binlerce soru, milyoner modu, duello ve daha fazlasi.',
   keywords: [
@@ -33,6 +34,11 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: 'FutbolBilgi' }],
   creator: 'FutbolBilgi',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'FutbolBilgi',
+  },
   openGraph: {
     type: 'website',
     locale: 'tr_TR',

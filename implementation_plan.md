@@ -859,7 +859,7 @@ src/
 - [x] Basit leaderboard
 - [x] Günlük giriş ödülü
 - [x] Temel profil sayfası
-- [ ] PWA desteği
+- [x] PWA desteği
 
 ### Faz 2 — Sosyal & Rekabet (6-8 hafta)
 - [ ] Düello modu (PvP)
