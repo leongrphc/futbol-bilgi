@@ -210,17 +210,26 @@ function RewardItem({ icon, value, label, color, delay }: RewardItemProps) {
 // Floating Particles — decorative confetti
 // ==========================================
 
-function FloatingParticles() {
-  const particles = Array.from({ length: 12 }, (_, i) => ({
-    id: i,
-    x: (Math.random() - 0.5) * 300,
-    y: (Math.random() - 0.5) * 300,
-    size: Math.random() * 8 + 4,
-    delay: Math.random() * 0.5,
-    emoji: ['⭐', '🪙', '✨', '🏆'][Math.floor(Math.random() * 4)],
-  }));
+const PARTICLES = [
+  { id: 0, x: -120, y: -80, size: 10, delay: 0.05, emoji: '⭐' },
+  { id: 1, x: 90, y: -110, size: 8, delay: 0.12, emoji: '🪙' },
+  { id: 2, x: -150, y: 40, size: 12, delay: 0.18, emoji: '✨' },
+  { id: 3, x: 140, y: 20, size: 9, delay: 0.24, emoji: '🏆' },
+  { id: 4, x: -60, y: -140, size: 7, delay: 0.08, emoji: '⭐' },
+  { id: 5, x: 35, y: -95, size: 11, delay: 0.14, emoji: '✨' },
+  { id: 6, x: -95, y: 110, size: 8, delay: 0.22, emoji: '🪙' },
+  { id: 7, x: 115, y: 125, size: 10, delay: 0.28, emoji: '🏆' },
+  { id: 8, x: -170, y: -10, size: 6, delay: 0.1, emoji: '✨' },
+  { id: 9, x: 165, y: -35, size: 7, delay: 0.16, emoji: '⭐' },
+  { id: 10, x: -25, y: 145, size: 9, delay: 0.2, emoji: '🪙' },
+  { id: 11, x: 55, y: 155, size: 8, delay: 0.26, emoji: '🏆' },
+];
 
+function FloatingParticles() {
   return (
+     <div className="pointer-events-none absolute inset-0">
+-      {particles.map((p) => (
++      {PARTICLES.map((p) => (
     <div className="pointer-events-none absolute inset-0">
       {particles.map((p) => (
         <motion.div

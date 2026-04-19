@@ -2,31 +2,25 @@ import { useState, useEffect } from 'react';
 import { useUserStore } from '../stores/user-store';
 import { registerServiceWorker, requestNotificationPermission, urlBase64ToUint8Array } from '../utils/notifications';
 
+const isPushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+
 export function useNotifications() {
-  const [isSupported, setIsSupported] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [isSupported, setIsSupported] = useState(isPushSupported);
+  const [permission, setPermission] = useState<NotificationPermission>(typeof window !== 'undefined' ? Notification.permission : 'default');
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(isPushSupported);
 
   const notificationsEnabled = useUserStore((state) => state.user?.settings?.notifications_enabled);
   const updateSettings = useUserStore((state) => state.updateSettings);
 
   useEffect(() => {
-    // Check if push messaging is supported
-    const isPushSupported = typeof window !== 'undefined' &&
-      'serviceWorker' in navigator &&
-      'PushManager' in window;
-
-    setIsSupported(isPushSupported);
-
-    if (isPushSupported) {
-      setPermission(Notification.permission);
-      registerServiceWorker().finally(() => {
-        checkSubscription();
-      });
-    } else {
-      setIsLoading(false);
+    if (!isPushSupported) {
+      return;
     }
+
+    registerServiceWorker().finally(() => {
+      checkSubscription();
+    });
   }, []);
 
   const checkSubscription = async () => {
