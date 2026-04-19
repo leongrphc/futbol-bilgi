@@ -10,6 +10,7 @@
   "theme_color": "#0d1117",
   "background_color": "#0d1117",
   "categories": ["games", "sports", "education"],
+  "gcm_sender_id": "103953800507",
   "icons": [
     {
       "src": "/icon-192.png",

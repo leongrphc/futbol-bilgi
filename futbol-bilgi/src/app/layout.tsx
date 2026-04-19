@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Outfit } from 'next/font/google';
+import { AuthProvider } from '@/components/providers/auth-provider';
+import { NotificationProvider } from '@/components/providers/notification-provider';
 import './globals.css';
 
 const inter = Inter({
@@ -80,7 +82,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-dvh bg-bg-primary text-text-primary antialiased">
-        {children}
+        <AuthProvider>
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
+        </AuthProvider>
       </body>
     </html>
   );

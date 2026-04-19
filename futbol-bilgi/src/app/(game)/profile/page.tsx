@@ -43,6 +43,7 @@ import { useAchievementStore } from '@/lib/stores/achievement-store';
 import { evaluateAchievementProgress } from '@/lib/achievements/evaluate';
 import { AchievementStrip } from '@/components/achievement/achievement-strip';
 import { updateAchievementStatsFromStores } from '@/lib/achievements/sync';
+import { useNotifications } from '@/lib/hooks/use-notifications';
 
 function getUnlockedTitles(keys: string[]) {
   return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
@@ -82,6 +83,7 @@ export default function ProfilePage() {
   const clearNewlyUnlocked = useAchievementStore((state) => state.clearNewlyUnlocked);
   const socialStore = useSocialStore();
   const leagueStore = useLeagueStore();
+  const { toggleSubscription, isSupported } = useNotifications();
   const updateGems = useUserStore((state) => state.updateGems);
   const addXP = useUserStore((state) => state.addXP);
   const updateCoins = useUserStore((state) => state.updateCoins);
@@ -613,7 +615,13 @@ export default function ProfilePage() {
               </button>
 
               <button
-                onClick={() => updateSettings({ notifications_enabled: !user.settings.notifications_enabled })}
+                onClick={() => {
+                  if (isSupported) {
+                    toggleSubscription();
+                  } else {
+                    alert('Tarayıcınız bildirimleri desteklemiyor.');
+                  }
+                }}
                 className="w-full flex items-center justify-between p-3 rounded-xl bg-bg-primary hover:bg-bg-elevated transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -622,7 +630,7 @@ export default function ProfilePage() {
                   ) : (
                     <BellOff className="w-5 h-5 text-text-muted" />
                   )}
-                  <span className="text-text-primary">Bildirimler</span>
+                  <span className="text-text-primary">Bildirimler {isSupported ? '' : '(Desteklenmiyor)'}</span>
                 </div>
                 <div className={cn('w-12 h-6 rounded-full transition-colors relative', user.settings.notifications_enabled ? 'bg-primary-500' : 'bg-bg-elevated')}>
                   <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white transition-transform', user.settings.notifications_enabled ? 'right-1' : 'left-1')} />
