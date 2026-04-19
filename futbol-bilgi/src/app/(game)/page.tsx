@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -124,7 +124,9 @@ export default function DashboardPage() {
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
   const [adMessage, setAdMessage] = useState<string | null>(null);
+  const [iapMessage, setIapMessage] = useState<string | null>(null);
   const [claimingRewardType, setClaimingRewardType] = useState<string | null>(null);
+  const [purchasingProductId, setPurchasingProductId] = useState<string | null>(null);
   const [rewardData, setRewardData] = useState<{
     xp: number;
     coins: number;
@@ -234,6 +236,34 @@ export default function DashboardPage() {
     }
 
     setClaimingRewardType(null);
+  };
+
+  const handlePurchaseProduct = async (productId: 'gems_small' | 'gems_medium' | 'gems_large' | 'starter_pack') => {
+    if (!user) return;
+
+    setPurchasingProductId(productId);
+    setIapMessage(null);
+
+    const response = await fetch('/api/iap/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId }),
+    });
+
+    const json = await response.json();
+
+    if (!response.ok || !json.data) {
+      setIapMessage(json.error ?? 'Satın alma başarısız oldu.');
+      setPurchasingProductId(null);
+      return;
+    }
+
+    setUser({
+      ...user,
+      ...json.data.profile,
+    });
+    setIapMessage(`${json.data.purchase.label} hesabına eklendi.`);
+    setPurchasingProductId(null);
   };
 
   const handleClaimDailyReward = async () => {
@@ -382,6 +412,58 @@ export default function DashboardPage() {
             </Button>
           </div>
           {adMessage && <p className="mt-3 text-xs text-text-secondary">{adMessage}</p>}
+        </Card>
+      </motion.div>
+
+      <motion.div variants={itemVariants} className="mb-6">
+        <Card padding="md">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs text-text-secondary">Mock IAP</p>
+              <h2 className="mt-1 font-display text-lg font-bold text-text-primary">Gem Paketleri</h2>
+              <p className="mt-1 text-xs text-text-secondary">Gerçek ödeme olmadan sandbox satın alma akışı.</p>
+            </div>
+            <ShoppingBag className="h-6 w-6 text-primary-500" />
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">Küçük Paket</p>
+              <p className="text-xs text-text-secondary">50 gem</p>
+              <Button size="sm" fullWidth onClick={() => handlePurchaseProduct('gems_small')} isLoading={purchasingProductId === 'gems_small'}>
+                Satın Al
+              </Button>
+            </Card>
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">Orta Paket</p>
+              <p className="text-xs text-text-secondary">200 gem</p>
+              <Button size="sm" fullWidth onClick={() => handlePurchaseProduct('gems_medium')} isLoading={purchasingProductId === 'gems_medium'}>
+                Satın Al
+              </Button>
+            </Card>
+            <Card padding="sm" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">Büyük Paket</p>
+              <p className="text-xs text-text-secondary">500 gem</p>
+              <Button size="sm" fullWidth onClick={() => handlePurchaseProduct('gems_large')} isLoading={purchasingProductId === 'gems_large'}>
+                Satın Al
+              </Button>
+            </Card>
+            <Card padding="sm" variant="highlighted" className="space-y-2">
+              <p className="font-display text-sm font-bold text-text-primary">Starter Pack</p>
+              <p className="text-xs text-text-secondary">100 gem + 5000 coin</p>
+              <Button
+                size="sm"
+                fullWidth
+                variant={user.settings.purchases?.starter_pack_claimed ? 'secondary' : 'primary'}
+                onClick={() => handlePurchaseProduct('starter_pack')}
+                isLoading={purchasingProductId === 'starter_pack'}
+                disabled={user.settings.purchases?.starter_pack_claimed}
+              >
+                {user.settings.purchases?.starter_pack_claimed ? 'Alındı' : 'Satın Al'}
+              </Button>
+            </Card>
+          </div>
+          {iapMessage && <p className="mt-3 text-xs text-text-secondary">{iapMessage}</p>}
         </Card>
       </motion.div>
 
