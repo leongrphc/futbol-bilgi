@@ -4,10 +4,6 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import type { QuestionOption } from '@/types';
 
-// ==========================================
-// Answer Option — Single answer button
-// ==========================================
-
 type AnswerState = 'default' | 'selected' | 'correct' | 'wrong' | 'eliminated';
 
 interface AnswerOptionProps {
@@ -20,10 +16,10 @@ interface AnswerOptionProps {
 
 const stateStyles: Record<AnswerState, string> = {
   default: 'border-white/[0.08] bg-bg-elevated hover:border-primary-500/50 hover:bg-bg-elevated/80 active:scale-[0.98]',
-  selected: 'border-secondary-500 bg-secondary-500/10 ring-1 ring-secondary-500/30',
-  correct: 'border-success bg-success/15 ring-1 ring-success/30',
-  wrong: 'border-danger bg-danger/15 ring-1 ring-danger/30',
-  eliminated: 'border-white/[0.04] bg-bg-primary/50 opacity-30 pointer-events-none',
+  selected: 'border-secondary-500 bg-secondary-500/12 ring-2 ring-secondary-500/30 shadow-lg shadow-secondary-500/10',
+  correct: 'border-success bg-success/15 ring-2 ring-success/30 glow-green',
+  wrong: 'border-danger bg-danger/15 ring-2 ring-danger/30 glow-danger',
+  eliminated: 'border-white/[0.04] bg-bg-primary/50 opacity-30 pointer-events-none blur-[0.5px]',
 };
 
 const keyStyles: Record<AnswerState, string> = {
@@ -34,7 +30,85 @@ const keyStyles: Record<AnswerState, string> = {
   eliminated: 'bg-bg-card/50 text-text-muted',
 };
 
-export function AnswerOption({ option, state, disabled, onSelect, showDoubleAnswer }: AnswerOptionProps) {
+const optionVariants = {
+  initial: { opacity: 0, x: -20, scale: 0.98 },
+  animate: { opacity: 1, x: 0, scale: 1 },
+  selected: { scale: 1.01, y: -1 },
+  correct: { scale: [1, 1.02, 1], y: [0, -2, 0] },
+  wrong: { x: [0, -4, 4, -3, 3, 0] },
+  eliminated: { opacity: 0.25, scale: 0.98 },
+};
+
+const keyBadgeVariants = {
+  correct: { scale: [1, 1.18, 1], rotate: [0, -6, 0] },
+  wrong: { x: [0, -3, 3, -3, 3, 0], rotate: [0, -4, 4, -2, 2, 0] },
+};
+
+const indicatorTransition = {
+  type: 'spring' as const,
+  stiffness: 320,
+  damping: 20,
+};
+
+function getMotionState(state: AnswerState) {
+  switch (state) {
+    case 'selected':
+      return optionVariants.selected;
+    case 'correct':
+      return optionVariants.correct;
+    case 'wrong':
+      return optionVariants.wrong;
+    case 'eliminated':
+      return optionVariants.eliminated;
+    default:
+      return optionVariants.animate;
+  }
+}
+
+function getTextClass(state: AnswerState) {
+  switch (state) {
+    case 'correct':
+      return 'text-success';
+    case 'wrong':
+      return 'text-danger';
+    case 'eliminated':
+      return 'text-text-muted line-through';
+    default:
+      return 'text-text-primary';
+  }
+}
+
+function renderIndicator(state: AnswerState) {
+  if (state === 'correct') {
+    return (
+      <motion.span
+        initial={{ scale: 0, rotate: -12, opacity: 0 }}
+        animate={{ scale: 1, rotate: 0, opacity: 1 }}
+        transition={indicatorTransition}
+        className="text-lg"
+      >
+        ✅
+      </motion.span>
+    );
+  }
+
+  if (state === 'wrong') {
+    return (
+      <motion.span
+        initial={{ scale: 0, rotate: -12, opacity: 0 }}
+        animate={{ scale: 1, rotate: 0, opacity: 1 }}
+        transition={indicatorTransition}
+        className="text-lg"
+      >
+        ❌
+      </motion.span>
+    );
+  }
+
+  return null;
+}
+
+export function AnswerOption({ option, state, disabled, onSelect }: AnswerOptionProps) {
   return (
     <motion.button
       className={cn(
@@ -45,75 +119,34 @@ export function AnswerOption({ option, state, disabled, onSelect, showDoubleAnsw
       onClick={() => onSelect(option.key)}
       disabled={disabled || state === 'eliminated'}
       whileTap={state === 'default' && !disabled ? { scale: 0.97 } : {}}
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3 }}
+      initial={optionVariants.initial}
+      animate={getMotionState(state)}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
     >
-      {/* Key badge (A, B, C, D) */}
       <motion.div
         className={cn(
           'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg font-display text-sm font-bold',
           keyStyles[state]
         )}
-        animate={
-          state === 'correct'
-            ? { scale: [1, 1.2, 1] }
-            : state === 'wrong'
-              ? { x: [0, -3, 3, -3, 3, 0] }
-              : {}
-        }
+        animate={state === 'correct' ? keyBadgeVariants.correct : state === 'wrong' ? keyBadgeVariants.wrong : {}}
         transition={{ duration: 0.4 }}
       >
         {option.key}
       </motion.div>
 
-      {/* Answer text */}
-      <span
-        className={cn(
-          'flex-1 text-sm font-medium',
-          state === 'correct'
-            ? 'text-success'
-            : state === 'wrong'
-              ? 'text-danger'
-              : state === 'eliminated'
-                ? 'text-text-muted line-through'
-                : 'text-text-primary'
-        )}
-      >
+      <span className={cn('flex-1 text-sm font-medium', getTextClass(state))}>
         {option.text}
       </span>
 
-      {/* Correct/wrong indicator */}
-      {state === 'correct' && (
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-lg"
-        >
-          ✅
-        </motion.span>
-      )}
-      {state === 'wrong' && (
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-lg"
-        >
-          ❌
-        </motion.span>
-      )}
+      {renderIndicator(state)}
     </motion.button>
   );
 }
 
-// ==========================================
-// Answer Grid — All 4 options
-// ==========================================
-
 interface AnswerGridProps {
   options: QuestionOption[];
   selectedAnswer: 'A' | 'B' | 'C' | 'D' | null;
-  correctAnswer: 'A' | 'B' | 'C' | 'D' | null; // null while unrevealed
+  correctAnswer: 'A' | 'B' | 'C' | 'D' | null;
   eliminatedOptions: ('A' | 'B' | 'C' | 'D')[];
   disabled: boolean;
   onSelect: (key: 'A' | 'B' | 'C' | 'D') => void;
@@ -147,7 +180,7 @@ export function AnswerGrid({
           key={option.key}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: index * 0.08 }}
+          transition={{ duration: 0.28, delay: index * 0.08 }}
         >
           <AnswerOption
             option={option}
