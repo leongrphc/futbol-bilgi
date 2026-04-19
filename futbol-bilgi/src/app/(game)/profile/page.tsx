@@ -44,6 +44,8 @@ import { evaluateAchievementProgress } from '@/lib/achievements/evaluate';
 import { AchievementStrip } from '@/components/achievement/achievement-strip';
 import { updateAchievementStatsFromStores } from '@/lib/achievements/sync';
 import { useNotifications } from '@/lib/hooks/use-notifications';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 function getUnlockedTitles(keys: string[]) {
   return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
@@ -178,7 +180,9 @@ export default function ProfilePage() {
   }, [profiles, acceptedFriends, user.id]);
 
   const handleLogout = () => {
+    trackEvent(ANALYTICS_EVENTS.PROFILE_ACTION, { action: 'logout_clicked' });
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
+      trackEvent(ANALYTICS_EVENTS.PROFILE_ACTION, { action: 'logout_confirmed' });
       clearUser();
     }
   };

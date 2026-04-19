@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { SeasonalLeaderboard } from '@/components/league/seasonal-leaderboard';
 import { ShareButton } from '@/components/social/share-button';
 import { buildFriendLeaderboardShare } from '@/lib/utils/share';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { cn } from '@/lib/utils/cn';
 import { MOCK_SOCIAL_PLAYERS } from '@/lib/data/mock-social';
 import type { LeagueTier } from '@/types';
@@ -223,7 +225,13 @@ export default function LeaderboardPage() {
               {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setPeriod(p)}
+                  onClick={() => {
+                    setPeriod(p);
+                    trackEvent(ANALYTICS_EVENTS.LEADERBOARD_FILTER_CHANGED, {
+                      filter: 'period',
+                      value: p,
+                    });
+                  }}
                   className={cn(
                     'py-2 px-3 rounded-lg text-sm font-semibold transition-all',
                     period === p
@@ -244,7 +252,13 @@ export default function LeaderboardPage() {
               {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
                 <button
                   key={m}
-                  onClick={() => setMode(m)}
+                  onClick={() => {
+                    setMode(m);
+                    trackEvent(ANALYTICS_EVENTS.LEADERBOARD_FILTER_CHANGED, {
+                      filter: 'mode',
+                      value: m,
+                    });
+                  }}
                   className={cn(
                     'py-2 px-3 rounded-lg text-sm font-semibold transition-all',
                     mode === m
@@ -265,7 +279,13 @@ export default function LeaderboardPage() {
               {(Object.keys(SCOPE_LABELS) as Scope[]).map((value) => (
                 <button
                   key={value}
-                  onClick={() => setScope(value)}
+                  onClick={() => {
+                    setScope(value);
+                    trackEvent(ANALYTICS_EVENTS.LEADERBOARD_FILTER_CHANGED, {
+                      filter: 'scope',
+                      value,
+                    });
+                  }}
                   className={cn(
                     'py-2 px-3 rounded-lg text-sm font-semibold transition-all',
                     scope === value

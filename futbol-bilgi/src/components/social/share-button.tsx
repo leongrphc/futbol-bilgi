@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Share2, Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { shareContent, type SharePayload } from '@/lib/utils/share';
 
 interface ShareButtonProps {
@@ -24,7 +26,13 @@ export function ShareButton({
 
   const handleShare = async () => {
     setState('loading');
+    trackEvent(ANALYTICS_EVENTS.SHARE_CLICKED, { label, share_title: payload.title });
     const result = await shareContent(payload);
+    trackEvent(ANALYTICS_EVENTS.SHARE_COMPLETED, {
+      label,
+      share_title: payload.title,
+      method: result.method,
+    });
     setState(result.method === 'clipboard' ? 'copied' : 'shared');
     setTimeout(() => setState('idle'), 1800);
   };

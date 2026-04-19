@@ -1,10 +1,19 @@
 'use client';
 
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 export default function DailyPage() {
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.DAILY_MODE_VIEWED, {
+      status: 'coming_soon',
+    });
+  }, []);
+
   return (
     <div className="min-h-screen p-4 pb-24">
       <motion.div
