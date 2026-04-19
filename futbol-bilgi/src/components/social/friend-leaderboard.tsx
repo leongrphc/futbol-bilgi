@@ -3,6 +3,8 @@
 import { Trophy } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
+import { ShareButton } from '@/components/social/share-button';
+import { buildFriendLeaderboardShare } from '@/lib/utils/share';
 import type { LeagueTier } from '@/types';
 import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 
@@ -23,9 +25,22 @@ interface FriendLeaderboardProps {
 export function FriendLeaderboard({ entries }: FriendLeaderboardProps) {
   return (
     <Card padding="lg">
-      <div className="mb-4 flex items-center gap-2">
-        <Trophy className="h-5 w-5 text-secondary-500" />
-        <h3 className="font-display text-lg font-semibold text-text-primary">Arkadaş Sıralaması</h3>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Trophy className="h-5 w-5 text-secondary-500" />
+          <h3 className="font-display text-lg font-semibold text-text-primary">Arkadaş Sıralaması</h3>
+        </div>
+        <ShareButton
+          payload={buildFriendLeaderboardShare({
+            title: 'Arkadaş Sıralamam',
+            leaderName: entries[0]?.username ?? 'Oyuncu',
+            leaderScore: entries[0]?.score ?? 0,
+            playerCount: entries.length,
+          })}
+          label="Paylaş"
+          variant="ghost"
+          size="sm"
+        />
       </div>
 
       <div className="space-y-2">

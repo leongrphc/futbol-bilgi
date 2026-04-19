@@ -2,6 +2,8 @@
 
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ShareButton } from '@/components/social/share-button';
+import { buildFriendLeaderboardShare } from '@/lib/utils/share';
 import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import type { LeagueTier } from '@/types';
 
@@ -18,9 +20,22 @@ interface SeasonalRow {
 export function SeasonalLeaderboard({ rows }: { rows: SeasonalRow[] }) {
   return (
     <Card padding="lg">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="font-display text-lg font-semibold text-text-primary">Sezon Sıralaması</h3>
-        <span className="text-xs text-text-secondary">Puan {'>'} Galibiyet {'>'} Güncelleme</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-secondary">Puan {'>'} Galibiyet {'>'} Güncelleme</span>
+          <ShareButton
+            payload={buildFriendLeaderboardShare({
+              title: 'Haftalık Lig Sıralamam',
+              leaderName: rows[0]?.username ?? 'Oyuncu',
+              leaderScore: rows[0]?.seasonScore ?? 0,
+              playerCount: rows.length,
+            })}
+            label="Paylaş"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">

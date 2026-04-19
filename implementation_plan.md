@@ -866,7 +866,7 @@ src/
 - [x] Hızlı Maç modu
 - [x] Arkadaş sistemi
 - [x] Lig yarışması (seasonal)
-- [ ] Paylaşım özellikleri
+- [x] Paylaşım özellikleri
 - [ ] Push notification
 - [ ] Achievement sistemi
 - [ ] Streak sistemi genişletme

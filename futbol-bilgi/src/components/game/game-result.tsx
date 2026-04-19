@@ -3,8 +3,25 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber, calculateAccuracy } from '@/lib/utils/game';
-import { Trophy, Star, Coins, Target, Clock, ArrowRight, Home, RotateCcw } from 'lucide-react';
+import { Trophy, Star, Coins, Target, Home, RotateCcw } from 'lucide-react';
+import { ShareButton } from '@/components/social/share-button';
+import { buildResultShare } from '@/lib/utils/share';
 import type { GameResult } from '@/types';
+import type { GameMode } from '@/types';
+
+const modeLabelMap: Record<string, string> = {
+  millionaire: 'Milyoner',
+  quick: 'Hızlı Maç',
+  duel: 'Düello',
+  daily: 'Günlük Meydan Okuma',
+};
+
+function inferMode(totalQuestions: number): GameMode {
+  if (totalQuestions === 15) return 'millionaire';
+  if (totalQuestions === 10) return 'quick';
+  if (totalQuestions === 5) return 'duel';
+  return 'daily';
+}
 
 // ==========================================
 // Game Result Screen — Score summary after game ends
@@ -73,6 +90,15 @@ export function GameResultScreen({
   const config = resultConfig[result];
   const accuracy = calculateAccuracy(correctAnswers, totalAnswered);
   const finalScore = result === 'loss' || result === 'timeout' ? safePointScore : score;
+  const modeLabel = modeLabelMap[inferMode(totalQuestions)];
+  const sharePayload = buildResultShare({
+    modeLabel,
+    score: finalScore,
+    accuracy,
+    xpEarned,
+    questionReached,
+    totalQuestions,
+  });
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
@@ -196,6 +222,10 @@ export function GameResultScreen({
               transition={{ delay: 0.6, duration: 0.8 }}
             />
           </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
+          <ShareButton payload={sharePayload} label="Sonucu Paylaş" variant="outline" size="md" fullWidth />
         </motion.div>
 
         {/* Action buttons */}

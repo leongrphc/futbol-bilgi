@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { AnswerGrid } from '@/components/game/answer-option';
 import { TimerBar } from '@/components/game/timer-bar';
 import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
+import { ShareButton } from '@/components/social/share-button';
+import { buildQuestionChallengeShare } from '@/lib/utils/share';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
@@ -468,6 +470,18 @@ export default function DuelPage() {
               <h2 className="font-display text-lg font-bold leading-snug text-text-primary">
                 {currentQuestion.question_text}
               </h2>
+              <div className="mt-4">
+                <ShareButton
+                  payload={buildQuestionChallengeShare({
+                    category: currentQuestion.category,
+                    questionText: currentQuestion.question_text,
+                  })}
+                  label="Bu Soruyu Paylaş"
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                />
+              </div>
             </Card>
 
             <AnswerGrid

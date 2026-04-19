@@ -33,6 +33,8 @@ import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import { cn } from '@/lib/utils/cn';
 import { FriendRow } from '@/components/social/friend-row';
 import { FriendLeaderboard } from '@/components/social/friend-leaderboard';
+import { ShareButton } from '@/components/social/share-button';
+import { buildProfileShare } from '@/lib/utils/share';
 import { SeasonSummaryCard } from '@/components/league/season-summary-card';
 
 const container = {
@@ -199,6 +201,21 @@ export default function ProfilePage() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-4">
+              <ShareButton
+                payload={buildProfileShare({
+                  username: user.username,
+                  accuracy,
+                  totalQuestions: user.total_questions_answered,
+                  leagueName: leagueTier.name,
+                })}
+                label="Profili Paylaş"
+                variant="outline"
+                size="sm"
+                fullWidth
+              />
             </div>
 
             <div className="mt-4">

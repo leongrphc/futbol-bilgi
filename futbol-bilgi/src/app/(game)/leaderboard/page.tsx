@@ -12,6 +12,8 @@ import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import { getLeagueZone } from '@/lib/league/ranking';
 import { Badge } from '@/components/ui/badge';
 import { SeasonalLeaderboard } from '@/components/league/seasonal-leaderboard';
+import { ShareButton } from '@/components/social/share-button';
+import { buildFriendLeaderboardShare } from '@/lib/utils/share';
 import { cn } from '@/lib/utils/cn';
 import { MOCK_SOCIAL_PLAYERS } from '@/lib/data/mock-social';
 import type { LeagueTier } from '@/types';
@@ -199,6 +201,19 @@ export default function LeaderboardPage() {
             <h1 className="font-display text-3xl font-bold text-text-primary">Sıralama</h1>
           </div>
           <p className="text-text-secondary text-sm">En iyi oyuncular arasında yerinizi alın</p>
+          <div className="mt-3 flex justify-center">
+            <ShareButton
+              payload={buildFriendLeaderboardShare({
+                title: scope === 'friends' ? 'Arkadaş Sıralamam' : 'Genel Sıralamam',
+                leaderName: rankedPlayers[0]?.username ?? user?.username ?? 'Oyuncu',
+                leaderScore: rankedPlayers[0]?.score ?? 0,
+                playerCount: rankedPlayers.length,
+              })}
+              label="Sıralamayı Paylaş"
+              variant="outline"
+              size="sm"
+            />
+          </div>
           {message && <p className="mt-3 text-sm text-text-secondary">{message}</p>}
         </motion.div>
 

@@ -3,6 +3,8 @@
 import { Trophy, Clock3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ShareButton } from '@/components/social/share-button';
+import { buildSeasonSummaryShare } from '@/lib/utils/share';
 import { LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import type { LeagueTier } from '@/types';
 
@@ -47,6 +49,21 @@ export function SeasonSummaryCard({ tier, rank, totalPlayers, seasonScore, endsA
           <p className="text-xs text-text-secondary">Bitiş</p>
           <p className="mt-1 flex items-center gap-1 text-sm font-medium text-text-primary"><Clock3 className="h-4 w-4" />{new Date(endsAt).toLocaleDateString('tr-TR')}</p>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <ShareButton
+          payload={buildSeasonSummaryShare({
+            tierName: tierConfig.name,
+            rank: rank ? `${rank}/${totalPlayers}` : '-',
+            seasonScore,
+            zoneLabel,
+          })}
+          label="Lig Durumumu Paylaş"
+          variant="outline"
+          size="sm"
+          fullWidth
+        />
       </div>
 
       <div className="mt-4 rounded-xl bg-bg-primary/60 p-3 text-sm text-text-secondary">

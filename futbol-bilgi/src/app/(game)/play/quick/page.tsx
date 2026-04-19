@@ -9,7 +9,11 @@ import { AnswerGrid } from '@/components/game/answer-option';
 import { TimerBar } from '@/components/game/timer-bar';
 import { RewardOverlay } from '@/components/game/reward-overlay';
 import { GameResultScreen } from '@/components/game/game-result';
+import { ShareButton } from '@/components/social/share-button';
 import { useGameStore } from '@/lib/stores/game-store';
+import { buildQuestionChallengeShare } from '@/lib/utils/share';
+import { Button } from '@/components/ui/button';
+import { Home } from 'lucide-react';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { QUICK_PLAY_CONFIG } from '@/lib/constants/game';
@@ -250,6 +254,18 @@ export default function QuickPage() {
             <h1 className="font-display text-xl font-bold leading-snug text-text-primary">
               {currentQuestion.question_text}
             </h1>
+            <div className="mt-4">
+              <ShareButton
+                payload={buildQuestionChallengeShare({
+                  category: currentQuestion.category,
+                  questionText: currentQuestion.question_text,
+                })}
+                label="Bu Soruyu Paylaş"
+                variant="outline"
+                size="sm"
+                fullWidth
+              />
+            </div>
           </Card>
         </motion.div>
 

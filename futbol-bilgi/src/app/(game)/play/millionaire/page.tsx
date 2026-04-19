@@ -23,6 +23,8 @@ import { JokerBar, AudienceResult, PhoneResult } from '@/components/game/joker-b
 import { PrizeLadder, MiniPrize } from '@/components/game/prize-ladder';
 import { GameResultScreen } from '@/components/game/game-result';
 import { RewardOverlay, EnergyWarning } from '@/components/game/reward-overlay';
+import { ShareButton } from '@/components/social/share-button';
+import { buildQuestionChallengeShare } from '@/lib/utils/share';
 
 import type { Question, JokerType } from '@/types';
 
@@ -618,6 +620,19 @@ export default function MillionairePage() {
           <span className="font-mono text-sm font-bold text-secondary-500">
             {currentStep ? formatNumber(currentStep.points) : '0'} puan
           </span>
+        </div>
+
+        <div className="mt-4">
+          <ShareButton
+            payload={buildQuestionChallengeShare({
+              category: currentQuestion.category,
+              questionText: currentQuestion.question_text,
+            })}
+            label="Bu Soruyu Paylaş"
+            variant="outline"
+            size="sm"
+            fullWidth
+          />
         </div>
       </motion.div>
 
