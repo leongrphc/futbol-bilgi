@@ -11,6 +11,7 @@ interface RawThemeShopItem {
   price_coins: number | null;
   price_gems: number | null;
   is_active: boolean;
+  is_premium: boolean;
   created_at: string;
 }
 
@@ -119,7 +120,7 @@ export function mapThemeShopItem(item: RawThemeShopItem): ShopItem | null {
     image_url: item.preview_url,
     rarity: THEME_DEFINITION_MAP[themeKey].rarity,
     is_available: item.is_active,
-    metadata: { themeKey },
+    metadata: { themeKey, isPremium: item.is_premium },
     created_at: item.created_at,
   };
 }
