@@ -37,6 +37,7 @@ import { ShareButton } from '@/components/social/share-button';
 import { buildProfileShare } from '@/lib/utils/share';
 import { SeasonSummaryCard } from '@/components/league/season-summary-card';
 import { AchievementCard } from '@/components/achievement/achievement-card';
+import { StreakCard } from '@/components/streak/streak-card';
 import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements/definitions';
 import { useAchievementStore } from '@/lib/stores/achievement-store';
 import { evaluateAchievementProgress } from '@/lib/achievements/evaluate';
@@ -302,6 +303,10 @@ export default function ProfilePage() {
             endsAt={currentSeason.ends_at}
             zone={seasonZone}
           />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <StreakCard />
         </motion.div>
 
         <motion.div variants={item}>

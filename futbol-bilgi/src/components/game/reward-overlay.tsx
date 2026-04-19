@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, Coins, TrendingUp, Zap } from 'lucide-react';
+import { Star, Coins, TrendingUp, Zap, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 // ==========================================
@@ -14,6 +14,8 @@ interface RewardOverlayProps {
   coins: number;
   levelUp?: { from: number; to: number } | null;
   achievementTitle?: string | null;
+  streakUp?: { days: number } | null;
+  streakMilestone?: { days: number } | null;
   onComplete?: () => void;
 }
 
@@ -23,6 +25,8 @@ export function RewardOverlay({
   coins,
   levelUp = null,
   achievementTitle = null,
+  streakUp = null,
+  streakMilestone = null,
   onComplete,
 }: RewardOverlayProps) {
   return (
@@ -83,6 +87,37 @@ export function RewardOverlay({
               >
                 <p className="text-xs font-medium text-secondary-500">Yeni Başarım</p>
                 <p className="font-display text-lg font-bold text-text-primary">{achievementTitle}</p>
+              </motion.div>
+            )}
+
+            {/* Streak Milestone */}
+            {streakMilestone && (
+              <motion.div
+                className="mt-2 flex items-center gap-3 rounded-2xl border border-accent-500/30 bg-accent-500/10 px-6 py-3"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.68, type: 'spring', stiffness: 200 }}
+              >
+                <Flame className="h-6 w-6 text-accent-500" />
+                <div>
+                  <p className="text-xs font-medium text-accent-500">Dönüm Noktası!</p>
+                  <p className="font-display text-lg font-bold text-text-primary">{streakMilestone.days} Günlük Seri</p>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Streak Up */}
+            {streakUp && !streakMilestone && (
+              <motion.div
+                className="mt-2 flex items-center gap-2 rounded-xl bg-bg-elevated/80 px-4 py-2"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.68, type: 'spring', stiffness: 200 }}
+              >
+                <Flame className="h-5 w-5 text-accent-500" />
+                <p className="font-display text-sm font-bold text-text-primary">
+                  Seri Devam Ediyor: {streakUp.days} Gün
+                </p>
               </motion.div>
             )}
 

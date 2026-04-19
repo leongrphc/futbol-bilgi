@@ -13,7 +13,7 @@ import { useUserStore } from '@/lib/stores/user-store';
 import { useLeagueStore } from '@/lib/stores/league-store';
 import { DAILY_CHALLENGE_CONFIG, LEAGUE_TIER_CONFIG } from '@/lib/constants/game';
 import { getLeagueZone } from '@/lib/league/ranking';
-import { calculateLevel, formatNumber } from '@/lib/utils/game';
+import { calculateLevel, formatNumber, getStreakStatus, getDailyRewardPreview, getNextStreak } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
 
 // ==========================================
@@ -103,10 +103,12 @@ export default function DashboardPage() {
   const entries = useLeagueStore((state) => state.entries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
-  const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({
+  const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null; streakUp: { days: number } | null; streakMilestone: { days: number } | null }>({
     xp: 0,
     coins: 0,
     levelUp: null,
+    streakUp: null,
+    streakMilestone: null,
   });
 
   if (!user) {
@@ -137,30 +139,30 @@ export default function DashboardPage() {
     year: 'numeric',
   });
 
-  const today = new Date();
-  const lastClaimDate = user.last_daily_claim ? new Date(user.last_daily_claim) : null;
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  const isClaimedToday = lastClaimDate?.toDateString() === today.toDateString();
-  const wasClaimedYesterday = lastClaimDate?.toDateString() === yesterday.toDateString();
-  const canClaimDailyReward = !isClaimedToday;
-  const nextStreak = !lastClaimDate ? 1 : wasClaimedYesterday ? user.streak_days + 1 : 1;
+  const { canClaimToday, activeStreak, wasClaimedYesterday } = getStreakStatus(user.last_daily_claim, user.streak_days);
+  const rewardPreview = getDailyRewardPreview(user.last_daily_claim, user.streak_days);
 
   const handleClaimDailyReward = () => {
-    if (!canClaimDailyReward) return;
+    if (!canClaimToday) return;
 
-    const xp = DAILY_CHALLENGE_CONFIG.base_xp;
-    const coins = DAILY_CHALLENGE_CONFIG.base_coins + (nextStreak * DAILY_CHALLENGE_CONFIG.streak_bonus_multiplier);
+    const { xp, coins, nextStreak } = rewardPreview;
 
     const currentLevel = calculateLevel(user.xp).level;
     const newLevel = calculateLevel(user.xp + xp).level;
     const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
 
+    // Check for streak milestones
+    const milestones = [7, 30, 100, 365];
+    const isMilestone = milestones.includes(nextStreak);
+
+    // Only show streakUp if they actually had a streak going or are starting a new one
+    const streakUp = { days: nextStreak };
+    const streakMilestone = isMilestone ? { days: nextStreak } : null;
+
     addXP(xp);
     updateCoins(coins);
     updateStreak(nextStreak);
-    setRewardData({ xp, coins, levelUp });
+    setRewardData({ xp, coins, levelUp, streakUp, streakMilestone });
     setShowRewardOverlay(true);
   };
 
@@ -230,7 +232,7 @@ export default function DashboardPage() {
                 <span className="text-xs text-text-secondary">Streak</span>
               </div>
               <div className="font-display text-lg font-bold text-text-primary">
-                {user.streak_days} gün
+                {activeStreak} gün
               </div>
             </div>
           </Card>
@@ -351,7 +353,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Daily Reward Banner */}
-      {canClaimDailyReward ? (
+      {canClaimToday ? (
         <motion.div variants={itemVariants} className="mb-6">
           <Card
             variant="highlighted"
@@ -369,7 +371,7 @@ export default function DashboardPage() {
                     Günlük Ödülünü Al!
                   </h3>
                   <p className="text-xs text-text-secondary">
-                    Bugün: +{DAILY_CHALLENGE_CONFIG.base_xp} XP, +{DAILY_CHALLENGE_CONFIG.base_coins + ((user.streak_days + 1) * DAILY_CHALLENGE_CONFIG.streak_bonus_multiplier)} coin
+                    Bugün: +{rewardPreview.xp} XP, +{rewardPreview.coins} coin
                   </p>
                 </div>
               </div>
@@ -415,6 +417,8 @@ export default function DashboardPage() {
         xp={rewardData.xp}
         coins={rewardData.coins}
         levelUp={rewardData.levelUp}
+        streakUp={rewardData.streakUp}
+        streakMilestone={rewardData.streakMilestone}
         onComplete={() => setShowRewardOverlay(false)}
       />
     </motion.div>

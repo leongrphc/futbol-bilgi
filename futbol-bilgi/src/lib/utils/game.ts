@@ -134,6 +134,78 @@ export function getStreakBonus(days: number): number {
 }
 
 /**
+ * Get streak status based on the last claim date.
+ */
+export function getStreakStatus(lastClaimDateStr: string | null, currentStreakDays: number) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const lastClaimDate = lastClaimDateStr ? new Date(lastClaimDateStr) : null;
+  if (lastClaimDate) {
+    lastClaimDate.setHours(0, 0, 0, 0);
+  }
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const isClaimedToday = lastClaimDate?.getTime() === today.getTime();
+  const wasClaimedYesterday = lastClaimDate?.getTime() === yesterday.getTime();
+
+  // If claimed today, streak is maintained.
+  // If claimed yesterday, streak is waiting to be maintained today.
+  // Otherwise, the streak is broken (or 0 if never claimed).
+  const isBroken = !isClaimedToday && !wasClaimedYesterday && lastClaimDate !== null;
+  const canClaimToday = !isClaimedToday;
+
+  return {
+    isClaimedToday,
+    wasClaimedYesterday,
+    isBroken,
+    canClaimToday,
+    activeStreak: isBroken ? 0 : currentStreakDays,
+  };
+}
+
+/**
+ * Determine the streak value that will be set upon a successful claim today.
+ */
+export function getNextStreak(lastClaimDateStr: string | null, currentStreakDays: number): number {
+  const status = getStreakStatus(lastClaimDateStr, currentStreakDays);
+  if (!status.canClaimToday) return currentStreakDays; // Already claimed
+
+  // If streak was maintained yesterday, increment it. Otherwise, start fresh at 1.
+  return status.wasClaimedYesterday ? currentStreakDays + 1 : 1;
+}
+
+/**
+ * Preview the reward for claiming today based on the streak.
+ */
+export function getDailyRewardPreview(lastClaimDateStr: string | null, currentStreakDays: number) {
+  const nextStreak = getNextStreak(lastClaimDateStr, currentStreakDays);
+
+  return {
+    xp: DAILY_CHALLENGE_CONFIG.base_xp,
+    coins: DAILY_CHALLENGE_CONFIG.base_coins + getStreakBonus(nextStreak),
+    nextStreak,
+  };
+}
+
+/**
+ * Calculate progress to the next streak milestone.
+ */
+export function getStreakMilestoneProgress(streakDays: number) {
+  const milestones = [7, 30, 100, 365];
+  const nextMilestone = milestones.find((m) => m > streakDays) ?? milestones[milestones.length - 1];
+  const progress = Math.min((streakDays / nextMilestone) * 100, 100);
+
+  return {
+    current: streakDays,
+    next: nextMilestone,
+    progress,
+  };
+}
+
+/**
  * Get the Millionaire step data for a given question number.
  */
 export function getMillionaireStep(questionNumber: number) {

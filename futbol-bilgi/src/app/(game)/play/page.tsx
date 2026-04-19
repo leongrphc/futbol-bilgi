@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { useUserStore } from '@/lib/stores/user-store';
+import { getStreakStatus, getStreakMilestoneProgress } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
 
 // ==========================================
@@ -117,6 +118,9 @@ export default function PlayPage() {
     return null;
   }
 
+  const { activeStreak, canClaimToday } = getStreakStatus(user.last_daily_claim, user.streak_days);
+  const { next: nextMilestone } = getStreakMilestoneProgress(activeStreak);
+
   return (
     <motion.div
       variants={containerVariants}
@@ -204,6 +208,28 @@ export default function PlayPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Daily Streak Info */}
+                  {mode.id === 'daily' && (
+                    <div className="mt-4 rounded-lg border border-accent-500/20 bg-accent-500/10 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🔥</span>
+                          <span className="text-sm font-bold text-accent-500">
+                            {activeStreak > 0 ? `Seri: ${activeStreak} Gün` : 'Seri Yok'}
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-accent-500/80">
+                          Hedef: {nextMilestone}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-text-secondary">
+                        {canClaimToday
+                          ? 'Bugün giriş yapıldı, ödül bekliyor!'
+                          : 'Bugünün serisi korundu.'}
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
 
                 {/* Footer */}
