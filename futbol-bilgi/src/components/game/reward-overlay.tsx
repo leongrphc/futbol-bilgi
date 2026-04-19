@@ -13,6 +13,7 @@ interface RewardOverlayProps {
   xp: number;
   coins: number;
   levelUp?: { from: number; to: number } | null;
+  achievementTitle?: string | null;
   onComplete?: () => void;
 }
 
@@ -21,6 +22,7 @@ export function RewardOverlay({
   xp,
   coins,
   levelUp = null,
+  achievementTitle = null,
   onComplete,
 }: RewardOverlayProps) {
   return (
@@ -71,6 +73,18 @@ export function RewardOverlay({
                 delay={0.5}
               />
             </div>
+
+            {achievementTitle && (
+              <motion.div
+                className="mt-2 rounded-2xl border border-secondary-500/30 bg-secondary-500/10 px-6 py-3"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.65, type: 'spring', stiffness: 200 }}
+              >
+                <p className="text-xs font-medium text-secondary-500">Yeni Başarım</p>
+                <p className="font-display text-lg font-bold text-text-primary">{achievementTitle}</p>
+              </motion.div>
+            )}
 
             {/* Level Up Banner */}
             <AnimatePresence>

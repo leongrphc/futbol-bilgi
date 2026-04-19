@@ -36,6 +36,16 @@ import { FriendLeaderboard } from '@/components/social/friend-leaderboard';
 import { ShareButton } from '@/components/social/share-button';
 import { buildProfileShare } from '@/lib/utils/share';
 import { SeasonSummaryCard } from '@/components/league/season-summary-card';
+import { AchievementCard } from '@/components/achievement/achievement-card';
+import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements/definitions';
+import { useAchievementStore } from '@/lib/stores/achievement-store';
+import { evaluateAchievementProgress } from '@/lib/achievements/evaluate';
+import { AchievementStrip } from '@/components/achievement/achievement-strip';
+import { updateAchievementStatsFromStores } from '@/lib/achievements/sync';
+
+function getUnlockedTitles(keys: string[]) {
+  return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
+}
 
 const container = {
   hidden: { opacity: 0 },
@@ -63,6 +73,19 @@ export default function ProfilePage() {
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const leagueEntries = useLeagueStore((state) => state.entries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
+  const achievementProgress = useAchievementStore((state) => state.progress);
+  const unlockedAchievements = useAchievementStore((state) => state.unlocked);
+  const newlyUnlocked = useAchievementStore((state) => state.newlyUnlocked);
+  const updateAchievementStats = useAchievementStore((state) => state.updateStats);
+  const evaluateAchievements = useAchievementStore((state) => state.evaluate);
+  const clearNewlyUnlocked = useAchievementStore((state) => state.clearNewlyUnlocked);
+  const socialStore = useSocialStore();
+  const leagueStore = useLeagueStore();
+  const updateGems = useUserStore((state) => state.updateGems);
+  const addXP = useUserStore((state) => state.addXP);
+  const updateCoins = useUserStore((state) => state.updateCoins);
+  const [appliedAchievementKeys, setAppliedAchievementKeys] = useState<string[]>([]);
+  const [achievementMessage, setAchievementMessage] = useState<string | null>(null);
   const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const sendFriendRequest = useSocialStore((state) => state.sendFriendRequest);
@@ -78,7 +101,16 @@ export default function ProfilePage() {
     if (!user) return;
     ensureCurrentUserProfile(user);
     markUserActive(user.id);
-  }, [user, ensureCurrentUserProfile, markUserActive]);
+
+    const stats = updateAchievementStatsFromStores({
+      user,
+      social: socialStore,
+      league: leagueStore,
+      currentSeasonId: currentSeason.id,
+    });
+
+    updateAchievementStats(stats);
+  }, [user, ensureCurrentUserProfile, markUserActive, updateAchievementStats, socialStore, leagueStore, currentSeason.id]);
 
   if (!user) {
     return (
@@ -165,6 +197,32 @@ export default function ProfilePage() {
   const pendingInviteCount = duelInvites.filter(
     (invite) => invite.to_user_id === user.id && invite.status === 'pending',
   ).length;
+
+  const evaluatedAchievements = evaluateAchievementProgress(
+    updateAchievementStatsFromStores({
+      user,
+      social: socialStore,
+      league: leagueStore,
+      currentSeasonId: currentSeason.id,
+    }),
+  );
+
+  useEffect(() => {
+    const rewards = evaluateAchievements();
+    if (rewards.length === 0) return;
+
+    const unapplied = rewards.filter((reward) => !appliedAchievementKeys.includes(reward.key));
+    if (unapplied.length === 0) return;
+
+    unapplied.forEach((reward) => {
+      if (reward.rewardCoins) updateCoins(reward.rewardCoins);
+      if (reward.rewardGems) updateGems(reward.rewardGems);
+      if (reward.rewardXp) addXP(reward.rewardXp);
+    });
+
+    setAppliedAchievementKeys((prev) => [...prev, ...unapplied.map((reward) => reward.key)]);
+    setAchievementMessage(`${unapplied.length} yeni başarım ödülü hesabına işlendi.`);
+  }, [evaluateAchievements, appliedAchievementKeys, updateCoins, updateGems, addXP]);
 
   return (
     <div className="min-h-screen p-4 pb-24">
@@ -458,6 +516,44 @@ export default function ProfilePage() {
 
         <motion.div variants={item}>
           <FriendLeaderboard entries={friendLeaderboardEntries} />
+        </motion.div>
+
+        <motion.div variants={item}>
+          <AchievementStrip titles={getUnlockedTitles(newlyUnlocked)} />
+        </motion.div>
+
+        {achievementMessage && (
+          <motion.div variants={item}>
+            <Card padding="md" variant="highlighted">
+              <p className="text-sm text-text-secondary">{achievementMessage}</p>
+            </Card>
+          </motion.div>
+        )}
+
+        <motion.div variants={item}>
+          <Card padding="lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold text-text-primary">Başarımlar</h2>
+              <span className="text-xs text-text-secondary">{unlockedAchievements.length}/{ACHIEVEMENT_DEFINITIONS.length} açıldı</span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {ACHIEVEMENT_DEFINITIONS.map((achievement) => {
+                const progress = achievementProgress[achievement.key] ?? evaluatedAchievements.find((item) => item.key === achievement.key)?.progress ?? 0;
+                const unlocked = unlockedAchievements.some((item) => item.key === achievement.key);
+                return (
+                  <AchievementCard
+                    key={achievement.key}
+                    name={achievement.name}
+                    description={achievement.description}
+                    tier={achievement.tier}
+                    progress={progress}
+                    target={achievement.target}
+                    unlocked={unlocked}
+                  />
+                );
+              })}
+            </div>
+          </Card>
         </motion.div>
 
         {user.favorite_team && (

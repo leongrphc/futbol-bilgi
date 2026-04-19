@@ -5,9 +5,16 @@ import { cn } from '@/lib/utils/cn';
 import { formatNumber, calculateAccuracy } from '@/lib/utils/game';
 import { Trophy, Star, Coins, Target, Home, RotateCcw } from 'lucide-react';
 import { ShareButton } from '@/components/social/share-button';
+import { AchievementStrip } from '@/components/achievement/achievement-strip';
 import { buildResultShare } from '@/lib/utils/share';
+import { useAchievementStore } from '@/lib/stores/achievement-store';
 import type { GameResult } from '@/types';
 import type { GameMode } from '@/types';
+import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements/definitions';
+
+function getUnlockedTitles(keys: string[]) {
+  return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
+}
 
 const modeLabelMap: Record<string, string> = {
   millionaire: 'Milyoner',
@@ -91,6 +98,7 @@ export function GameResultScreen({
   const accuracy = calculateAccuracy(correctAnswers, totalAnswered);
   const finalScore = result === 'loss' || result === 'timeout' ? safePointScore : score;
   const modeLabel = modeLabelMap[inferMode(totalQuestions)];
+  const newlyUnlocked = useAchievementStore((state) => state.newlyUnlocked);
   const sharePayload = buildResultShare({
     modeLabel,
     score: finalScore,
@@ -197,6 +205,8 @@ export function GameResultScreen({
             />
           </div>
         </motion.div>
+
+        <AchievementStrip titles={getUnlockedTitles(newlyUnlocked)} />
 
         {/* Progress bar — how far they got */}
         <motion.div

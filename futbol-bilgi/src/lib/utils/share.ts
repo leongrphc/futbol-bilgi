@@ -99,3 +99,14 @@ export function buildFriendLeaderboardShare(args: {
     url: getShareUrl(),
   };
 }
+
+export function buildAchievementShare(args: {
+  name: string;
+  description: string;
+}) {
+  return {
+    title: `${args.name} başarımını kazandım!`,
+    text: `FutbolBilgi'de "${args.name}" başarımını açtım. ${args.description}`,
+    url: getShareUrl(),
+  };
+}

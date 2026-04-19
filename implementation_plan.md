@@ -868,7 +868,7 @@ src/
 - [x] Lig yarışması (seasonal)
 - [x] Paylaşım özellikleri
 - [ ] Push notification
-- [ ] Achievement sistemi
+- [x] Achievement sistemi
 - [ ] Streak sistemi genişletme
 
 ### Faz 3 — Monetizasyon & Polish (4-6 hafta)
