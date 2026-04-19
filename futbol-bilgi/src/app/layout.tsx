@@ -3,6 +3,7 @@ import { Inter, Outfit } from 'next/font/google';
 import { AnalyticsProvider } from '@/components/providers/analytics-provider';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import { NotificationProvider } from '@/components/providers/notification-provider';
+import { ThemeProvider } from '@/components/providers/theme-provider';
 import './globals.css';
 
 const inter = Inter({
@@ -83,13 +84,15 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-dvh bg-bg-primary text-text-primary antialiased">
-        <AuthProvider>
-          <AnalyticsProvider>
-            <NotificationProvider>
-              {children}
-            </NotificationProvider>
-          </AnalyticsProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <AnalyticsProvider>
+              <NotificationProvider>
+                {children}
+              </NotificationProvider>
+            </AnalyticsProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

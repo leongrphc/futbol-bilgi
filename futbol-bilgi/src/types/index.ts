@@ -26,7 +26,7 @@ export type DuelStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
 
-export type ShopItemType = 'joker' | 'avatar' | 'frame' | 'energy' | 'cosmetic';
+export type ShopItemType = 'joker' | 'avatar' | 'frame' | 'energy' | 'cosmetic' | 'theme';
 
 // ---------- Database Models ----------
 
@@ -50,6 +50,8 @@ export interface User {
   total_questions_answered: number;
   total_correct_answers: number;
   settings: UserSettings;
+  inventory?: UserInventory[];
+  shop_items?: ShopItem[];
   is_premium: boolean;
   created_at: string;
   updated_at: string;

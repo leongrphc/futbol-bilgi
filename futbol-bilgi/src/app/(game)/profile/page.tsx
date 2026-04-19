@@ -618,6 +618,16 @@ export default function ProfilePage() {
                 </div>
               </button>
 
+              <Link href="/themes" className="w-full block">
+                <div className="w-full flex items-center justify-between p-3 rounded-xl bg-bg-primary hover:bg-bg-elevated transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-5 h-5 text-primary-500" />
+                    <span className="text-text-primary">Tema Mağazası</span>
+                  </div>
+                  <span className="text-sm text-text-secondary">Aç</span>
+                </div>
+              </Link>
+
               <button
                 onClick={() => {
                   if (isSupported) {

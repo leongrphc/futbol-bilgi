@@ -71,6 +71,36 @@
   --breakpoint-xl: 1440px;
 }
 
+html[data-theme='champion-night'] {
+  --color-primary-500: #ffca28;
+  --color-primary-600: #ffb300;
+  --color-secondary-500: #ffe082;
+  --color-bg-primary: #101323;
+  --color-bg-secondary: #161b2f;
+  --color-bg-card: #1f2540;
+  --color-bg-elevated: #272f52;
+}
+
+html[data-theme='emerald-flare'] {
+  --color-primary-500: #00c853;
+  --color-primary-600: #00b248;
+  --color-secondary-500: #69f0ae;
+  --color-bg-primary: #081510;
+  --color-bg-secondary: #102019;
+  --color-bg-card: #162921;
+  --color-bg-elevated: #1d342a;
+}
+
+html[data-theme='midnight-gold'] {
+  --color-primary-500: #ffb300;
+  --color-primary-600: #ff8f00;
+  --color-secondary-500: #58a6ff;
+  --color-bg-primary: #0b1320;
+  --color-bg-secondary: #121b2c;
+  --color-bg-card: #182335;
+  --color-bg-elevated: #213047;
+}
+
 /* ==========================================
    Keyframe Animations
    ========================================== */
