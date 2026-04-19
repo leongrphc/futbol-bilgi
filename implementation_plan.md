@@ -852,7 +852,7 @@ src/
 - [x] Kullanıcı kayıt/giriş (email + sosyal)
 - [x] Veritabanı şeması (13 tablo, RLS, triggers, seed data)
 - [x] Milyoner modu (tam akış)
-- [ ] Temel soru havuzu (500+ Türkiye ligi sorusu)
+- [x] Temel soru havuzu (500+ Türkiye ligi sorusu)
 - [x] Joker sistemi (3 temel joker)
 - [x] XP & seviye sistemi
 - [x] Coin ekonomisi
