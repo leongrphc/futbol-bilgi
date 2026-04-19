@@ -843,6 +843,12 @@ src/
 ## 11. Geliştirme Yol Haritası
 
 ### Faz 1 — MVP (8-10 hafta)
+- [x] Proje yapısı kurulumu (Next.js 16, Tailwind v4, TypeScript, Supabase, Zustand)
+- [x] Design system & UI bileşenleri (Button, Card, Badge, ProgressBar, Avatar)
+- [x] Tip tanımları & oyun sabitleri (types, constants, utilities)
+- [x] Supabase client/server/middleware kurulumu
+- [x] Zustand store'ları (game-store, user-store)
+- [x] Custom hook'lar (useTimer, useSound)
 - [x] Kullanıcı kayıt/giriş (email + sosyal)
 - [ ] Milyoner modu (tam akış)
 - [ ] Temel soru havuzu (500+ Türkiye ligi sorusu)
