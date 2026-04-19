@@ -81,17 +81,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updated_at?: string;
       user_metadata?: { username?: string };
     }) => {
-      const [{ data: profile, error: profileError }, themeData] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', sessionUser.id).maybeSingle(),
+      const [profileRes, themeData] = await Promise.all([
+        fetch('/api/me'),
         fetchThemeData(),
       ]);
 
-      if (!mounted) {
-        return;
-      }
+      const profileJson = profileRes.ok ? await profileRes.json() : { data: null };
+      const profile = profileJson.data ?? null;
+      const profileError = profileRes.ok ? null : profileJson.error;
 
       if (profileError) {
-        console.error('Profile error:', profileError.message);
+        console.error('Profile error:', profileError);
+      }
+
+      if (!mounted) {
+        return;
       }
 
       setUser(buildUser(sessionUser, profile, themeData));
