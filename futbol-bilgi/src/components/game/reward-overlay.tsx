@@ -227,11 +227,8 @@ const PARTICLES = [
 
 function FloatingParticles() {
   return (
-     <div className="pointer-events-none absolute inset-0">
--      {particles.map((p) => (
-+      {PARTICLES.map((p) => (
     <div className="pointer-events-none absolute inset-0">
-      {particles.map((p) => (
+      {PARTICLES.map((p) => (
         <motion.div
           key={p.id}
           className="absolute left-1/2 top-1/2 text-lg"
