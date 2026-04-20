@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Trophy, Crown, UserPlus, Swords } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
 import { useLeagueStore } from '@/lib/stores/league-store';
@@ -423,12 +424,12 @@ export default function LeaderboardPage() {
                       </span>
                     </div>
 
-                    <div className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center text-lg font-display font-bold',
-                      isCurrentUser ? 'bg-gradient-to-br from-primary-500 to-secondary-500' : 'bg-gradient-to-br from-bg-elevated to-bg-card',
-                    )}>
-                      {player.username.charAt(0).toUpperCase()}
-                    </div>
+                    <Avatar
+                      src={player.avatar_url}
+                      fallback={player.username}
+                      frame={player.avatar_frame}
+                      size="lg"
+                    />
 
                     <div className="flex-1 min-w-0">
                       <p className={cn('font-display font-semibold truncate', isCurrentUser ? 'text-primary-500' : 'text-text-primary')}>
@@ -477,7 +478,7 @@ export default function LeaderboardPage() {
   );
 }
 
-function PodiumPlayer({ player, position }: { player: { username: string; score: number; league_tier: LeagueTier }; position: 1 | 2 | 3 }) {
+function PodiumPlayer({ player, position }: { player: { username: string; score: number; league_tier: LeagueTier; avatar_url?: string | null; avatar_frame?: string | null }; position: 1 | 2 | 3 }) {
   const sizeClass = position === 1 ? 'w-20 h-20 text-3xl' : 'w-16 h-16 text-2xl';
   const borderClass = position === 1 ? 'border-warning/30' : position === 2 ? 'border-gray-400/30' : 'border-orange-600/30';
   const badgeClass = position === 1 ? 'bg-warning' : position === 2 ? 'bg-gray-400' : 'bg-orange-600';
@@ -488,8 +489,14 @@ function PodiumPlayer({ player, position }: { player: { username: string; score:
     <div className="flex-1 text-center">
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="relative">
         {position === 1 && <Crown className="w-8 h-8 text-warning mx-auto mb-1" />}
-        <div className={cn('mx-auto mb-2 rounded-full border-4 flex items-center justify-center font-display font-bold text-white bg-gradient-to-br', sizeClass, borderClass, position === 1 ? 'from-warning to-yellow-600' : position === 2 ? 'from-gray-400 to-gray-600' : 'from-orange-600 to-orange-800')}>
-          {player.username.charAt(0).toUpperCase()}
+        <div className="mx-auto mb-2 flex justify-center">
+          <Avatar
+            src={player.avatar_url ?? null}
+            fallback={player.username}
+            frame={player.avatar_frame ?? null}
+            size={position === 1 ? 'xl' : 'lg'}
+            className={cn(borderClass)}
+          />
         </div>
         <div className={cn('absolute rounded-full flex items-center justify-center text-white font-bold text-sm w-8 h-8', badgeClass, position === 1 ? 'top-8 -right-2' : '-top-2 -right-2')}>
           {position}

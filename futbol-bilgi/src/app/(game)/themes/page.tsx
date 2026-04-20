@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils/cn";
 import {
   Palette,
   Check,
@@ -113,6 +114,16 @@ const utilityItems = [
   },
 ];
 
+const SHOP_TABS = {
+  jokers: 'Jokerler',
+  energy: 'Enerji',
+  frames: 'Frame',
+  themes: 'Temalar',
+  collection: 'Koleksiyon',
+} as const;
+
+type ShopTab = keyof typeof SHOP_TABS;
+
 export default function ThemesPage() {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
@@ -120,6 +131,7 @@ export default function ThemesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [purchasingKey, setPurchasingKey] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ShopTab>('themes');
 
   useEffect(() => {
     const loadThemes = async () => {
@@ -375,7 +387,26 @@ export default function ThemesPage() {
           </Card>
         )}
 
-        <section className="space-y-3">
+        <Card padding="sm">
+          <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-5">
+            {(Object.keys(SHOP_TABS) as ShopTab[]).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm font-semibold transition-all',
+                  activeTab === tab
+                    ? 'bg-primary-500 text-white'
+                    : 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary',
+                )}
+              >
+                {SHOP_TABS[tab]}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {activeTab === 'jokers' && <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-text-primary">
             Jokerler
           </h2>
@@ -427,9 +458,9 @@ export default function ThemesPage() {
                 );
               })}
           </div>
-        </section>
+        </section>}
 
-        <section className="space-y-3">
+        {activeTab === 'energy' && <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-text-primary">
             Enerji
           </h2>
@@ -476,9 +507,9 @@ export default function ThemesPage() {
                 );
               })}
           </div>
-        </section>
+        </section>}
 
-        <section className="space-y-3">
+        {activeTab === 'frames' && <section className="space-y-3">
           <div className="flex items-center gap-2">
             <Gem className="h-5 w-5 text-secondary-500" />
             <h2 className="font-display text-lg font-semibold text-text-primary">
@@ -539,9 +570,9 @@ export default function ThemesPage() {
               );
             })}
           </div>
-        </section>
+        </section>}
 
-        <section className="space-y-3">
+        {activeTab === 'themes' && <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-text-primary">
             Temalar
           </h2>
@@ -622,7 +653,9 @@ export default function ThemesPage() {
           </div>
         </section>
 
-        <section className="space-y-3">
+        </section>}
+
+        {activeTab === 'collection' && <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold text-text-primary">
             Koleksiyonum
           </h2>
@@ -704,7 +737,7 @@ export default function ThemesPage() {
               </div>
             </div>
           )}
-        </section>
+        </section>}
       </div>
     </div>
   );

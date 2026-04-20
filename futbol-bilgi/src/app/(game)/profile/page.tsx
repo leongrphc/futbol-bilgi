@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useSocialStore } from '@/lib/stores/social-store';
 import { useLeagueStore } from '@/lib/stores/league-store';
@@ -290,17 +291,12 @@ export default function ProfilePage() {
         <motion.div variants={item}>
           <Card padding="lg" variant="elevated">
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className={cn(
-                  'w-20 h-20 rounded-full flex items-center justify-center text-3xl font-display font-bold',
-                  'bg-gradient-to-br from-primary-500 to-secondary-500',
-                )}>
-                  {user.username.charAt(0).toUpperCase()}
-                </div>
-                {user.avatar_frame && (
-                  <div className="absolute inset-0 rounded-full border-4 border-accent-500" />
-                )}
-              </div>
+              <Avatar
+                src={user.avatar_url}
+                fallback={user.username}
+                frame={user.avatar_frame}
+                size="xl"
+              />
 
               <div className="flex-1">
                 <h1 className="font-display text-2xl font-bold text-text-primary">
