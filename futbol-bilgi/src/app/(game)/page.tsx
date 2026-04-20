@@ -14,6 +14,7 @@ import { useLeagueStore } from '@/lib/stores/league-store';
 import { getLeagueZone } from '@/lib/league/ranking';
 import { calculateLevel, formatNumber, getStreakStatus, getDailyRewardPreview } from '@/lib/utils/game';
 import { cn } from '@/lib/utils/cn';
+import { useAd } from '@/lib/hooks/use-ad';
 import type { LeagueTier, UserSettings } from '@/types';
 
 const containerVariants = {
@@ -168,6 +169,7 @@ export default function DashboardPage() {
     streakUp: null,
     streakMilestone: null,
   });
+  const { showRewardedAd, isShowingRewarded } = useAd();
 
   useEffect(() => {
     if (!user) return;
@@ -226,6 +228,13 @@ export default function DashboardPage() {
   const handleClaimAdReward = async (rewardType: 'energy_refill' | 'coins_small' | 'double_answer_joker') => {
     setClaimingRewardType(rewardType);
     setAdMessage(null);
+
+    const adResult = await showRewardedAd({ placement: 'dashboard_reward' } as never);
+    if (!adResult.completed) {
+      setAdMessage(adResult.reason ?? 'Reklam yüklenemedi.');
+      setClaimingRewardType(null);
+      return;
+    }
 
     const response = await fetch('/api/ads/reward', {
       method: 'POST',
@@ -550,13 +559,13 @@ export default function DashboardPage() {
               <PlayCircle className="h-6 w-6 text-secondary-500" />
             </div>
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('energy_refill')} isLoading={claimingRewardType === 'energy_refill'}>
+              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('energy_refill')} isLoading={claimingRewardType === 'energy_refill' || isShowingRewarded}>
                 +1 Enerji
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('coins_small')} isLoading={claimingRewardType === 'coins_small'}>
+              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('coins_small')} isLoading={claimingRewardType === 'coins_small' || isShowingRewarded}>
                 +50 Coin
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('double_answer_joker')} isLoading={claimingRewardType === 'double_answer_joker'}>
+              <Button size="sm" variant="secondary" onClick={() => handleClaimAdReward('double_answer_joker')} isLoading={claimingRewardType === 'double_answer_joker' || isShowingRewarded}>
                 Çift Cevap
               </Button>
             </div>

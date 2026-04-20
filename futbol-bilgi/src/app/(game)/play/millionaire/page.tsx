@@ -27,6 +27,7 @@ import { ShareButton } from '@/components/social/share-button';
 import { buildQuestionChallengeShare } from '@/lib/utils/share';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { useAd } from '@/lib/hooks/use-ad';
 
 import type { Question, JokerType } from '@/types';
 
@@ -93,6 +94,7 @@ export default function MillionairePage() {
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
   const [isClaimingAdEnergy, setIsClaimingAdEnergy] = useState(false);
   const [pendingRewards, setPendingRewards] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({ xp: 0, coins: 0, levelUp: null });
+  const { showRewardedAd, isShowingRewarded } = useAd();
 
   // Current question derived from state
   const currentQuestion = questions[questionNumber - 1] ?? null;
@@ -535,6 +537,11 @@ export default function MillionairePage() {
     setIsClaimingAdEnergy(true);
 
     try {
+      const adResult = await showRewardedAd({ placement: 'millionaire_energy' } as never);
+      if (!adResult.completed) {
+        return;
+      }
+
       const response = await fetch('/api/ads/reward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -555,7 +562,7 @@ export default function MillionairePage() {
     } finally {
       setIsClaimingAdEnergy(false);
     }
-  }, [initializeGame, setUser, user]);
+  }, [initializeGame, setUser, showRewardedAd, user]);
 
   // ==========================================
   // Reward Overlay Complete → show result screen
@@ -595,8 +602,8 @@ export default function MillionairePage() {
           onConfirm={handleEnergyConfirm}
           onCancel={handleEnergyCancel}
           onSecondaryAction={handleWatchAdForEnergy}
-          secondaryActionLabel={isClaimingAdEnergy ? 'Yükleniyor...' : 'Reklam İzle +1⚡'}
-          secondaryActionDisabled={isClaimingAdEnergy}
+          secondaryActionLabel={isClaimingAdEnergy || isShowingRewarded ? 'Yükleniyor...' : 'Reklam İzle +1⚡'}
+          secondaryActionDisabled={isClaimingAdEnergy || isShowingRewarded}
         />
       </div>
     );
