@@ -89,11 +89,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, fullWidth, isLoading, disabled, children, ...props }, ref) => {
     return (
       <button
-        className={cn(buttonVariants({ variant, size, fullWidth, className }))}
+        className={cn('group relative overflow-hidden', buttonVariants({ variant, size, fullWidth, className }))}
         ref={ref}
         disabled={disabled || isLoading}
         {...props}
       >
+        {!isLoading && variant !== 'ghost' && (
+          <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/0 via-white/8 to-white/0 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        )}
         {isLoading ? (
           <>
             <svg

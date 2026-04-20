@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
+import { useEffect, useRef, useState } from 'react';
 import {
   Percent,
   Users,
@@ -47,20 +48,50 @@ interface JokerButtonProps {
 
 function JokerButton({ joker, onUse, disabled }: JokerButtonProps) {
   const isUsable = !joker.isUsed && joker.isAvailable && !disabled;
+  const previousUsedRef = useRef(joker.isUsed);
+  const [showBurst, setShowBurst] = useState(false);
+
+  useEffect(() => {
+    if (!previousUsedRef.current && joker.isUsed) {
+      setShowBurst(true);
+      const timeout = setTimeout(() => setShowBurst(false), 650);
+      previousUsedRef.current = joker.isUsed;
+      return () => clearTimeout(timeout);
+    }
+
+    previousUsedRef.current = joker.isUsed;
+  }, [joker.isUsed]);
 
   return (
     <motion.button
       className={cn(
-        'relative flex flex-col items-center gap-1 rounded-xl p-2.5 transition-all duration-200',
+        'relative flex flex-col items-center gap-1 overflow-hidden rounded-xl p-2.5 transition-all duration-200',
         isUsable
           ? 'cursor-pointer bg-gradient-to-b ' + JOKER_COLORS[joker.type] + ' shadow-lg hover:shadow-xl active:scale-95'
           : 'cursor-not-allowed bg-bg-elevated/50 opacity-40'
       )}
       onClick={() => isUsable && onUse(joker.type)}
       disabled={!isUsable}
-      whileHover={isUsable ? { scale: 1.05 } : {}}
+      whileHover={isUsable ? { scale: 1.05, y: -2 } : {}}
       whileTap={isUsable ? { scale: 0.95 } : {}}
+      animate={showBurst ? { scale: [1, 1.1, 1] } : {}}
+      transition={{ duration: 0.3 }}
     >
+      {isUsable && (
+        <motion.div
+          className="absolute inset-0 bg-white/10"
+          animate={{ opacity: [0.05, 0.16, 0.05] }}
+          transition={{ duration: 1.8, repeat: Infinity }}
+        />
+      )}
+      {showBurst && (
+        <motion.div
+          className="absolute inset-0 rounded-xl border border-white/70"
+          initial={{ opacity: 0.7, scale: 0.75 }}
+          animate={{ opacity: 0, scale: 1.25 }}
+          transition={{ duration: 0.45 }}
+        />
+      )}
       {/* Icon */}
       <div className={cn(
         'flex h-8 w-8 items-center justify-center rounded-lg',
@@ -79,9 +110,14 @@ function JokerButton({ joker, onUse, disabled }: JokerButtonProps) {
 
       {/* Used overlay */}
       {joker.isUsed && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-bg-primary/70">
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center rounded-xl bg-bg-primary/70"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.25 }}
+        >
           <span className="text-lg">✕</span>
-        </div>
+        </motion.div>
       )}
     </motion.button>
   );

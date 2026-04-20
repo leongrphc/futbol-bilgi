@@ -26,12 +26,16 @@ export function StreakCard() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-xl",
-              activeStreak > 0 ? "bg-accent-500/20 text-accent-500" : "bg-bg-elevated text-text-muted"
-            )}>
+            <motion.div
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-xl",
+                activeStreak > 0 ? "bg-accent-500/20 text-accent-500" : "bg-bg-elevated text-text-muted"
+              )}
+              animate={activeStreak > 0 ? { scale: [1, 1.08, 1], rotate: [0, -4, 4, 0] } : {}}
+              transition={{ duration: 1.6, repeat: activeStreak > 0 ? Infinity : 0 }}
+            >
               <Flame className="h-6 w-6" />
-            </div>
+            </motion.div>
             <div>
               <h3 className="font-display text-lg font-bold text-text-primary">
                 {activeStreak > 0 ? `${activeStreak} Günlük Seri` : 'Seri Yok'}
@@ -59,12 +63,16 @@ export function StreakCard() {
 
         {/* Reward Status */}
         <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-bg-elevated p-3">
-          <div className={cn(
-            "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
-            canClaimToday ? "bg-secondary-500/20 text-secondary-500" : "bg-success/20 text-success"
-          )}>
+          <motion.div
+            className={cn(
+              "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
+              canClaimToday ? "bg-secondary-500/20 text-secondary-500" : "bg-success/20 text-success"
+            )}
+            animate={canClaimToday ? { scale: [1, 1.08, 1] } : {}}
+            transition={{ duration: 1.2, repeat: canClaimToday ? Infinity : 0 }}
+          >
             {canClaimToday ? <Gift className="h-4 w-4" /> : <CalendarCheck className="h-4 w-4" />}
-          </div>
+          </motion.div>
           <div className="flex-1">
             <p className="text-sm font-bold text-text-primary">
               {canClaimToday ? 'Bugünün ödülü seni bekliyor!' : 'Bugünün ödülü alındı'}

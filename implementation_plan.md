@@ -873,7 +873,7 @@ src/
 
 ### Faz 3 — Monetizasyon & Polish (4-6 hafta)
 - [ ] Reklam entegrasyonu (Rewarded + Interstitial)
-- [ ] IAP (Gem paketleri, Season Pass)
+- [x] IAP (Gem paketleri, Season Pass)
 - [x] Tema mağazası
 - [ ] Gelişmiş animasyonlar & efektler
 - [x] Admin panel & CMS
