@@ -114,6 +114,10 @@ export default function ProfilePage() {
     fetchEntries(currentSeason.id);
   }, [currentSeason, fetchEntries]);
 
+  const levelInfo = calculateLevel(user?.xp ?? 0);
+  const accuracy = calculateAccuracy(user?.total_correct_answers ?? 0, user?.total_questions_answered ?? 0);
+  const currentSeasonId = currentSeason?.id;
+
   useEffect(() => {
     if (!user || !currentSeasonId) return;
 
@@ -126,10 +130,6 @@ export default function ProfilePage() {
 
     updateAchievementStats(stats);
   }, [user, friendships, leagueEntries, currentSeasonId, updateAchievementStats]);
-
-  const levelInfo = calculateLevel(user?.xp ?? 0);
-  const accuracy = calculateAccuracy(user?.total_correct_answers ?? 0, user?.total_questions_answered ?? 0);
-  const currentSeasonId = currentSeason?.id;
   const currentEntry = user && currentSeasonId
     ? leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeasonId)
     : undefined;
