@@ -3,9 +3,12 @@ import { requireAdmin } from '@/lib/admin/guard';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import type { ShopItemAdmin } from '@/lib/admin/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getThemeByKey, getThemeKeyFromShopItemName, getThemePreviewStyle } from '@/lib/themes';
+import { FRAME_DEFINITION_MAP, getFrameKeyFromShopItemName } from '@/lib/frames';
+import { Avatar } from '@/components/ui/avatar';
 
 async function fetchShopItems() {
   const supabase = createAdminClient();
@@ -19,8 +22,12 @@ async function fetchShopItems() {
 }
 
 function getPriceText(item: ShopItemAdmin) {
-  if ((item.price_coins ?? 0) > 0) return `${item.price_coins} coin`;
-  if ((item.price_gems ?? 0) > 0) return `${item.price_gems} gem`;
+  const coinPrice = item.price_coins ?? 0;
+  const gemPrice = item.price_gems ?? 0;
+
+  if (coinPrice > 0 && gemPrice > 0) return `${coinPrice} coin + ${gemPrice} gem`;
+  if (coinPrice > 0) return `${coinPrice} coin`;
+  if (gemPrice > 0) return `${gemPrice} gem`;
   return 'Ücretsiz';
 }
 
@@ -54,6 +61,30 @@ function getThemeSummary(item: ShopItemAdmin) {
   };
 }
 
+function getFrameSummary(item: ShopItemAdmin) {
+  if (item.item_type !== 'avatar_frame') {
+    return null;
+  }
+
+  const frameKey = getFrameKeyFromShopItemName(item.name);
+  if (!frameKey) {
+    return {
+      label: 'Eşleşme yok',
+      description: 'Frame adı katalogla eşleşmeli.',
+      frameKey: 'default',
+      tone: 'text-warning',
+    };
+  }
+
+  const frame = FRAME_DEFINITION_MAP[frameKey];
+  return {
+    label: frame.label,
+    description: frame.description,
+    frameKey,
+    tone: 'text-success',
+  };
+}
+
 export default async function AdminShopPage() {
   await requireAdmin();
   const items = await fetchShopItems();
@@ -70,6 +101,8 @@ export default async function AdminShopPage() {
       <div className="space-y-3">
         {items.map((item) => {
           const themeSummary = getThemeSummary(item);
+          const frameSummary = getFrameSummary(item);
+          const currencyVariant = (item.price_gems ?? 0) > 0 ? 'secondary' : 'default';
 
           return (
             <Card key={item.id} padding="md" className="space-y-3">
@@ -77,21 +110,30 @@ export default async function AdminShopPage() {
                 <div className="space-y-2">
                   <div>
                     <p className="font-medium text-text-primary">{item.name}</p>
-                    <p className="text-xs text-text-secondary">{item.item_type}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge variant="info" size="sm">{item.item_type}</Badge>
+                      <Badge variant={currencyVariant} size="sm">{getPriceText(item)}</Badge>
+                      {item.is_premium && <Badge variant="warning" size="sm">Premium</Badge>}
+                    </div>
                   </div>
 
                   <div className="space-y-1 text-xs text-text-secondary">
                     <p>{item.description || 'Açıklama yok'}</p>
-                    <p>Fiyat: {getPriceText(item)}</p>
                     <p>Kapsam: {item.league_scope || 'global'}</p>
                     <p>Önizleme URL: {item.preview_url || 'Yok'}</p>
                     {themeSummary && <p className={themeSummary.tone}>{themeSummary.label} — {themeSummary.description}</p>}
+                    {frameSummary && <p className={frameSummary.tone}>{frameSummary.label} — {frameSummary.description}</p>}
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
                   <span className="text-xs text-text-secondary">{getStatusText(item)}</span>
                   {themeSummary?.style && <div className="h-16 w-24 rounded-xl border border-white/10" style={themeSummary.style} />}
+                  {frameSummary && (
+                    <div className="rounded-xl border border-white/10 bg-bg-elevated p-3">
+                      <Avatar fallback="FB" frame={frameSummary.frameKey} />
+                    </div>
+                  )}
                 </div>
               </div>
 

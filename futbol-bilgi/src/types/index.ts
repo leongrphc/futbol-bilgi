@@ -63,7 +63,7 @@ export interface UserSettings {
   vibration_enabled: boolean;
   notifications_enabled: boolean;
   language: string;
-  theme: 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch';
+  theme: 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch' | 'champion-night' | 'emerald-flare' | 'midnight-gold';
   rewarded_jokers?: Partial<Record<'double_answer', number>>;
   jokers?: Partial<Record<JokerType, number>>;
   purchases?: {

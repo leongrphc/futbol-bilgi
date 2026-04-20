@@ -1,6 +1,6 @@
 import type { ShopItem, UserInventory, UserSettings } from '@/types';
 
-export type AppThemeKey = 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch';
+export type AppThemeKey = 'dark' | 'green-grass' | 'golden-cup' | 'retro-pitch' | 'champion-night' | 'emerald-flare' | 'midnight-gold';
 
 interface RawThemeShopItem {
   id: string;
@@ -41,6 +41,9 @@ const SHOP_THEME_KEY_MAP: Record<string, AppThemeKey> = {
   'Yeşil Çim': 'green-grass',
   'Altın Kupa': 'golden-cup',
   Retro: 'retro-pitch',
+  'Şampiyonlar Gecesi': 'champion-night',
+  'Zümrüt Alev': 'emerald-flare',
+  'Gece Altını': 'midnight-gold',
 };
 
 export const THEME_DEFINITIONS: ThemeDefinition[] = [
@@ -86,6 +89,39 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       primary: '#ffb300',
       secondary: '#58a6ff',
       background: '#0b1320',
+    },
+  },
+  {
+    key: 'champion-night',
+    label: 'Şampiyonlar Gecesi',
+    description: 'Gece finali hissi veren premium altın tema.',
+    rarity: 'legendary',
+    preview: {
+      primary: '#ffd54f',
+      secondary: '#fff3b0',
+      background: '#0f1425',
+    },
+  },
+  {
+    key: 'emerald-flare',
+    label: 'Zümrüt Alev',
+    description: 'Derin zümrüt tonları ve canlı vurgu renkleri.',
+    rarity: 'epic',
+    preview: {
+      primary: '#00d084',
+      secondary: '#9cffd0',
+      background: '#071711',
+    },
+  },
+  {
+    key: 'midnight-gold',
+    label: 'Gece Altını',
+    description: 'Koyu zemin üzerinde soğuk mavi ve altın karışımı premium tema.',
+    rarity: 'legendary',
+    preview: {
+      primary: '#ffb300',
+      secondary: '#7cb7ff',
+      background: '#0a1020',
     },
   },
 ];

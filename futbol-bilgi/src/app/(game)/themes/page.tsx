@@ -326,6 +326,16 @@ export default function ThemesPage() {
     [ownedItemIds, shopItems],
   );
 
+  const collectionFrames = useMemo(
+    () =>
+      FRAME_DEFINITIONS.filter((frame) => {
+        if (frame.key === "default") return false;
+        const item = getFrameItemByKey(frame.key, shopItems);
+        return item ? ownedFrameItemIds.has(item.id) : false;
+      }),
+    [ownedFrameItemIds, shopItems],
+  );
+
   return (
     <div className="min-h-screen p-4 pb-24">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -616,7 +626,7 @@ export default function ThemesPage() {
           <h2 className="font-display text-lg font-semibold text-text-primary">
             Koleksiyonum
           </h2>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {collectionThemes.map((theme) => {
               const equipped = equippedThemeKey === theme.key;
               const item = getThemeItemByKey(theme.key, shopItems);
@@ -658,6 +668,42 @@ export default function ThemesPage() {
               );
             })}
           </div>
+
+          {collectionFrames.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h3 className="font-display text-base font-semibold text-text-primary">Çerçeve Koleksiyonum</h3>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {collectionFrames.map((frame) => {
+                  const equipped = equippedFrameKey === frame.key;
+
+                  return (
+                    <Card key={`owned-frame-${frame.key}`} padding="lg" className="space-y-4">
+                      <div className="flex items-center justify-center rounded-2xl bg-bg-elevated p-6">
+                        <Avatar size="xl" fallback={user.username} frame={frame.key} />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <h3 className="font-display text-lg font-semibold text-text-primary">{frame.label}</h3>
+                          <p className="mt-1 text-sm text-text-secondary">{frame.description}</p>
+                        </div>
+                        {equipped && (
+                          <span className="text-xs font-semibold text-success">Aktif</span>
+                        )}
+                      </div>
+                      <Button
+                        variant={equipped ? "secondary" : "primary"}
+                        onClick={() => equipFrame(frame.key)}
+                        isLoading={purchasingKey === `frame-${frame.key}`}
+                      >
+                        <Check className="h-4 w-4" />
+                        {equipped ? "Kuşanıldı" : "Kuşan"}
+                      </Button>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>
