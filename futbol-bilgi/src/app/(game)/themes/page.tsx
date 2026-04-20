@@ -221,47 +221,38 @@ export default function ThemesPage() {
   };
 
   const equipTheme = async (themeKey: AppThemeKey) => {
-    if (themeKey === "dark") {
-      setPurchasingKey(themeKey);
-      const response = await fetch("/api/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ settings: { theme: "dark" } }),
-      });
-
-      const json = await response.json();
-      setPurchasingKey(null);
-
-      if (!response.ok) {
-        setMessage(json.error || "Tema kuşanılamadı.");
-        return;
-      }
-
-      await refreshUser();
-      setMessage("Klasik Gece kuşanıldı.");
-      return;
-    }
-
     const item = getThemeItemByKey(themeKey, shopItems);
-    if (!item) return;
+    const itemId = themeKey === "dark" ? "theme-dark-default" : item?.id;
+    if (!itemId) return;
 
+    setPurchasingKey(themeKey);
     const response = await fetch("/api/shop/themes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId: item.id }),
+      body: JSON.stringify({ itemId }),
     });
 
+    const json = await response.json();
+
     if (!response.ok) {
-      const json = await response.json();
+      setPurchasingKey(null);
       setMessage(json.error || "Tema kuşanılamadı.");
       return;
     }
 
-    await fetch("/api/me", {
+    const settingsResponse = await fetch("/api/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: { theme: themeKey } }),
     });
+
+    const settingsJson = await settingsResponse.json();
+    setPurchasingKey(null);
+
+    if (!settingsResponse.ok) {
+      setMessage(settingsJson.error || "Tema kuşanılamadı.");
+      return;
+    }
 
     await refreshUser();
     setMessage(`${THEME_DEFINITION_MAP[themeKey].label} kuşanıldı.`);
@@ -530,46 +521,48 @@ export default function ThemesPage() {
               const requiresPremium = Boolean(item?.metadata?.isPremium) && !user.is_premium;
 
               return (
-                <Card key={frame.key} padding="lg" className="space-y-4">
-                  <div className="flex items-center justify-center rounded-2xl bg-bg-elevated p-6">
-                    <Avatar size="xl" fallback={user.username} frame={frame.key} />
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-display text-lg font-semibold text-text-primary">{frame.label}</h3>
-                      <span className="flex items-center gap-1 text-xs font-semibold text-secondary-500">
-                        <Sparkles className="h-3 w-3" />
-                        {frame.rarity}
-                      </span>
+                <motion.div whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Card key={frame.key} padding="lg" className="space-y-4 transition-shadow hover:shadow-xl hover:shadow-secondary-500/10">
+                    <div className="flex items-center justify-center rounded-2xl bg-bg-elevated p-6">
+                      <Avatar size="xl" fallback={user.username} frame={frame.key} />
                     </div>
-                    <p className="mt-1 text-sm text-text-secondary">{frame.description}</p>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-secondary-500">
-                      {requiresPremium ? "Premium Gerekli" : getFramePriceLabel(item)}
-                    </span>
-                    {owned ? (
-                      <Button
-                        variant={equipped ? "secondary" : "primary"}
-                        onClick={() => equipFrame(frame.key)}
-                        isLoading={purchasingKey === `frame-${frame.key}`}
-                      >
-                        <Check className="h-4 w-4" />
-                        {equipped ? "Aktif" : "Kuşan"}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => buyFrame(frame.key)}
-                        disabled={requiresPremium || !canAffordFrame(item, user.coins, user.gems) || isLoading || purchasingKey === `frame-${frame.key}`}
-                        isLoading={purchasingKey === `frame-${frame.key}`}
-                      >
-                        {requiresPremium ? <Lock className="h-4 w-4" /> : null}
-                        {requiresPremium ? "Premium Gerekli" : "Satın Al"}
-                      </Button>
-                    )}
-                  </div>
-                </Card>
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-display text-lg font-semibold text-text-primary">{frame.label}</h3>
+                        <span className="flex items-center gap-1 text-xs font-semibold text-secondary-500">
+                          <Sparkles className="h-3 w-3" />
+                          {frame.rarity}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-text-secondary">{frame.description}</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-secondary-500">
+                        {requiresPremium ? "Premium Gerekli" : getFramePriceLabel(item)}
+                      </span>
+                      {owned ? (
+                        <Button
+                          variant={equipped ? "secondary" : "primary"}
+                          onClick={() => equipFrame(frame.key)}
+                          isLoading={purchasingKey === `frame-${frame.key}`}
+                        >
+                          <Check className="h-4 w-4" />
+                          {equipped ? "Aktif" : "Kuşan"}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => buyFrame(frame.key)}
+                          disabled={requiresPremium || !canAffordFrame(item, user.coins, user.gems) || isLoading || purchasingKey === `frame-${frame.key}`}
+                          isLoading={purchasingKey === `frame-${frame.key}`}
+                        >
+                          {requiresPremium ? <Lock className="h-4 w-4" /> : null}
+                          {requiresPremium ? "Premium Gerekli" : "Satın Al"}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
               );
             })}
           </div>
@@ -590,68 +583,70 @@ export default function ThemesPage() {
               const requiresPremium = isPremiumTheme && !user.is_premium;
 
               return (
-                <Card key={theme.key} padding="lg" className="space-y-4">
-                  <div
-                    className="h-24 rounded-2xl"
-                    style={getThemePreviewStyle(theme.key)}
-                  />
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-display text-lg font-semibold text-text-primary">
-                        {theme.label}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        {isPremiumTheme && (
-                          <span className="rounded-full bg-secondary-500 px-2 py-0.5 text-[10px] font-bold text-bg-primary">
-                            Premium
-                          </span>
-                        )}
-                        {theme.rarity !== "common" && (
-                          <span className="flex items-center gap-1 text-xs font-semibold text-secondary-500">
-                            <Sparkles className="h-3 w-3" />
-                            {theme.rarity}
-                          </span>
-                        )}
+                <motion.div whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Card key={theme.key} padding="lg" className="space-y-4 transition-shadow hover:shadow-xl hover:shadow-primary-500/10">
+                    <div
+                      className="h-24 rounded-2xl"
+                      style={getThemePreviewStyle(theme.key)}
+                    />
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-display text-lg font-semibold text-text-primary">
+                          {theme.label}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          {isPremiumTheme && (
+                            <span className="rounded-full bg-secondary-500 px-2 py-0.5 text-[10px] font-bold text-bg-primary">
+                              Premium
+                            </span>
+                          )}
+                          {theme.rarity !== "common" && (
+                            <span className="flex items-center gap-1 text-xs font-semibold text-secondary-500">
+                              <Sparkles className="h-3 w-3" />
+                              {theme.rarity}
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      <p className="mt-1 text-sm text-text-secondary">
+                        {theme.description}
+                      </p>
                     </div>
-                    <p className="mt-1 text-sm text-text-secondary">
-                      {theme.description}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-secondary-500">
-                      {requiresPremium
-                        ? "Premium Gerekli"
-                        : getThemePriceLabel(item)}
-                    </span>
-                    {owned ? (
-                      <Button
-                        variant={equipped ? "secondary" : "primary"}
-                        onClick={() => equipTheme(theme.key)}
-                        disabled={!item && theme.key !== "dark"}
-                        isLoading={purchasingKey === theme.key}
-                      >
-                        <Check className="h-4 w-4" />
-                        {equipped ? "Aktif" : "Kuşan"}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => buyTheme(theme.key)}
-                        disabled={
-                          requiresPremium ||
-                          !canAffordTheme(item, user.coins, user.gems) ||
-                          isLoading ||
-                          purchasingKey === theme.key
-                        }
-                        isLoading={purchasingKey === theme.key}
-                      >
-                        {requiresPremium ? <Lock className="h-4 w-4" /> : null}
-                        {requiresPremium ? "Premium Gerekli" : "Satın Al"}
-                      </Button>
-                    )}
-                  </div>
-                </Card>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-secondary-500">
+                        {requiresPremium
+                          ? "Premium Gerekli"
+                          : getThemePriceLabel(item)}
+                      </span>
+                      {owned ? (
+                        <Button
+                          variant={equipped ? "secondary" : "primary"}
+                          onClick={() => equipTheme(theme.key)}
+                          disabled={!item && theme.key !== "dark"}
+                          isLoading={purchasingKey === theme.key}
+                        >
+                          <Check className="h-4 w-4" />
+                          {equipped ? "Aktif" : "Kuşan"}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => buyTheme(theme.key)}
+                          disabled={
+                            requiresPremium ||
+                            !canAffordTheme(item, user.coins, user.gems) ||
+                            isLoading ||
+                            purchasingKey === theme.key
+                          }
+                          isLoading={purchasingKey === theme.key}
+                        >
+                          {requiresPremium ? <Lock className="h-4 w-4" /> : null}
+                          {requiresPremium ? "Premium Gerekli" : "Satın Al"}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
               );
             })}
           </div>

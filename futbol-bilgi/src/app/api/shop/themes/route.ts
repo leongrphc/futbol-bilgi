@@ -103,6 +103,29 @@ export async function PATCH(request: Request) {
   }
 
   const admin = createAdminClient();
+  const { error: clearEquippedError } = await admin
+    .from('user_inventory')
+    .update({ is_equipped: false })
+    .eq('user_id', user.id)
+    .eq('is_equipped', true);
+
+  if (clearEquippedError) {
+    return NextResponse.json({ error: clearEquippedError.message }, { status: 500 });
+  }
+
+  if (itemId === 'theme-dark-default') {
+    return NextResponse.json({
+      data: {
+        id: 'inventory-dark',
+        user_id: user.id,
+        item_id: 'theme-dark-default',
+        quantity: 1,
+        is_equipped: true,
+        purchased_at: new Date().toISOString(),
+      },
+    });
+  }
+
   const { data: inventoryItem, error: inventoryError } = await admin
     .from('user_inventory')
     .select('*')
@@ -116,16 +139,6 @@ export async function PATCH(request: Request) {
 
   if (!inventoryItem) {
     return NextResponse.json({ error: 'Item not owned' }, { status: 400 });
-  }
-
-  const { error: clearEquippedError } = await admin
-    .from('user_inventory')
-    .update({ is_equipped: false })
-    .eq('user_id', user.id)
-    .eq('is_equipped', true);
-
-  if (clearEquippedError) {
-    return NextResponse.json({ error: clearEquippedError.message }, { status: 500 });
   }
 
   const { data: equippedItem, error: equipError } = await admin

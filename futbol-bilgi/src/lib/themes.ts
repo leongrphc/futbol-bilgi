@@ -178,14 +178,14 @@ export function getDefaultThemeShopItem(): ShopItem {
   };
 }
 
-export function getDefaultThemeInventory(userId: string): UserInventory[] {
+export function getDefaultThemeInventory(userId: string, isEquipped = false): UserInventory[] {
   return [
     {
       id: 'inventory-dark',
       user_id: userId,
       item_id: 'theme-dark-default',
       quantity: 1,
-      is_equipped: true,
+      is_equipped: isEquipped,
       purchased_at: new Date().toISOString(),
     },
   ];
@@ -198,7 +198,14 @@ export function ensureDefaultThemeCatalog(shopItems: ShopItem[]) {
 }
 
 export function ensureDefaultThemeInventory(userId: string, inventory: UserInventory[]) {
-  return inventory.length > 0 ? inventory : getDefaultThemeInventory(userId);
+  const hasDefaultTheme = inventory.some((item) => item.item_id === 'theme-dark-default');
+
+  if (hasDefaultTheme) {
+    return inventory;
+  }
+
+  const hasEquippedTheme = inventory.some((item) => item.is_equipped);
+  return [...getDefaultThemeInventory(userId, !hasEquippedTheme), ...inventory];
 }
 
 export function getResolvedThemeData(userId: string, shopItems: ShopItem[], inventory: UserInventory[]) {
