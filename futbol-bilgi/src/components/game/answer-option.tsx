@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import type { QuestionOption } from '@/types';
 
-type AnswerState = 'default' | 'selected' | 'correct' | 'wrong' | 'eliminated';
+type AnswerState = 'default' | 'selected' | 'correct' | 'wrong' | 'eliminated' | 'revealed';
 
 interface AnswerOptionProps {
   option: QuestionOption;
@@ -20,6 +20,7 @@ const stateStyles: Record<AnswerState, string> = {
   correct: 'border-success bg-success/15 ring-2 ring-success/30 glow-green',
   wrong: 'border-danger bg-danger/15 ring-2 ring-danger/30 glow-danger',
   eliminated: 'border-white/[0.04] bg-bg-primary/50 opacity-30 pointer-events-none blur-[0.5px]',
+  revealed: 'border-white/[0.08] bg-bg-elevated opacity-55 pointer-events-none',
 };
 
 const keyStyles: Record<AnswerState, string> = {
@@ -28,6 +29,7 @@ const keyStyles: Record<AnswerState, string> = {
   correct: 'bg-success text-white',
   wrong: 'bg-danger text-white',
   eliminated: 'bg-bg-card/50 text-text-muted',
+  revealed: 'bg-bg-card text-text-muted',
 };
 
 const optionVariants = {
@@ -37,6 +39,7 @@ const optionVariants = {
   correct: { scale: [1, 1.02, 1], y: [0, -2, 0] },
   wrong: { x: [0, -4, 4, -3, 3, 0] },
   eliminated: { opacity: 0.25, scale: 0.98 },
+  revealed: { opacity: 0.55, scale: 1 },
 };
 
 const keyBadgeVariants = {
@@ -60,6 +63,8 @@ function getMotionState(state: AnswerState) {
       return optionVariants.wrong;
     case 'eliminated':
       return optionVariants.eliminated;
+    case 'revealed':
+      return optionVariants.revealed;
     default:
       return optionVariants.animate;
   }
@@ -73,6 +78,8 @@ function getTextClass(state: AnswerState) {
       return 'text-danger';
     case 'eliminated':
       return 'text-text-muted line-through';
+    case 'revealed':
+      return 'text-text-muted';
     default:
       return 'text-text-primary';
   }
@@ -165,9 +172,10 @@ export function AnswerGrid({
   function getOptionState(key: 'A' | 'B' | 'C' | 'D'): AnswerState {
     if (eliminatedOptions.includes(key)) return 'eliminated';
     if (correctAnswer !== null) {
+      if (key === correctAnswer && key === selectedAnswer) return 'correct';
       if (key === correctAnswer) return 'correct';
-      if (key === selectedAnswer && key !== correctAnswer) return 'wrong';
-      return 'default';
+      if (key === selectedAnswer) return 'wrong';
+      return 'revealed';
     }
     if (key === selectedAnswer) return 'selected';
     return 'default';

@@ -341,7 +341,7 @@ export default function MillionairePage() {
       } else {
         void handleWrongAnswer();
       }
-    }, 2000);
+    }, 2200);
   }
 
   const handleSelectAnswer = (key: 'A' | 'B' | 'C' | 'D') => {
@@ -360,7 +360,7 @@ export default function MillionairePage() {
 
     setTimeout(() => {
       revealAnswer(key);
-    }, 1000);
+    }, 450);
   };
 
   // ==========================================

@@ -226,7 +226,7 @@ export default function QuickPage() {
       setSelectedAnswer(null);
       setCorrectAnswer(null);
       setPhase('playing');
-    }, 900);
+    }, 1500);
   }, [currentQuestion, phase, answerQuestion, questionNumber, finalizeGame, nextQuestion, questions, setCurrentQuestion]);
 
   const handleRewardComplete = useCallback(() => {

@@ -300,12 +300,12 @@ export default function DuelPage() {
 
     const revealAnswered = setTimeout(() => {
       setOpponentStatus('answered');
-    }, 500);
+    }, 800);
 
     const nextQuestionTimeout = setTimeout(() => {
       clearTimeout(revealAnswered);
       goToNextQuestion();
-    }, 2200);
+    }, 2500);
 
     return () => {
       clearTimeout(revealAnswered);
