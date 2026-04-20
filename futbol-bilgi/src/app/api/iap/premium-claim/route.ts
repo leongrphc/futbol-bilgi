@@ -15,18 +15,27 @@ export async function POST() {
   }
 
   const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+  const [{ data: profile, error: profileError }, { data: premiumTransaction, error: premiumTransactionError }] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single(),
+    admin
+      .from('iap_transactions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('product_id', 'premium_pass')
+      .eq('status', 'verified')
+      .maybeSingle(),
+  ]);
 
-  if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+  if (profileError || premiumTransactionError) {
+    return NextResponse.json({ error: profileError?.message ?? premiumTransactionError?.message }, { status: 500 });
   }
 
-  if (!profile.is_premium) {
-    return NextResponse.json({ error: 'Premium pass required' }, { status: 400 });
+  if (!profile.is_premium || !premiumTransaction) {
+    return NextResponse.json({ error: 'Verified premium pass required' }, { status: 400 });
   }
 
   const nextSettings = { ...(profile.settings ?? {}) } as Record<string, unknown>;

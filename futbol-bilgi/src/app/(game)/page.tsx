@@ -246,10 +246,14 @@ export default function DashboardPage() {
     setPurchasingProductId(productId);
     setIapMessage(null);
 
-    const response = await fetch('/api/iap/purchase', {
+    const response = await fetch('/api/iap/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId }),
+      body: JSON.stringify({
+        platform: 'ios',
+        productId,
+        receipt: `mock:${productId}:${Date.now()}`,
+      }),
     });
 
     const json = await response.json();
@@ -271,10 +275,14 @@ export default function DashboardPage() {
     setPurchasingProductId('premium_pass');
     setPremiumMessage(null);
 
-    const response = await fetch('/api/iap/purchase', {
+    const response = await fetch('/api/iap/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productId: 'premium_pass' }),
+      body: JSON.stringify({
+        platform: 'ios',
+        productId: 'premium_pass',
+        receipt: `mock:premium_pass:${Date.now()}`,
+      }),
     });
 
     const json = await response.json();
