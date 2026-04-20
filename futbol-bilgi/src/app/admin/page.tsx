@@ -22,6 +22,11 @@ const adminModules = [
     description: 'Reward ve koşulları yönet.',
     href: '/admin/achievements',
   },
+  {
+    title: 'IAP İşlemleri',
+    description: 'Verify ve transaction kayıtlarını incele.',
+    href: '/admin/iap',
+  },
 ];
 
 export default function AdminDashboard() {

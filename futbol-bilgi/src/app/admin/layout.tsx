@@ -23,6 +23,7 @@ export default async function AdminLayout({
               <Link href="/admin/questions" className="rounded-lg bg-bg-elevated px-3 py-1.5">Sorular</Link>
               <Link href="/admin/users" className="rounded-lg bg-bg-elevated px-3 py-1.5">Kullanıcılar</Link>
               <Link href="/admin/shop" className="rounded-lg bg-bg-elevated px-3 py-1.5">Mağaza</Link>
+              <Link href="/admin/iap" className="rounded-lg bg-bg-elevated px-3 py-1.5">IAP</Link>
               <Link href="/admin/achievements" className="rounded-lg bg-bg-elevated px-3 py-1.5">Başarımlar</Link>
             </nav>
           </div>

@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
-import { IAP_PRODUCT_CONFIG, isIapProductId, type IapProductId } from './products';
+import { isIapProductId, type IapProductId } from './products';
+import { getIapProvider } from './providers/factory';
+import { getIapConfig } from './config';
 
 export type IapPlatform = 'ios' | 'android';
 export type IapVerificationStatus = 'verified' | 'rejected' | 'error';
@@ -37,104 +39,7 @@ export function hashValue(value: string | undefined) {
 }
 
 export function isMockVerificationEnabled() {
-  return process.env.NODE_ENV !== 'production';
-}
-
-function buildMockResult(input: VerifyPurchaseInput): VerifyPurchaseResult {
-  return {
-    isValid: true,
-    status: 'verified',
-    productId: input.productId,
-    transactionId: input.transactionId ?? `${input.platform}-mock-${Date.now()}`,
-    originalTransactionId: null,
-    amountCents: null,
-    currency: null,
-    purchasedAt: new Date().toISOString(),
-    expiresAt: null,
-    rawResponse: {
-      provider: 'mock',
-      platform: input.platform,
-      productId: input.productId,
-    },
-    receiptHash: hashValue(input.receipt),
-    purchaseTokenHash: hashValue(input.purchaseToken),
-  };
-}
-
-async function verifyIosPurchase(input: VerifyPurchaseInput): Promise<VerifyPurchaseResult> {
-  if (!input.receipt) {
-    return {
-      isValid: false,
-      status: 'rejected',
-      productId: input.productId,
-      transactionId: input.transactionId ?? 'ios-missing-receipt',
-      originalTransactionId: null,
-      amountCents: null,
-      currency: null,
-      purchasedAt: new Date().toISOString(),
-      expiresAt: null,
-      rawResponse: { provider: 'apple', reason: 'missing_receipt' },
-      receiptHash: null,
-      purchaseTokenHash: null,
-    };
-  }
-
-  if (isMockVerificationEnabled() && input.receipt.startsWith('mock:')) {
-    return buildMockResult(input);
-  }
-
-  return {
-    isValid: false,
-    status: 'error',
-    productId: input.productId,
-    transactionId: input.transactionId ?? 'ios-unconfigured',
-    originalTransactionId: null,
-    amountCents: null,
-    currency: null,
-    purchasedAt: new Date().toISOString(),
-    expiresAt: null,
-    rawResponse: { provider: 'apple', reason: 'verification_not_configured' },
-    receiptHash: hashValue(input.receipt),
-    purchaseTokenHash: null,
-  };
-}
-
-async function verifyAndroidPurchase(input: VerifyPurchaseInput): Promise<VerifyPurchaseResult> {
-  if (!input.purchaseToken) {
-    return {
-      isValid: false,
-      status: 'rejected',
-      productId: input.productId,
-      transactionId: input.transactionId ?? 'android-missing-token',
-      originalTransactionId: null,
-      amountCents: null,
-      currency: null,
-      purchasedAt: new Date().toISOString(),
-      expiresAt: null,
-      rawResponse: { provider: 'google_play', reason: 'missing_purchase_token' },
-      receiptHash: null,
-      purchaseTokenHash: null,
-    };
-  }
-
-  if (isMockVerificationEnabled() && input.purchaseToken.startsWith('mock:')) {
-    return buildMockResult(input);
-  }
-
-  return {
-    isValid: false,
-    status: 'error',
-    productId: input.productId,
-    transactionId: input.transactionId ?? 'android-unconfigured',
-    originalTransactionId: null,
-    amountCents: null,
-    currency: null,
-    purchasedAt: new Date().toISOString(),
-    expiresAt: null,
-    rawResponse: { provider: 'google_play', reason: 'verification_not_configured' },
-    receiptHash: null,
-    purchaseTokenHash: hashValue(input.purchaseToken),
-  };
+  return getIapConfig().mock.enabled;
 }
 
 export async function verifyPurchase(input: VerifyPurchaseInput): Promise<VerifyPurchaseResult> {
@@ -142,13 +47,10 @@ export async function verifyPurchase(input: VerifyPurchaseInput): Promise<Verify
     throw new Error('Invalid platform');
   }
 
-  if (!isIapProductId(input.productId) || !(input.productId in IAP_PRODUCT_CONFIG)) {
+  if (!isIapProductId(input.productId)) {
     throw new Error('Invalid product id');
   }
 
-  if (input.platform === 'ios') {
-    return verifyIosPurchase(input);
-  }
-
-  return verifyAndroidPurchase(input);
+  const provider = getIapProvider(input.platform, input);
+  return provider.verify(input);
 }
