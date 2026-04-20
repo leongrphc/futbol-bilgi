@@ -872,10 +872,10 @@ src/
 - [x] Streak sistemi genişletme
 
 ### Faz 3 — Monetizasyon & Polish (4-6 hafta)
-- [ ] Reklam entegrasyonu (Rewarded + Interstitial)
+- [x] Reklam entegrasyonu (Rewarded + Interstitial)
 - [x] IAP (Gem paketleri, Season Pass)
 - [x] Tema mağazası
-- [ ] Gelişmiş animasyonlar & efektler
+- [x] Gelişmiş animasyonlar & efektler
 - [x] Admin panel & CMS
 - [x] Analytics entegrasyonu
 
