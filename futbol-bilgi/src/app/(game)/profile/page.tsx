@@ -337,7 +337,7 @@ export default function ProfilePage() {
                   initial={{ width: 0 }}
                   animate={{ width: `${levelInfo.progress * 100}%` }}
                   transition={{ duration: 1, ease: 'easeOut' }}
-                  className="h-full bg-gradient-to-r from-primary-500 to-secondary-500"
+                  className="h-full bg-gradient-to-r from-primary-500/90 via-primary-400/75 to-secondary-500/85"
                 />
               </div>
             </div>

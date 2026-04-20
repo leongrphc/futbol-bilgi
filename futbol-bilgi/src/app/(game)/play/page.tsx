@@ -48,7 +48,7 @@ const gameModeDetails = [
     title: 'Milyoner Yarışması',
     description: 'Kim Milyoner Olmak İster formatında 15 soru',
     icon: Crown,
-    gradient: 'from-primary-600 to-primary-400',
+    tone: 'primary',
     href: '/play/millionaire',
     energyCost: 1,
     rules: [
@@ -64,7 +64,7 @@ const gameModeDetails = [
     title: 'Hızlı Maç',
     description: 'Zamana karşı 10 soruluk hızlı yarış',
     icon: Zap,
-    gradient: 'from-blue-600 to-blue-400',
+    tone: 'secondary',
     href: '/play/quick',
     energyCost: 0,
     rules: [
@@ -80,7 +80,7 @@ const gameModeDetails = [
     title: 'Düello',
     description: 'Mock rakibe karşı 5 soruluk 1v1 bilgi yarışı',
     icon: Swords,
-    gradient: 'from-orange-600 to-orange-400',
+    tone: 'accent',
     href: '/play/duel',
     energyCost: 1,
     rules: [
@@ -96,7 +96,7 @@ const gameModeDetails = [
     title: 'Günlük Meydan Okuma',
     description: 'Her gün yeni 5 özel soru',
     icon: Calendar,
-    gradient: 'from-purple-600 to-purple-400',
+    tone: 'warning',
     href: '/play/daily',
     energyCost: 0,
     rules: [
@@ -107,7 +107,26 @@ const gameModeDetails = [
     ],
     rewards: 'Günlük bonus + streak çarpanı',
   },
-];
+] as const;
+
+const modeToneClasses = {
+  primary: {
+    header: 'border-primary-500/30 bg-primary-500/14',
+    icon: 'bg-primary-500/18 text-primary-400',
+  },
+  secondary: {
+    header: 'border-secondary-500/30 bg-secondary-500/14',
+    icon: 'bg-secondary-500/18 text-secondary-400',
+  },
+  accent: {
+    header: 'border-accent-500/30 bg-accent-500/14',
+    icon: 'bg-accent-500/18 text-accent-400',
+  },
+  warning: {
+    header: 'border-warning/30 bg-warning/14',
+    icon: 'bg-warning/18 text-warning',
+  },
+} as const;
 
 // ==========================================
 // Play Mode Selection Page
@@ -153,27 +172,27 @@ export default function PlayPage() {
           const Icon = mode.icon;
           const hasEnergy = user.energy >= mode.energyCost;
           const canPlay = mode.energyCost === 0 || hasEnergy;
+          const tone = modeToneClasses[mode.tone];
 
           return (
             <motion.div key={mode.id} variants={itemVariants}>
               <Card variant="elevated" padding="none" className="overflow-hidden">
-                {/* Header with gradient */}
                 <div
                   className={cn(
-                    'relative p-6 bg-gradient-to-br',
-                    mode.gradient
+                    'relative border-b p-6',
+                    tone.header
                   )}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-                        <Icon className="h-7 w-7 text-white" />
+                      <div className={cn('flex h-14 w-14 items-center justify-center rounded-xl', tone.icon)}>
+                        <Icon className="h-7 w-7" />
                       </div>
                       <div>
-                        <h2 className="font-display text-xl font-bold text-white">
+                        <h2 className="font-display text-xl font-bold text-text-primary">
                           {mode.title}
                         </h2>
-                        <p className="mt-1 text-sm text-white/80">
+                        <p className="mt-1 text-sm text-text-secondary">
                           {mode.description}
                         </p>
                       </div>

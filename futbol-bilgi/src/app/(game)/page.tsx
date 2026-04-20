@@ -45,7 +45,7 @@ const gameModes = [
     title: 'Milyoner Yarışması',
     description: 'Kim Milyoner Olmak İster formatı',
     icon: Crown,
-    gradient: 'from-primary-600 to-primary-400',
+    tone: 'primary',
     href: '/play/millionaire',
     cost: '1 ⚡',
     badge: null,
@@ -55,7 +55,7 @@ const gameModes = [
     title: 'Hızlı Maç',
     description: '10 soru, 120 saniye',
     icon: Zap,
-    gradient: 'from-blue-600 to-blue-400',
+    tone: 'secondary',
     href: '/play/quick',
     cost: null,
     badge: 'Ücretsiz',
@@ -65,7 +65,7 @@ const gameModes = [
     title: 'Düello',
     description: '5 soru, hız bonuslu 1v1',
     icon: Swords,
-    gradient: 'from-orange-600 to-orange-400',
+    tone: 'accent',
     href: '/play/duel',
     cost: '1 ⚡',
     badge: null,
@@ -75,12 +75,35 @@ const gameModes = [
     title: 'Günlük Meydan Okuma',
     description: 'Bugünün 5 sorusu',
     icon: Calendar,
-    gradient: 'from-purple-600 to-purple-400',
+    tone: 'warning',
     href: '/play/daily',
     cost: null,
     badge: 'Günlük',
   },
-];
+] as const;
+
+const modeToneClasses = {
+  primary: {
+    panel: 'border-primary-500/25 bg-primary-500/8',
+    glow: 'bg-primary-500/12',
+    icon: 'bg-primary-500/18 text-primary-400',
+  },
+  secondary: {
+    panel: 'border-secondary-500/25 bg-secondary-500/8',
+    glow: 'bg-secondary-500/12',
+    icon: 'bg-secondary-500/18 text-secondary-400',
+  },
+  accent: {
+    panel: 'border-accent-500/25 bg-accent-500/8',
+    glow: 'bg-accent-500/12',
+    icon: 'bg-accent-500/18 text-accent-400',
+  },
+  warning: {
+    panel: 'border-warning/25 bg-warning/8',
+    glow: 'bg-warning/12',
+    icon: 'bg-warning/18 text-warning',
+  },
+} as const;
 
 interface DailyRewardResponse {
   data?: {
@@ -674,14 +697,15 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           {gameModes.map((mode) => {
             const Icon = mode.icon;
+            const tone = modeToneClasses[mode.tone];
             return (
               <motion.div key={mode.id} variants={itemVariants} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Link href={mode.href}>
-                  <Card padding="md" className={cn('relative h-full overflow-hidden', 'hover:border-white/[0.16]')}>
-                    <div className={cn('absolute inset-0 bg-gradient-to-br opacity-10', mode.gradient)} />
+                  <Card padding="md" className={cn('relative h-full overflow-hidden hover:border-white/[0.16]', tone.panel)}>
+                    <div className={cn('absolute inset-0 rounded-2xl', tone.glow)} />
                     <div className="relative z-10 flex flex-col gap-3">
-                      <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br', mode.gradient)}>
-                        <Icon className="h-6 w-6 text-white" />
+                      <div className={cn('flex h-12 w-12 items-center justify-center rounded-xl', tone.icon)}>
+                        <Icon className="h-6 w-6" />
                       </div>
                       <div>
                         <h3 className="font-display text-base font-bold leading-tight text-text-primary">{mode.title}</h3>

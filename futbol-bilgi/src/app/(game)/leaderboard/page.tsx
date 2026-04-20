@@ -479,11 +479,10 @@ export default function LeaderboardPage() {
 }
 
 function PodiumPlayer({ player, position }: { player: { username: string; score: number; league_tier: LeagueTier; avatar_url?: string | null; avatar_frame?: string | null }; position: 1 | 2 | 3 }) {
-  const sizeClass = position === 1 ? 'w-20 h-20 text-3xl' : 'w-16 h-16 text-2xl';
-  const borderClass = position === 1 ? 'border-warning/30' : position === 2 ? 'border-gray-400/30' : 'border-orange-600/30';
-  const badgeClass = position === 1 ? 'bg-warning' : position === 2 ? 'bg-gray-400' : 'bg-orange-600';
+  const borderClass = position === 1 ? 'ring-2 ring-warning/40' : position === 2 ? 'ring-2 ring-secondary-500/35' : 'ring-2 ring-accent-500/35';
+  const badgeClass = position === 1 ? 'bg-warning' : position === 2 ? 'bg-secondary-500' : 'bg-accent-500';
   const scoreClass = position === 1 ? 'text-warning text-xl' : position === 2 ? 'text-secondary-500 text-lg' : 'text-accent-500 text-lg';
-  const columnHeight = position === 1 ? 'h-28 border-warning from-warning/20 to-warning/10' : position === 2 ? 'h-20 border-gray-400 from-gray-400/20 to-gray-400/10' : 'h-16 border-orange-600 from-orange-600/20 to-orange-600/10';
+  const columnHeight = position === 1 ? 'h-28 border-warning from-warning/20 to-warning/10' : position === 2 ? 'h-20 border-secondary-500 from-secondary-500/20 to-secondary-500/10' : 'h-16 border-accent-500 from-accent-500/20 to-accent-500/10';
 
   return (
     <div className="flex-1 text-center">
