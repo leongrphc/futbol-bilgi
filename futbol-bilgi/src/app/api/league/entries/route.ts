@@ -53,11 +53,14 @@ export async function POST(request: Request) {
     // Get current season
     const { data: season, error: seasonError } = await supabase
       .rpc('get_current_season')
-      .single();
+      .maybeSingle();
 
     if (seasonError) throw seasonError;
     if (!season || typeof season !== 'object' || !('id' in season)) {
-      throw new Error('Active season not found');
+      return NextResponse.json(
+        { error: 'Active season not found' },
+        { status: 400 }
+      );
     }
 
     const seasonId = season.id as string;
@@ -68,7 +71,7 @@ export async function POST(request: Request) {
       .select('id')
       .eq('user_id', user_id)
       .eq('season_id', seasonId)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return NextResponse.json({ data: existing });

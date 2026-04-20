@@ -26,10 +26,11 @@ async function fetchUsers(search = '') {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: { search?: string };
+  searchParams: Promise<{ search?: string }>;
 }) {
   await requireAdmin();
-  const users = await fetchUsers(searchParams.search || '');
+  const resolvedSearchParams = await searchParams;
+  const users = await fetchUsers(resolvedSearchParams.search || '');
 
   return (
     <div className="space-y-4">
@@ -39,7 +40,7 @@ export default async function AdminUsersPage({
           <span className="text-sm text-text-secondary">{users.length} kayıt</span>
         </div>
         <form className="flex gap-2" action="/admin/users" method="get">
-          <Input name="search" placeholder="Kullanıcı adı veya e-posta" defaultValue={searchParams.search || ''} />
+          <Input name="search" placeholder="Kullanıcı adı veya e-posta" defaultValue={resolvedSearchParams.search || ''} />
           <Button type="submit">Ara</Button>
         </form>
       </Card>

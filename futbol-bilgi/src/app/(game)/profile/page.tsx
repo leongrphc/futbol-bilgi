@@ -76,6 +76,7 @@ export default function ProfilePage() {
   const friendships = useSocialStore((state) => state.friendships);
   const duelInvites = useSocialStore((state) => state.duelInvites);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
+  const currentSeasonLoaded = useLeagueStore((state) => state.currentSeasonLoaded);
   const leagueEntries = useLeagueStore((state) => state.entries);
   const fetchCurrentSeason = useLeagueStore((state) => state.fetchCurrentSeason);
   const fetchEntries = useLeagueStore((state) => state.fetchEntries);
@@ -114,59 +115,52 @@ export default function ProfilePage() {
   }, [currentSeason, fetchEntries]);
 
   useEffect(() => {
-    if (!user || !currentSeason) return;
+    if (!user || !currentSeasonId) return;
 
     const stats = updateAchievementStatsFromStores({
       user,
       social: { friendships },
       league: { entries: leagueEntries },
-      currentSeasonId: currentSeason.id,
+      currentSeasonId,
     });
 
     updateAchievementStats(stats);
-  }, [user, friendships, leagueEntries, currentSeason, updateAchievementStats]);
+  }, [user, friendships, leagueEntries, currentSeasonId, updateAchievementStats]);
 
-  if (!user || !currentSeason) {
-    return (
-      <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
-        <Card padding="lg" className="text-center">
-          <User className="h-16 w-16 text-text-muted mx-auto mb-4" />
-          <p className="text-text-secondary">Kullanıcı bilgisi yükleniyor...</p>
-        </Card>
-      </div>
-    );
-  }
-
-  const levelInfo = calculateLevel(user.xp);
-  const accuracy = calculateAccuracy(user.total_correct_answers, user.total_questions_answered);
-  const currentEntry = leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeason.id);
-  const currentSeasonTier = currentEntry?.tier_at_start ?? user.league_tier;
+  const levelInfo = calculateLevel(user?.xp ?? 0);
+  const accuracy = calculateAccuracy(user?.total_correct_answers ?? 0, user?.total_questions_answered ?? 0);
+  const currentSeasonId = currentSeason?.id;
+  const currentEntry = user && currentSeasonId
+    ? leagueEntries.find((entry) => entry.user_id === user.id && entry.season_id === currentSeasonId)
+    : undefined;
+  const currentSeasonTier = currentEntry?.tier_at_start ?? user?.league_tier ?? 'bronze';
   const leagueTier = LEAGUE_TIER_CONFIG[currentSeasonTier];
-  const tierEntries = leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === currentSeasonTier);
+  const tierEntries = currentSeasonId
+    ? leagueEntries.filter((entry) => entry.season_id === currentSeasonId && entry.tier_at_start === currentSeasonTier)
+    : [];
 
   useEffect(() => {
-    if (!currentSeason || !currentEntry) {
-      ensurePlayerEntry(user.id, user.league_tier);
-    }
-  }, [currentSeason, currentEntry, ensurePlayerEntry, user.id, user.league_tier]);
+    if (!user || !currentSeason || currentEntry) return;
+    ensurePlayerEntry(user.id, user.league_tier);
+  }, [currentSeason, currentEntry, ensurePlayerEntry, user]);
 
   const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
   const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
   const seasonZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
 
   const incomingRequests = useMemo(
-    () => friendships.filter((friendship) => friendship.friend_id === user.id && friendship.status === 'pending'),
-    [friendships, user.id],
+    () => friendships.filter((friendship) => user && friendship.friend_id === user.id && friendship.status === 'pending'),
+    [friendships, user],
   );
 
   const outgoingRequests = useMemo(
-    () => friendships.filter((friendship) => friendship.user_id === user.id && friendship.status === 'pending'),
-    [friendships, user.id],
+    () => friendships.filter((friendship) => user && friendship.user_id === user.id && friendship.status === 'pending'),
+    [friendships, user],
   );
 
   const acceptedFriendships = useMemo(
-    () => friendships.filter((friendship) => friendship.user_id === user.id && friendship.status === 'accepted'),
-    [friendships, user.id],
+    () => friendships.filter((friendship) => user && friendship.user_id === user.id && friendship.status === 'accepted'),
+    [friendships, user],
   );
 
   const acceptedFriends = useMemo(
@@ -177,7 +171,7 @@ export default function ProfilePage() {
   );
 
   const friendLeaderboardEntries = useMemo(() => {
-    const currentProfile = profiles.find((profile) => profile.id === user.id);
+    const currentProfile = user ? profiles.find((profile) => profile.id === user.id) : null;
     return [currentProfile, ...acceptedFriends]
       .filter(Boolean)
       .sort((a, b) => (b?.score ?? 0) - (a?.score ?? 0))
@@ -189,9 +183,9 @@ export default function ProfilePage() {
         avatar_frame: profile!.avatar_frame,
         league_tier: profile!.league_tier,
         score: profile!.score,
-        isCurrentUser: profile!.id === user.id,
+        isCurrentUser: profile!.id === user?.id,
       }));
-  }, [profiles, acceptedFriends, user.id]);
+  }, [profiles, acceptedFriends, user]);
 
   const handleLogout = () => {
     trackEvent(ANALYTICS_EVENTS.PROFILE_ACTION, { action: 'logout_clicked' });
@@ -202,7 +196,7 @@ export default function ProfilePage() {
   };
 
   const handleAddFriend = () => {
-    if (!friendUsername.trim()) return;
+    if (!user || !friendUsername.trim()) return;
     const result = sendFriendRequest(user.id, friendUsername);
     setSocialMessage(result.message);
     if (result.success) {
@@ -211,24 +205,29 @@ export default function ProfilePage() {
   };
 
   const handleDuelInvite = (friendId: string) => {
+    if (!user) return;
     const result = sendDuelInvite(user.id, friendId);
     setSocialMessage(result.message);
   };
 
   const pendingInviteCount = duelInvites.filter(
-    (invite) => invite.to_user_id === user.id && invite.status === 'pending',
+    (invite) => user && invite.to_user_id === user.id && invite.status === 'pending',
   ).length;
 
-  const evaluatedAchievements = evaluateAchievementProgress(
-    updateAchievementStatsFromStores({
-      user,
-      social: { friendships },
-      league: { entries: leagueEntries },
-      currentSeasonId: currentSeason.id,
-    }),
-  );
+  const evaluatedAchievements = user
+    ? evaluateAchievementProgress(
+      updateAchievementStatsFromStores({
+        user,
+        social: { friendships },
+        league: { entries: leagueEntries },
+        currentSeasonId,
+      }),
+    )
+    : [];
 
   useEffect(() => {
+    if (!user || !currentSeasonId) return;
+
     const syncAchievements = async () => {
       const response = await fetch('/api/achievements/sync', {
         method: 'POST',
@@ -236,7 +235,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           friendships,
           leagueEntries,
-          currentSeasonId: currentSeason.id,
+          currentSeasonId,
         }),
       });
 
@@ -256,7 +255,29 @@ export default function ProfilePage() {
     };
 
     void syncAchievements();
-  }, [friendships, leagueEntries, currentSeason.id, setUser, user]);
+  }, [friendships, leagueEntries, currentSeasonId, setUser, user]);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
+        <Card padding="lg" className="text-center">
+          <User className="h-16 w-16 text-text-muted mx-auto mb-4" />
+          <p className="text-text-secondary">Kullanıcı bilgisi yükleniyor...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!currentSeasonLoaded) {
+    return (
+      <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
+        <Card padding="lg" className="text-center">
+          <User className="h-16 w-16 text-text-muted mx-auto mb-4" />
+          <p className="text-text-secondary">Sezon bilgisi yükleniyor...</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 pb-24">
@@ -327,16 +348,27 @@ export default function ProfilePage() {
           </Card>
         </motion.div>
 
-        <motion.div variants={item}>
-          <SeasonSummaryCard
-            tier={currentSeasonTier}
-            rank={currentRank || null}
-            totalPlayers={rankedTierEntries.length}
-            seasonScore={currentEntry?.season_score ?? 0}
-            endsAt={currentSeason.ends_at}
-            zone={seasonZone}
-          />
-        </motion.div>
+        {currentSeason && (
+          <motion.div variants={item}>
+            <SeasonSummaryCard
+              tier={currentSeasonTier}
+              rank={currentRank || null}
+              totalPlayers={rankedTierEntries.length}
+              seasonScore={currentEntry?.season_score ?? 0}
+              endsAt={currentSeason.ends_at}
+              zone={seasonZone}
+            />
+          </motion.div>
+        )}
+
+        {!currentSeason && (
+          <motion.div variants={item}>
+            <Card padding="md" className="text-center">
+              <p className="font-display text-lg font-semibold text-text-primary">Aktif lig sezonu bulunmuyor</p>
+              <p className="mt-2 text-sm text-text-secondary">Profil istatistiklerin görünmeye devam eder. Sezon kartı yeni sezon başladığında geri gelir.</p>
+            </Card>
+          </motion.div>
+        )}
 
         <motion.div variants={item}>
           <StreakCard />

@@ -7,7 +7,7 @@ export async function GET() {
 
     const { data: season, error } = await supabase
       .rpc('get_current_season')
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 

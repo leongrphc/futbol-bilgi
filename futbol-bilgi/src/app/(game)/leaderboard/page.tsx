@@ -77,6 +77,7 @@ export default function LeaderboardPage() {
   const profiles = useSocialStore((state) => state.profiles);
   const friendships = useSocialStore((state) => state.friendships);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
+  const currentSeasonLoaded = useLeagueStore((state) => state.currentSeasonLoaded);
   const leagueEntries = useLeagueStore((state) => state.entries);
   const fetchCurrentSeason = useLeagueStore((state) => state.fetchCurrentSeason);
   const fetchEntries = useLeagueStore((state) => state.fetchEntries);
@@ -180,7 +181,7 @@ export default function LeaderboardPage() {
     ? leagueEntries.filter((entry) => entry.season_id === currentSeason.id && entry.tier_at_start === currentSeasonTier)
     : [];
 
-  if (user && !currentSeason) {
+  if (user && !currentSeasonLoaded) {
     return (
       <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
         <Card padding="lg" className="text-center">
@@ -367,6 +368,15 @@ export default function LeaderboardPage() {
                 isCurrentUser: entry.user_id === user.id,
               }))}
             />
+          </motion.div>
+        )}
+
+        {!currentSeason && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+            <Card padding="lg" className="text-center">
+              <p className="font-display text-lg font-semibold text-text-primary">Aktif lig sezonu bulunmuyor</p>
+              <p className="mt-2 text-sm text-text-secondary">Genel klasman açık, sezonluk sıralama yeni sezon başlayınca listelenecek.</p>
+            </Card>
           </motion.div>
         )}
 

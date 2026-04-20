@@ -47,10 +47,11 @@ async function fetchQuestions(searchParams: { search?: string; league_scope?: st
 export default async function AdminQuestionsPage({
   searchParams,
 }: {
-  searchParams: { search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string };
+  searchParams: Promise<{ search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string }>;
 }) {
   await requireAdmin();
-  const questions = await fetchQuestions(searchParams);
+  const resolvedSearchParams = await searchParams;
+  const questions = await fetchQuestions(resolvedSearchParams);
 
   return (
     <div className="space-y-4">
@@ -60,11 +61,11 @@ export default async function AdminQuestionsPage({
           <span className="text-sm text-text-secondary">{questions.length} kayıt</span>
         </div>
         <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" action="/admin/questions" method="get">
-          <Input name="search" placeholder="Soru ara" defaultValue={searchParams.search || ''} />
-          <Input name="league_scope" placeholder="league_scope" defaultValue={searchParams.league_scope || ''} />
-          <Input name="difficulty" placeholder="Zorluk (1-5)" defaultValue={searchParams.difficulty || ''} />
-          <Input name="is_active" placeholder="is_active (true/false)" defaultValue={searchParams.is_active || ''} />
-          <Input name="sort" placeholder="sort (updated_at/reported_count)" defaultValue={searchParams.sort || ''} />
+          <Input name="search" placeholder="Soru ara" defaultValue={resolvedSearchParams.search || ''} />
+          <Input name="league_scope" placeholder="league_scope" defaultValue={resolvedSearchParams.league_scope || ''} />
+          <Input name="difficulty" placeholder="Zorluk (1-5)" defaultValue={resolvedSearchParams.difficulty || ''} />
+          <Input name="is_active" placeholder="is_active (true/false)" defaultValue={resolvedSearchParams.is_active || ''} />
+          <Input name="sort" placeholder="sort (updated_at/reported_count)" defaultValue={resolvedSearchParams.sort || ''} />
           <div className="lg:col-span-5">
             <Button type="submit">Filtrele</Button>
           </div>

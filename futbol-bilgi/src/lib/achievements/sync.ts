@@ -6,7 +6,7 @@ export function updateAchievementStatsFromStores(args: {
   user: User;
   social: { friendships: Friendship[] };
   league: { entries: LeagueSeasonEntry[] };
-  currentSeasonId: string;
+  currentSeasonId?: string;
 }): AchievementStats {
   const friendCount = args.social.friendships.filter(
     (friendship) => friendship.user_id === args.user.id && friendship.status === 'accepted',

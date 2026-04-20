@@ -118,6 +118,7 @@ export default function DashboardPage() {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
+  const currentSeasonLoaded = useLeagueStore((state) => state.currentSeasonLoaded);
   const entries = useLeagueStore((state) => state.entries);
   const fetchCurrentSeason = useLeagueStore((state) => state.fetchCurrentSeason);
   const fetchEntries = useLeagueStore((state) => state.fetchEntries);
@@ -159,7 +160,7 @@ export default function DashboardPage() {
     return null;
   }
 
-  if (!currentSeason) {
+  if (!currentSeasonLoaded) {
     return (
       <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
         <Card padding="lg" className="text-center">
@@ -187,7 +188,7 @@ export default function DashboardPage() {
   const leagueZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
   const seasonScore = currentEntry?.season_score ?? 0;
   const totalTierPlayers = rankedTierEntries.length;
-  const seasonEndsAt = currentSeason.ends_at;
+  const seasonEndsAt = currentSeason?.ends_at;
 
   const currentDate = new Date().toLocaleDateString('tr-TR', {
     day: 'numeric',
@@ -472,16 +473,27 @@ export default function DashboardPage() {
         </Card>
       </motion.div>
 
-      <motion.div variants={itemVariants} className="mb-6">
-        <SeasonSummaryCard
-          tier={currentSeasonTier}
-          rank={currentRank || null}
-          totalPlayers={totalTierPlayers}
-          seasonScore={seasonScore}
-          endsAt={seasonEndsAt}
-          zone={leagueZone}
-        />
-      </motion.div>
+      {currentSeason && (
+        <motion.div variants={itemVariants} className="mb-6">
+          <SeasonSummaryCard
+            tier={currentSeasonTier}
+            rank={currentRank || null}
+            totalPlayers={totalTierPlayers}
+            seasonScore={seasonScore}
+            endsAt={seasonEndsAt}
+            zone={leagueZone}
+          />
+        </motion.div>
+      )}
+
+      {!currentSeason && (
+        <motion.div variants={itemVariants} className="mb-6">
+          <Card padding="md" className="text-center">
+            <p className="font-display text-lg font-semibold text-text-primary">Şu anda aktif lig sezonu yok</p>
+            <p className="mt-2 text-sm text-text-secondary">Yeni sezon başladığında sıralama ve sezon özeti burada görünecek.</p>
+          </Card>
+        </motion.div>
+      )}
 
       <motion.div variants={itemVariants} className="mb-6">
         <Card padding="md" variant="highlighted">

@@ -4,6 +4,7 @@ import type { LeagueSeason, LeagueSeasonEntry } from '@/lib/league/season';
 
 interface LeagueState {
   currentSeason: LeagueSeason | null;
+  currentSeasonLoaded: boolean;
   entries: LeagueSeasonEntry[];
   loading: boolean;
 }
@@ -18,6 +19,7 @@ interface LeagueActions {
 
 export const useLeagueStore = create<LeagueState & LeagueActions>()((set, get) => ({
   currentSeason: null,
+  currentSeasonLoaded: false,
   entries: [],
   loading: false,
 
@@ -25,11 +27,10 @@ export const useLeagueStore = create<LeagueState & LeagueActions>()((set, get) =
     try {
       const response = await fetch('/api/league/season');
       const json = await response.json();
-      if (json.data) {
-        set({ currentSeason: json.data });
-      }
+      set({ currentSeason: json.data ?? null, currentSeasonLoaded: true });
     } catch (error) {
       console.error('Failed to fetch current season:', error);
+      set({ currentSeason: null, currentSeasonLoaded: true });
     }
   },
 
@@ -53,10 +54,13 @@ export const useLeagueStore = create<LeagueState & LeagueActions>()((set, get) =
   },
 
   ensurePlayerEntry: async (userId, tier) => {
-    const state = get();
-    if (!state.currentSeason) {
+    let state = get();
+    if (!state.currentSeasonLoaded) {
       await get().fetchCurrentSeason();
+      state = get();
     }
+
+    if (!state.currentSeason) return;
 
     const exists = state.entries.some(
       (entry) => entry.user_id === userId && entry.season_id === state.currentSeason?.id,
