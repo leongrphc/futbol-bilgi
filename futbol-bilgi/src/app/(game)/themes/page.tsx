@@ -100,6 +100,7 @@ const utilityItems = [
 export default function ThemesPage() {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
+  const refreshUser = useUserStore((state) => state.refreshUser);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [purchasingKey, setPurchasingKey] = useState<string | null>(null);
@@ -117,14 +118,20 @@ export default function ThemesPage() {
         shopItems: [],
         inventory: [],
       }) as ThemeShopResponse;
+      const latestUser = useUserStore.getState().user;
+      if (!latestUser) {
+        setIsLoading(false);
+        return;
+      }
+
       const resolved = getResolvedThemeData(
-        user.id,
+        latestUser.id,
         data.shopItems,
         data.inventory,
       );
 
       setUser({
-        ...user,
+        ...latestUser,
         inventory: resolved.inventory,
         shop_items: resolved.shopItems,
       });
@@ -167,13 +174,7 @@ export default function ThemesPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      coins: json.data.profile.coins,
-      gems: json.data.profile.gems,
-      inventory: [...inventory, json.data.inventory],
-      shop_items: shopItems,
-    });
+    await refreshUser();
     setMessage(`${getThemeByKey(themeKey).label} satın alındı.`);
   };
 
@@ -191,13 +192,7 @@ export default function ThemesPage() {
         return;
       }
 
-      setUser({
-        ...user,
-        settings: {
-          ...user.settings,
-          theme: "dark",
-        },
-      });
+      await refreshUser();
       setMessage("Klasik Gece kuşanıldı.");
       return;
     }
@@ -217,26 +212,13 @@ export default function ThemesPage() {
       return;
     }
 
-    const nextInventory = inventory.map((entry) => ({
-      ...entry,
-      is_equipped: entry.item_id === item.id,
-    }));
-
     await fetch("/api/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ settings: { theme: themeKey } }),
     });
 
-    setUser({
-      ...user,
-      inventory: nextInventory,
-      settings: {
-        ...user.settings,
-        theme: themeKey,
-      },
-      shop_items: shopItems,
-    });
+    await refreshUser();
     setMessage(`${THEME_DEFINITION_MAP[themeKey].label} kuşanıldı.`);
   };
 
@@ -258,10 +240,7 @@ export default function ThemesPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      ...json.data.profile,
-    });
+    await refreshUser();
     setMessage("Satın alma tamamlandı.");
   };
 

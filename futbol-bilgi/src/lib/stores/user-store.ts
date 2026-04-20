@@ -22,6 +22,7 @@ interface UserActions {
   setUser: (user: User) => void;
   clearUser: () => void;
   setLoading: (loading: boolean) => void;
+  refreshUser: () => Promise<void>;
 
   // Currency
   updateCoins: (amount: number) => void;
@@ -63,6 +64,22 @@ const defaultSettings: UserSettings = {
   theme: 'dark',
 };
 
+interface ThemeShopPayload {
+  shopItems: User['shop_items'];
+  inventory: User['inventory'];
+}
+
+async function fetchThemeData(): Promise<ThemeShopPayload> {
+  const response = await fetch('/api/shop/themes');
+
+  if (!response.ok) {
+    return { shopItems: [], inventory: [] };
+  }
+
+  const json = await response.json();
+  return json.data ?? { shopItems: [], inventory: [] };
+}
+
 // ==========================================
 // Zustand Store with Persistence
 // ==========================================
@@ -97,6 +114,41 @@ export const useUserStore = create<UserStore>()(
 
       setLoading: (loading) => {
         set({ isLoading: loading });
+      },
+
+      refreshUser: async () => {
+        const { user } = get();
+        if (!user) return;
+
+        try {
+          const [profileResponse, themeData] = await Promise.all([
+            fetch('/api/me'),
+            fetchThemeData(),
+          ]);
+
+          if (!profileResponse.ok) {
+            return;
+          }
+
+          const json = await profileResponse.json();
+          if (!json.data) {
+            return;
+          }
+
+          set({
+            user: {
+              ...user,
+              ...json.data,
+              settings: { ...defaultSettings, ...(json.data.settings ?? {}) },
+              inventory: themeData.inventory,
+              shop_items: themeData.shopItems,
+            },
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          console.error('Failed to refresh user:', error);
+        }
       },
 
       // Currency

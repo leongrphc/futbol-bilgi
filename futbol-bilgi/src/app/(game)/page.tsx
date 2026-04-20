@@ -117,6 +117,7 @@ interface DailyRewardResponse {
 export default function DashboardPage() {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
+  const refreshUser = useUserStore((state) => state.refreshUser);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const currentSeasonLoaded = useLeagueStore((state) => state.currentSeasonLoaded);
   const entries = useLeagueStore((state) => state.entries);
@@ -217,10 +218,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      ...json.data.profile,
-    });
+    await refreshUser();
 
     if (rewardType === 'coins_small') {
       setRewardData({
@@ -262,10 +260,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      ...json.data.profile,
-    });
+    await refreshUser();
     setIapMessage(`${json.data.purchase.label} hesabına eklendi.`);
     setPurchasingProductId(null);
   };
@@ -290,10 +285,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      ...json.data.profile,
-    });
+    await refreshUser();
     setPremiumMessage('Premium Pass aktif edildi.');
     setPurchasingProductId(null);
   };
@@ -317,10 +309,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      ...json.data.profile,
-    });
+    await refreshUser();
     setPremiumMessage('Günlük 20 gem hesabına işlendi.');
     setRewardData({
       xp: 0,
@@ -352,10 +341,7 @@ export default function DashboardPage() {
       return;
     }
 
-    setUser({
-      ...user,
-      ...json.data.profile,
-    });
+    await refreshUser();
     setShopMessage('Satın alma tamamlandı.');
     setPurchasingProductId(null);
   };
@@ -382,10 +368,7 @@ export default function DashboardPage() {
     const streakUp = { days: json.reward.nextStreak };
     const streakMilestone = milestones.includes(json.reward.nextStreak) ? { days: json.reward.nextStreak } : null;
 
-    setUser({
-      ...user,
-      ...json.data,
-    });
+    await refreshUser();
 
     setRewardData({
       xp: json.reward.xp,
