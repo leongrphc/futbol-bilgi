@@ -14,6 +14,7 @@ import {
   Percent,
   Users,
   Timer,
+  Gem,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,9 +32,24 @@ import {
   getThemePreviewStyle,
   type AppThemeKey,
 } from "@/lib/themes";
+import {
+  FRAME_DEFINITION_MAP,
+  FRAME_DEFINITIONS,
+  canAffordFrame,
+  getFrameItemByKey,
+  getFramePriceLabel,
+  getOwnedFrameItemIds,
+  type AppFrameKey,
+} from "@/lib/frames";
+import { Avatar } from "@/components/ui/avatar";
 import type { ShopItem, UserInventory } from "@/types";
 
 interface ThemeShopResponse {
+  shopItems: ShopItem[];
+  inventory: UserInventory[];
+}
+
+interface FrameShopResponse {
   shopItems: ShopItem[];
   inventory: UserInventory[];
 }
@@ -107,17 +123,26 @@ export default function ThemesPage() {
 
   useEffect(() => {
     const loadThemes = async () => {
-      const response = await fetch("/api/shop/themes");
-      if (!response.ok || !user) {
+      const [themeResponse, frameResponse] = await Promise.all([
+        fetch("/api/shop/themes"),
+        fetch("/api/shop/frames"),
+      ]);
+
+      if (!themeResponse.ok || !frameResponse.ok || !user) {
         setIsLoading(false);
         return;
       }
 
-      const json = await response.json();
-      const data = (json.data ?? {
+      const themeJson = await themeResponse.json();
+      const frameJson = await frameResponse.json();
+      const data = (themeJson.data ?? {
         shopItems: [],
         inventory: [],
       }) as ThemeShopResponse;
+      const frameData = (frameJson.data ?? {
+        shopItems: [],
+        inventory: [],
+      }) as FrameShopResponse;
       const latestUser = useUserStore.getState().user;
       if (!latestUser) {
         setIsLoading(false);
@@ -130,10 +155,13 @@ export default function ThemesPage() {
         data.inventory,
       );
 
+      const mergedInventory = [...resolved.inventory, ...frameData.inventory.filter((entry) => !resolved.inventory.some((themeEntry) => themeEntry.id === entry.id))];
+      const mergedShopItems = [...resolved.shopItems, ...frameData.shopItems.filter((item) => !resolved.shopItems.some((themeItem) => themeItem.id === item.id))];
+
       setUser({
         ...latestUser,
-        inventory: resolved.inventory,
-        shop_items: resolved.shopItems,
+        inventory: mergedInventory,
+        shop_items: mergedShopItems,
       });
       setIsLoading(false);
     };
@@ -153,7 +181,9 @@ export default function ThemesPage() {
   const shopItems = resolvedThemeData.shopItems;
   const inventory = resolvedThemeData.inventory;
   const ownedItemIds = getOwnedThemeItemIds(inventory);
+  const ownedFrameItemIds = getOwnedFrameItemIds(inventory);
   const equippedThemeKey = getDisplayThemeKey(user.settings);
+  const equippedFrameKey = (user.avatar_frame as AppFrameKey | null) ?? 'default';
 
   const buyTheme = async (themeKey: AppThemeKey) => {
     const item = getThemeItemByKey(themeKey, shopItems);
@@ -242,6 +272,49 @@ export default function ThemesPage() {
 
     await refreshUser();
     setMessage("Satın alma tamamlandı.");
+  };
+
+  const buyFrame = async (frameKey: AppFrameKey) => {
+    const item = getFrameItemByKey(frameKey, shopItems);
+    if (!item) return;
+
+    setPurchasingKey(`frame-${frameKey}`);
+    const response = await fetch("/api/shop/frames", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: item.id }),
+    });
+
+    const json = await response.json();
+    setPurchasingKey(null);
+
+    if (!response.ok) {
+      setMessage(json.error || "Çerçeve satın alınamadı.");
+      return;
+    }
+
+    await refreshUser();
+    setMessage(`${FRAME_DEFINITION_MAP[frameKey].label} satın alındı.`);
+  };
+
+  const equipFrame = async (frameKey: AppFrameKey) => {
+    setPurchasingKey(`frame-${frameKey}`);
+    const response = await fetch("/api/shop/frames", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ frameKey }),
+    });
+
+    const json = await response.json();
+    setPurchasingKey(null);
+
+    if (!response.ok) {
+      setMessage(json.error || "Çerçeve kuşanılamadı.");
+      return;
+    }
+
+    await refreshUser();
+    setMessage(`${FRAME_DEFINITION_MAP[frameKey].label} kuşanıldı.`);
   };
 
   const collectionThemes = useMemo(
@@ -392,6 +465,69 @@ export default function ThemesPage() {
                   </Card>
                 );
               })}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Gem className="h-5 w-5 text-secondary-500" />
+            <h2 className="font-display text-lg font-semibold text-text-primary">
+              Premium Kozmetikler
+            </h2>
+          </div>
+          <p className="text-sm text-text-secondary">
+            Gem ile alınan kozmetikler nadir kalır ve hesabına prestij katar.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {FRAME_DEFINITIONS.filter((frame) => frame.key !== "default").map((frame) => {
+              const item = getFrameItemByKey(frame.key, shopItems);
+              const owned = item ? ownedFrameItemIds.has(item.id) : false;
+              const equipped = equippedFrameKey === frame.key;
+              const requiresPremium = Boolean(item?.metadata?.isPremium) && !user.is_premium;
+
+              return (
+                <Card key={frame.key} padding="lg" className="space-y-4">
+                  <div className="flex items-center justify-center rounded-2xl bg-bg-elevated p-6">
+                    <Avatar size="xl" fallback={user.username} frame={frame.key} />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-display text-lg font-semibold text-text-primary">{frame.label}</h3>
+                      <span className="flex items-center gap-1 text-xs font-semibold text-secondary-500">
+                        <Sparkles className="h-3 w-3" />
+                        {frame.rarity}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-text-secondary">{frame.description}</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-secondary-500">
+                      {requiresPremium ? "Premium Gerekli" : getFramePriceLabel(item)}
+                    </span>
+                    {owned ? (
+                      <Button
+                        variant={equipped ? "secondary" : "primary"}
+                        onClick={() => equipFrame(frame.key)}
+                        isLoading={purchasingKey === `frame-${frame.key}`}
+                      >
+                        <Check className="h-4 w-4" />
+                        {equipped ? "Aktif" : "Kuşan"}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => buyFrame(frame.key)}
+                        disabled={requiresPremium || !canAffordFrame(item, user.coins, user.gems) || isLoading || purchasingKey === `frame-${frame.key}`}
+                        isLoading={purchasingKey === `frame-${frame.key}`}
+                      >
+                        {requiresPremium ? <Lock className="h-4 w-4" /> : null}
+                        {requiresPremium ? "Premium Gerekli" : "Satın Al"}
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         </section>
 

@@ -71,7 +71,7 @@
   --breakpoint-xl: 1440px;
 }
 
-html[data-theme='champion-night'] {
+html[data-theme='golden-cup'] {
   --color-primary-500: #ffca28;
   --color-primary-600: #ffb300;
   --color-secondary-500: #ffe082;
@@ -81,7 +81,7 @@ html[data-theme='champion-night'] {
   --color-bg-elevated: #272f52;
 }
 
-html[data-theme='emerald-flare'] {
+html[data-theme='green-grass'] {
   --color-primary-500: #00c853;
   --color-primary-600: #00b248;
   --color-secondary-500: #69f0ae;
@@ -91,7 +91,7 @@ html[data-theme='emerald-flare'] {
   --color-bg-elevated: #1d342a;
 }
 
-html[data-theme='midnight-gold'] {
+html[data-theme='retro-pitch'] {
   --color-primary-500: #ffb300;
   --color-primary-600: #ff8f00;
   --color-secondary-500: #58a6ff;
