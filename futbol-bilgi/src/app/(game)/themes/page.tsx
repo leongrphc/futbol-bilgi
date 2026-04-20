@@ -222,14 +222,17 @@ export default function ThemesPage() {
 
   const equipTheme = async (themeKey: AppThemeKey) => {
     if (themeKey === "dark") {
+      setPurchasingKey(themeKey);
       const response = await fetch("/api/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ settings: { theme: "dark" } }),
       });
 
+      const json = await response.json();
+      setPurchasingKey(null);
+
       if (!response.ok) {
-        const json = await response.json();
         setMessage(json.error || "Tema kuşanılamadı.");
         return;
       }
@@ -626,6 +629,7 @@ export default function ThemesPage() {
                         variant={equipped ? "secondary" : "primary"}
                         onClick={() => equipTheme(theme.key)}
                         disabled={!item && theme.key !== "dark"}
+                        isLoading={purchasingKey === theme.key}
                       >
                         <Check className="h-4 w-4" />
                         {equipped ? "Aktif" : "Kuşan"}
@@ -651,8 +655,6 @@ export default function ThemesPage() {
               );
             })}
           </div>
-        </section>
-
         </section>}
 
         {activeTab === 'collection' && <section className="space-y-3">
@@ -693,6 +695,7 @@ export default function ThemesPage() {
                     variant={equipped ? "secondary" : "primary"}
                     onClick={() => equipTheme(theme.key)}
                     disabled={!item && theme.key !== "dark"}
+                    isLoading={purchasingKey === theme.key}
                   >
                     <Check className="h-4 w-4" />
                     {equipped ? "Kuşanıldı" : "Kuşan"}
