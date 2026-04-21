@@ -4,4 +4,6 @@ export type NotificationType =
   | 'energy_full'
   | 'event_announcement'
   | 'achievement_unlock'
+  | 'duel_invite'
+  | 'duel_result'
   | 'general';

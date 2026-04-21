@@ -683,7 +683,7 @@ export default function ProfilePage() {
                       avatar={opponent.avatar_url}
                       frame={opponent.avatar_frame}
                       favoriteTeam={opponent.favorite_team}
-                      subtitle={label}
+                      subtitle={`${label} · ${invite.from_user_score ?? 0} - ${invite.to_user_score ?? 0}`}
                       status="accepted"
                       isOnline={Date.now() - new Date(opponent.last_seen_at).getTime() < 1000 * 60 * 5}
                       primaryAction={canPlay ? {

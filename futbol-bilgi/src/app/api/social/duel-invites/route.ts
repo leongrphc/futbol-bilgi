@@ -110,6 +110,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  const { data: senderProfile } = await admin
+    .from('profiles')
+    .select('username')
+    .eq('id', user.id)
+    .single();
+
+  await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/notifications/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: toUserId,
+      title: 'Yeni düello daveti',
+      body: `${senderProfile?.username ?? 'Bir arkadaşın'} seni düelloya çağırdı.`,
+      url: '/profile',
+      type: 'duel_invite',
+    }),
+  }).catch(() => null);
+
   return NextResponse.json({ data: await getSocialSnapshot(user.id) });
 }
 

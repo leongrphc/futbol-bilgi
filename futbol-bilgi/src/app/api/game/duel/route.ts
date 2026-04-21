@@ -94,18 +94,59 @@ async function finalizeChallengeInvite(params: {
       ? refreshedInvite.to_user_id
       : null;
 
+  const completedAt = new Date().toISOString();
   const { error: completeInviteError } = await admin
     .from('duel_invites')
     .update({
       status: 'completed',
       winner_user_id: winnerUserId,
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      completed_at: completedAt,
+      updated_at: completedAt,
     })
     .eq('id', inviteId);
 
   if (completeInviteError) {
     throw new Error(completeInviteError.message);
+  }
+
+  const loserUserId = winnerUserId === null
+    ? null
+    : winnerUserId === refreshedInvite.from_user_id
+      ? refreshedInvite.to_user_id
+      : refreshedInvite.from_user_id;
+
+  if (winnerUserId) {
+    const [{ data: winnerProfile }, { data: loserProfile }] = await Promise.all([
+      admin.from('profiles').select('username').eq('id', winnerUserId).single(),
+      loserUserId ? admin.from('profiles').select('username').eq('id', loserUserId).single() : Promise.resolve({ data: null }),
+    ]);
+
+    await Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/notifications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: winnerUserId,
+          title: 'Challenge tamamlandı',
+          body: `${loserProfile?.username ?? 'Rakibin'} karşısında challenge'ı kazandın.`,
+          url: '/profile',
+          type: 'duel_result',
+        }),
+      }).catch(() => null),
+      loserUserId
+        ? fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/notifications/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: loserUserId,
+              title: 'Challenge sonucu hazır',
+              body: `${winnerProfile?.username ?? 'Rakibin'} challenge'ı kazandı. Sonucu profilinden görebilirsin.`,
+              url: '/profile',
+              type: 'duel_result',
+            }),
+          }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
   }
 
   const userDuelResult: 'win' | 'loss' | 'draw' = winnerUserId === null ? 'draw' : winnerUserId === userId ? 'win' : 'loss';
