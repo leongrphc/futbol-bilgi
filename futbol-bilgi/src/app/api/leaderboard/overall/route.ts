@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 type Period = 'daily' | 'weekly' | 'monthly' | 'all_time';
 type Mode = 'overall' | 'millionaire' | 'duel';
@@ -44,9 +45,16 @@ export async function GET(request: Request) {
     const mode: Mode = isMode(rawMode) ? rawMode : 'overall';
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const admin = createAdminClient();
 
     if (mode === 'overall' && period === 'all_time') {
-      const { data, error } = await supabase
+      const { data, error } = await admin
         .from('profiles')
         .select('id, username, avatar_url, avatar_frame, league_tier, xp')
         .order('xp', { ascending: false })
@@ -75,7 +83,7 @@ export async function GET(request: Request) {
     const sessionMode = mode === 'overall' ? null : mode;
     const since = period === 'all_time' ? null : getPeriodStart(period);
 
-    let query = supabase
+    let query = admin
       .from('game_sessions')
       .select('user_id, score, profiles!inner(username, avatar_url, avatar_frame, league_tier)')
       .not('ended_at', 'is', null)
