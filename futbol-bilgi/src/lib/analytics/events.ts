@@ -21,6 +21,8 @@ export const ANALYTICS_EVENTS = {
   TOURNAMENT_MODE_VIEWED: 'tournament_mode_viewed',
   TOURNAMENT_RUN_STARTED: 'tournament_run_started',
   TOURNAMENT_RUN_COMPLETED: 'tournament_run_completed',
+  LIVE_TOURNAMENTS_VIEWED: 'live_tournaments_viewed',
+  LIVE_TOURNAMENT_JOINED: 'live_tournament_joined',
 } as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

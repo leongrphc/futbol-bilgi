@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Trophy, Target, Clock3, ChevronRight } from 'lucide-react';
+import { Trophy, Target, Clock3, ChevronRight, Users } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AnswerGrid } from '@/components/game/answer-option';
@@ -22,7 +22,18 @@ import { calculateLevel, formatNumber } from '@/lib/utils/game';
 import { getTournamentRoundQuestions } from '@/lib/data/mock-questions';
 import type { Question } from '@/types';
 
-type TournamentPhase = 'loading' | 'playing' | 'revealing' | 'between-rounds' | 'result';
+type TournamentPhase = 'lobby' | 'loading' | 'playing' | 'revealing' | 'between-rounds' | 'result';
+
+interface LiveTournament {
+  id: string;
+  title: string;
+  description: string | null;
+  league_scope: string;
+  status: 'scheduled' | 'live' | 'completed';
+  max_players: number;
+  current_players: number;
+  starts_at: string;
+}
 
 const ROUND_LABELS = ['Çeyrek Final', 'Yarı Final', 'Final'] as const;
 
@@ -50,7 +61,10 @@ export default function TournamentPage() {
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
 
-  const [phase, setPhase] = useState<TournamentPhase>('loading');
+  const [phase, setPhase] = useState<TournamentPhase>('lobby');
+  const [liveTournaments, setLiveTournaments] = useState<LiveTournament[]>([]);
+  const [selectedTournament, setSelectedTournament] = useState<LiveTournament | null>(null);
+  const [isJoiningTournament, setIsJoiningTournament] = useState(false);
   const [round, setRound] = useState(1);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
@@ -101,9 +115,18 @@ export default function TournamentPage() {
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
     trackEvent(ANALYTICS_EVENTS.TOURNAMENT_MODE_VIEWED, { scope: selectedScope });
-    trackEvent(ANALYTICS_EVENTS.TOURNAMENT_RUN_STARTED, { scope: selectedScope });
-    prepareRound(1);
-  }, [prepareRound, selectedScope]);
+    trackEvent(ANALYTICS_EVENTS.LIVE_TOURNAMENTS_VIEWED, { scope: selectedScope });
+
+    const loadTournaments = async () => {
+      const response = await fetch('/api/tournaments');
+      const json = await response.json();
+      if (response.ok && json.data) {
+        setLiveTournaments((json.data as LiveTournament[]).filter((tournament) => tournament.league_scope === selectedScope || tournament.league_scope === 'turkey'));
+      }
+    };
+
+    void loadTournaments();
+  }, [selectedScope]);
 
   useEffect(() => {
     setTimeRemaining(timer.timeRemaining);
@@ -172,6 +195,34 @@ export default function TournamentPage() {
     }, 1300);
   }, [answerQuestion, currentQuestion, finalizeTournament, nextQuestion, phase, questionNumber, questions, round, roundQuestionCount, setCurrentQuestion, timer]);
 
+  const handleJoinTournament = useCallback(async (tournament: LiveTournament) => {
+    setIsJoiningTournament(true);
+    const response = await fetch('/api/tournaments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tournamentId: tournament.id }),
+    });
+
+    const json = await response.json();
+    setIsJoiningTournament(false);
+
+    if (!response.ok || !json.data) {
+      return;
+    }
+
+    setSelectedTournament(tournament);
+    setPhase('loading');
+    trackEvent(ANALYTICS_EVENTS.LIVE_TOURNAMENT_JOINED, {
+      tournament_id: tournament.id,
+      scope: selectedScope,
+    });
+    trackEvent(ANALYTICS_EVENTS.TOURNAMENT_RUN_STARTED, {
+      scope: selectedScope,
+      tournament_id: tournament.id,
+    });
+    prepareRound(1);
+  }, [prepareRound, selectedScope]);
+
   const handleAdvanceRound = useCallback(() => {
     const nextRound = round + 1;
     setSelectedAnswer(null);
@@ -187,6 +238,56 @@ export default function TournamentPage() {
   const handleRestart = useCallback(() => {
     router.refresh();
   }, [router]);
+
+  if (phase === 'lobby') {
+    return (
+      <div className="min-h-screen p-4 pb-24">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <Card padding="lg" variant="highlighted">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs text-text-secondary">Canlı Turnuvalar</p>
+                <h1 className="mt-1 font-display text-2xl font-bold text-text-primary">Katılabileceğin Turnuvalar</h1>
+                <p className="mt-2 text-sm text-text-secondary">Scope bazlı planlanan ve aktif turnuvalara katıl, ardından 3 turlu mini bracket akışını oyna.</p>
+              </div>
+              <div className="rounded-2xl bg-primary-500/12 p-4">
+                <Users className="h-8 w-8 text-primary-500" />
+              </div>
+            </div>
+          </Card>
+
+          {liveTournaments.length === 0 ? (
+            <Card padding="lg" className="text-center">
+              <p className="font-display text-lg font-semibold text-text-primary">Şu anda uygun turnuva yok</p>
+              <p className="mt-2 text-sm text-text-secondary">Yeni turnuva açıldığında burada görünecek.</p>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {liveTournaments.map((tournament) => (
+                <Card key={tournament.id} padding="lg" className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-text-secondary">{tournament.league_scope} · {tournament.status}</p>
+                      <h2 className="font-display text-xl font-bold text-text-primary">{tournament.title}</h2>
+                      <p className="mt-1 text-sm text-text-secondary">{tournament.description}</p>
+                    </div>
+                    <span className="rounded-full bg-primary-500 px-3 py-1 text-xs font-bold text-white">{tournament.current_players}/{tournament.max_players}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-text-secondary">
+                    <span>Başlangıç: {new Date(tournament.starts_at).toLocaleString('tr-TR')}</span>
+                    <span>{tournament.status === 'live' ? 'Şimdi açık' : 'Yakında'}</span>
+                  </div>
+                  <Button onClick={() => void handleJoinTournament(tournament)} isLoading={isJoiningTournament && selectedTournament?.id === tournament.id} fullWidth>
+                    Katıl ve Oyna
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (showRewardOverlay) {
     return (
