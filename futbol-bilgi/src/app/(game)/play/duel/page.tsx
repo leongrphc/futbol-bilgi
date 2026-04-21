@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Swords, Trophy, TimerReset, ShieldAlert, Zap, Target } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
   generateMockOpponentResponse,
   sumAnswerTimesMs,
 } from '@/lib/utils/game';
-import { getQuestionsByDifficulty } from '@/lib/data/mock-questions';
+import { getQuestionsByDifficulty, getQuestionsByIds } from '@/lib/data/mock-questions';
 import type { DifficultyLevel, Question } from '@/types';
 
 type DuelPhase = 'loading' | 'searching' | 'matched' | 'countdown' | 'playing' | 'revealing' | 'result';
@@ -45,6 +45,7 @@ const OPPONENT_NAMES = ['AslanKral', 'KartalRuhu', 'Kanarya1907', 'KaradenizGol'
 
 export default function DuelPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
   const profiles = useSocialStore((state) => state.profiles);
@@ -59,6 +60,7 @@ export default function DuelPage() {
   const [showEnergyWarning, setShowEnergyWarning] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [opponent, setOpponent] = useState<MockOpponent | null>(null);
+  const [challengeInviteId, setChallengeInviteId] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(3);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
@@ -78,7 +80,16 @@ export default function DuelPage() {
   const sessionIdRef = useRef<string | null>(null);
 
   const currentQuestion = questions[questionIndex] ?? null;
+  const challengeInviteIdFromQuery = searchParams.get('invite');
+  const isChallengeMode = Boolean(challengeInviteIdFromQuery);
   const totalQuestions = DUEL_CONFIG.total_questions;
+  const challengeOpponentProfile = useMemo(() => {
+    if (!challengeInviteIdFromQuery || !user) return null;
+    const invite = duelInvites.find((item) => item.id === challengeInviteIdFromQuery);
+    if (!invite) return null;
+    const opponentId = invite.from_user_id === user.id ? invite.to_user_id : invite.from_user_id;
+    return profiles.find((profile) => profile.id === opponentId) ?? null;
+  }, [challengeInviteIdFromQuery, duelInvites, profiles, user]);
   const pendingRevealRef = useRef(false);
 
   const timer = useTimer({
@@ -112,7 +123,11 @@ export default function DuelPage() {
   const startDuel = useCallback(async () => {
     if (!user) return;
 
-    const response = await fetch('/api/game/duel', { method: 'POST' });
+    const response = await fetch('/api/game/duel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(isChallengeMode && challengeInviteIdFromQuery ? { inviteId: challengeInviteIdFromQuery } : {}),
+    });
     const json = await response.json();
 
     if (!response.ok || !json.data) {
@@ -132,11 +147,27 @@ export default function DuelPage() {
       session_id: sessionId,
       league_scope: user.league_tier,
       question_count: DUEL_CONFIG.total_questions,
+      challenge_invite_id: json.data.inviteId ?? null,
     });
+
+    if (isChallengeMode) {
+      setChallengeInviteId((json.data.inviteId as string | null) ?? challengeInviteIdFromQuery);
+      setQuestions(getQuestionsByIds((json.data.questionIds as string[] | undefined) ?? []));
+      const challengeOpponent = json.data.opponent as { id: string; username: string; elo: number } | undefined;
+      setOpponent(challengeOpponent ? {
+        id: challengeOpponent.id,
+        username: challengeOpponent.username,
+        elo: challengeOpponent.elo,
+        avatar: challengeOpponent.username.charAt(0),
+      } : createMockOpponent());
+      setPhase('matched');
+      return;
+    }
+
     setQuestions(buildDuelQuestions());
     setOpponent(createMockOpponent());
     setPhase('searching');
-  }, [user, setUser, buildDuelQuestions, createMockOpponent]);
+  }, [user, setUser, buildDuelQuestions, createMockOpponent, isChallengeMode, challengeInviteIdFromQuery]);
 
   useEffect(() => {
     if (!user) {
@@ -195,6 +226,8 @@ export default function DuelPage() {
     return () => clearTimeout(timeout);
   }, [phase, countdown, timer]);
 
+  const playerTotalTimeMs = sumAnswerTimesMs(playerAnswerTimes);
+
   const finishDuel = useCallback(async (winner: 'player' | 'opponent' | 'draw') => {
     if (!user || !opponent) return;
 
@@ -224,6 +257,8 @@ export default function DuelPage() {
         correctAnswers: playerAnsweredCount,
         totalAnswered: totalQuestions,
         opponentElo: opponent.elo,
+        inviteId: challengeInviteId,
+        answerTimeMs: playerTotalTimeMs,
       }),
     });
 
@@ -232,15 +267,16 @@ export default function DuelPage() {
       return;
     }
 
-    setResult(duelResult);
-    recordDuelResult(user.id, user.league_tier, duelResult);
+    const effectiveResult = (json.data.duelResult as 'win' | 'loss' | 'draw' | undefined) ?? duelResult;
+    setResult(effectiveResult);
+    recordDuelResult(user.id, user.league_tier, effectiveResult);
     setEloDelta(json.data.rewards.eloDelta);
     setUser({
       ...user,
       ...json.data.profile,
     });
 
-    if (winner === 'player') {
+    if (effectiveResult === 'win') {
       const currentLevel = calculateLevel(user.xp).level;
       const newLevel = calculateLevel(json.data.profile.xp).level;
       const levelUp = newLevel > currentLevel ? { from: currentLevel, to: newLevel } : null;
@@ -250,7 +286,7 @@ export default function DuelPage() {
     }
 
     setPhase('result');
-  }, [user, opponent, playerScore, playerAnsweredCount, totalQuestions, recordDuelResult, setUser]);
+  }, [user, opponent, playerScore, playerAnsweredCount, totalQuestions, recordDuelResult, setUser, challengeInviteId, playerTotalTimeMs]);
 
   const goToNextQuestion = useCallback(() => {
     pendingRevealRef.current = false;
@@ -362,8 +398,6 @@ export default function DuelPage() {
     setPhase('result');
   }, []);
 
-  const playerTotalTimeMs = sumAnswerTimesMs(playerAnswerTimes);
-
   if (showRewardOverlay) {
     return (
       <RewardOverlay
@@ -402,6 +436,10 @@ export default function DuelPage() {
                   <h1 className="mb-2 font-display text-2xl font-bold text-text-primary">Rakip Aranıyor</h1>
                   <p className="text-text-secondary">ELO seviyene yakın bir rakip bulunuyor...</p>
                 </>
+              )}
+
+              {isChallengeMode && challengeOpponentProfile && (
+                <p className="mt-3 text-sm text-text-secondary">Arkadaş challenge'ı hazırlanıyor: {challengeOpponentProfile.username}</p>
               )}
 
               {phase === 'matched' && opponent && (

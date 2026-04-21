@@ -225,6 +225,45 @@ export default function ProfilePage() {
   const pendingDuelInvites = duelInvites.filter(
     (invite) => user && invite.to_user_id === user.id && invite.status === 'pending',
   );
+  const acceptedDuelInvites = duelInvites.filter(
+    (invite) => user && invite.status === 'accepted' && (invite.to_user_id === user.id || invite.from_user_id === user.id),
+  );
+  const completedDuelInvites = duelInvites.filter(
+    (invite) => user && invite.status === 'completed' && (invite.to_user_id === user.id || invite.from_user_id === user.id),
+  ).slice(0, 3);
+
+  const getInviteOpponent = (invite: typeof duelInvites[number]) => {
+    const opponentId = invite.from_user_id === user?.id ? invite.to_user_id : invite.from_user_id;
+    return profiles.find((profile) => profile.id === opponentId) ?? null;
+  };
+
+  const handlePlayAcceptedInvite = (inviteId: string) => {
+    window.location.href = `/play/duel?invite=${inviteId}`;
+  };
+
+  const getCompletedInviteLabel = (invite: typeof duelInvites[number]) => {
+    if (!user) return 'Tamamlandı';
+    if (!invite.winner_user_id) return 'Berabere bitti';
+    return invite.winner_user_id === user.id ? 'Kazandın' : 'Kaybettin';
+  };
+
+  const getAcceptedInviteLabel = (invite: typeof duelInvites[number]) => {
+    if (!user) return 'Hazır';
+    const isCurrentUserSender = invite.from_user_id === user.id;
+    const hasCurrentUserPlayed = isCurrentUserSender ? Boolean(invite.from_user_played_at) : Boolean(invite.to_user_played_at);
+    const hasOpponentPlayed = isCurrentUserSender ? Boolean(invite.to_user_played_at) : Boolean(invite.from_user_played_at);
+
+    if (hasCurrentUserPlayed && !hasOpponentPlayed) return 'Rakibini Bekliyor';
+    if (!hasCurrentUserPlayed) return 'Şimdi Oyna';
+    return 'Tamamlandı';
+  };
+
+  const hasPlayableAcceptedInvite = acceptedDuelInvites.some((invite) => {
+    if (!user) return false;
+    return invite.from_user_id === user.id ? !invite.from_user_played_at : !invite.to_user_played_at;
+  });
+
+  const pendingInviteCount = pendingDuelInvites.length;
 
   const handleAcceptDuelInvite = async (inviteId: string) => {
     const result = await acceptDuelInvite(inviteId);
@@ -250,10 +289,6 @@ export default function ProfilePage() {
     const result = await rejectFriendRequest(requesterId);
     setSocialMessage(result.message);
   };
-
-  const pendingInviteCount = duelInvites.filter(
-    (invite) => user && invite.to_user_id === user.id && invite.status === 'pending',
-  ).length;
 
   const evaluatedAchievements = user
     ? evaluateAchievementProgress(
@@ -517,6 +552,7 @@ export default function ProfilePage() {
               </div>
               <div className="text-xs text-text-secondary">
                 {acceptedFriends.length} arkadaş · {pendingInviteCount} düello daveti
+                {hasPlayableAcceptedInvite ? ' · oynanabilir challenge hazır' : ''}
               </div>
             </div>
 
@@ -617,6 +653,74 @@ export default function ProfilePage() {
                           void handleRejectDuelInvite(invite.id);
                         },
                       }}
+                    />
+                  );
+                })
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Card padding="lg">
+            <div className="mb-4 flex items-center gap-2">
+              <Swords className="h-5 w-5 text-primary-500" />
+              <h2 className="font-display text-lg font-semibold text-text-primary">Aktif Challenge'lar</h2>
+            </div>
+            <div className="space-y-3">
+              {acceptedDuelInvites.length === 0 ? (
+                <p className="text-sm text-text-secondary">Kabul edilen challenge henüz yok.</p>
+              ) : (
+                acceptedDuelInvites.map((invite) => {
+                  const opponent = getInviteOpponent(invite);
+                  if (!opponent) return null;
+                  const label = getAcceptedInviteLabel(invite);
+                  const canPlay = label === 'Şimdi Oyna';
+                  return (
+                    <FriendRow
+                      key={`accepted-${invite.id}`}
+                      username={opponent.username}
+                      avatar={opponent.avatar_url}
+                      frame={opponent.avatar_frame}
+                      favoriteTeam={opponent.favorite_team}
+                      subtitle={label}
+                      status="accepted"
+                      isOnline={Date.now() - new Date(opponent.last_seen_at).getTime() < 1000 * 60 * 5}
+                      primaryAction={canPlay ? {
+                        label: 'Şimdi Oyna',
+                        onClick: () => handlePlayAcceptedInvite(invite.id),
+                      } : undefined}
+                    />
+                  );
+                })
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Card padding="lg">
+            <div className="mb-4 flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-secondary-500" />
+              <h2 className="font-display text-lg font-semibold text-text-primary">Son Challenge Sonuçları</h2>
+            </div>
+            <div className="space-y-3">
+              {completedDuelInvites.length === 0 ? (
+                <p className="text-sm text-text-secondary">Tamamlanan friend challenge henüz yok.</p>
+              ) : (
+                completedDuelInvites.map((invite) => {
+                  const opponent = getInviteOpponent(invite);
+                  if (!opponent) return null;
+                  return (
+                    <FriendRow
+                      key={`completed-${invite.id}`}
+                      username={opponent.username}
+                      avatar={opponent.avatar_url}
+                      frame={opponent.avatar_frame}
+                      favoriteTeam={opponent.favorite_team}
+                      subtitle={`${getCompletedInviteLabel(invite)} · ${invite.from_user_score ?? 0} - ${invite.to_user_score ?? 0}`}
+                      status="accepted"
+                      isOnline={Date.now() - new Date(opponent.last_seen_at).getTime() < 1000 * 60 * 5}
                     />
                   );
                 })

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getDuelChallengeQuestionIds } from '@/lib/data/mock-questions';
 import type { DuelInvite, Friendship, User } from '@/types';
 import type { SocialProfile } from '@/lib/stores/social-store';
 
@@ -14,7 +15,7 @@ async function getSocialSnapshot(userId: string): Promise<SocialSnapshot> {
   const admin = createAdminClient();
   const [{ data: friendships }, { data: duelInvites }] = await Promise.all([
     admin.from('friendships').select('id, user_id, friend_id, status, created_at, updated_at').or(`user_id.eq.${userId},friend_id.eq.${userId}`),
-    admin.from('duel_invites').select('id, from_user_id, to_user_id, status, created_at, updated_at, responded_at').or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`).order('created_at', { ascending: false }),
+    admin.from('duel_invites').select('id, from_user_id, to_user_id, status, question_ids, from_user_score, to_user_score, from_user_correct_answers, to_user_correct_answers, from_user_answer_time_ms, to_user_answer_time_ms, from_user_played_at, to_user_played_at, from_user_session_id, to_user_session_id, winner_user_id, completed_at, created_at, updated_at, responded_at').or(`from_user_id.eq.${userId},to_user_id.eq.${userId}`).order('created_at', { ascending: false }),
   ]);
 
   const profileIds = new Set<string>([userId]);
@@ -98,7 +99,12 @@ export async function POST(request: Request) {
 
   const { error: insertError } = await admin
     .from('duel_invites')
-    .insert({ from_user_id: user.id, to_user_id: toUserId, status: 'pending' });
+    .insert({
+      from_user_id: user.id,
+      to_user_id: toUserId,
+      status: 'pending',
+      question_ids: getDuelChallengeQuestionIds(),
+    });
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });

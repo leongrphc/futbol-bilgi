@@ -1192,3 +1192,13 @@ export function getDailyChallengeQuestions(): Question[] {
   const pattern = [1, 2, 3, 4, 5] as const;
   return getQuestionsByPattern(pattern);
 }
+
+export function getQuestionsByIds(questionIds: string[]): Question[] {
+  const questionMap = new Map(MOCK_QUESTIONS.map((question) => [question.id, question]));
+  return questionIds.map((id) => questionMap.get(id)).filter(Boolean) as Question[];
+}
+
+export function getDuelChallengeQuestionIds(): string[] {
+  const pattern = [1, 2, 3, 4, 5] as const;
+  return getQuestionsByPattern(pattern).map((question) => question.id);
+}
