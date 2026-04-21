@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '../stores/user-store';
 import { registerServiceWorker, requestNotificationPermission, urlBase64ToUint8Array } from '../utils/notifications';
 
 const isPushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
 
 export function useNotifications() {
-  const [isSupported, setIsSupported] = useState(isPushSupported);
+  const [isSupported] = useState(isPushSupported);
   const [permission, setPermission] = useState<NotificationPermission>(typeof window !== 'undefined' ? Notification.permission : 'default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(isPushSupported);
@@ -13,17 +13,7 @@ export function useNotifications() {
   const notificationsEnabled = useUserStore((state) => state.user?.settings?.notifications_enabled);
   const updateSettings = useUserStore((state) => state.updateSettings);
 
-  useEffect(() => {
-    if (!isPushSupported) {
-      return;
-    }
-
-    registerServiceWorker().finally(() => {
-      checkSubscription();
-    });
-  }, []);
-
-  const checkSubscription = async () => {
+  const checkSubscription = useCallback(async () => {
     try {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
@@ -38,7 +28,17 @@ export function useNotifications() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [notificationsEnabled, updateSettings]);
+
+  useEffect(() => {
+    if (!isPushSupported) {
+      return;
+    }
+
+    registerServiceWorker().finally(() => {
+      void checkSubscription();
+    });
+  }, [checkSubscription]);
 
   const subscribe = async () => {
     if (!isSupported) return false;

@@ -82,11 +82,13 @@ export async function POST(request: Request) {
       try {
         await webpush.sendNotification(pushSubscription, payload);
         return { success: true, endpoint: sub.endpoint };
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error sending push notification:', err);
+        const statusCode = typeof err === 'object' && err !== null && 'statusCode' in err ? (err as { statusCode?: number }).statusCode : undefined;
+        const message = err instanceof Error ? err.message : 'Unknown notification error';
 
         // Remove invalid subscriptions (e.g. user revoked permission)
-        if (err.statusCode === 404 || err.statusCode === 410) {
+        if (statusCode === 404 || statusCode === 410) {
           console.log(`Removing invalid subscription: ${sub.endpoint}`);
           await supabaseAdmin
             .from('push_subscriptions')
@@ -94,7 +96,7 @@ export async function POST(request: Request) {
             .eq('endpoint', sub.endpoint);
         }
 
-        return { success: false, endpoint: sub.endpoint, error: err.message };
+        return { success: false, endpoint: sub.endpoint, error: message };
       }
     });
 
@@ -107,10 +109,10 @@ export async function POST(request: Request) {
       results
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Push notification API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

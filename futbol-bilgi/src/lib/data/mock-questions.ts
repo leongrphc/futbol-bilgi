@@ -34,7 +34,7 @@ interface EuropeClubFact {
   nickname?: string;
 }
 
-const EUROPE_CLUBS: EuropeClubFact[] = [
+const _EUROPE_CLUBS: EuropeClubFact[] = [
   { name: 'Arsenal', country: 'İngiltere', colors: 'Kırmızı-Beyaz', founded: 1886, league: 'Premier League', stadium: 'Emirates Stadium', nickname: 'Topçular' },
   { name: 'Liverpool', country: 'İngiltere', colors: 'Kırmızı', founded: 1892, league: 'Premier League', stadium: 'Anfield', nickname: 'Kırmızılar' },
   { name: 'Manchester City', country: 'İngiltere', colors: 'Mavi-Beyaz', founded: 1880, league: 'Premier League', stadium: 'Etihad Stadium', nickname: 'Citizens' },
@@ -49,7 +49,7 @@ const EUROPE_CLUBS: EuropeClubFact[] = [
   { name: 'Paris Saint-Germain', country: 'Fransa', colors: 'Lacivert-Kırmızı', founded: 1970, league: 'Ligue 1', stadium: 'Parc des Princes', nickname: 'PSG' },
 ];
 
-const EUROPE_HONOURS = [
+const _EUROPE_HONOURS = [
   { club: 'Real Madrid', competition: 'Şampiyonlar Ligi', count: '15', season: '2023-2024', coach: 'Carlo Ancelotti' },
   { club: 'Manchester City', competition: 'Şampiyonlar Ligi', count: '1', season: '2022-2023', coach: 'Pep Guardiola' },
   { club: 'Sevilla', competition: 'Avrupa Ligi', count: '7', season: '2022-2023', coach: 'José Luis Mendilibar' },

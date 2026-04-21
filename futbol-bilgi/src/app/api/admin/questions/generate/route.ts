@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/guard';
-import type { QuestionAdmin } from '@/lib/admin/types';
 
 interface GeneratedQuestionDraft {
   league_scope: string;

@@ -149,7 +149,6 @@ interface DailyRewardResponse {
 
 export default function DashboardPage() {
   const user = useUserStore((state) => state.user);
-  const setUser = useUserStore((state) => state.setUser);
   const refreshUser = useUserStore((state) => state.refreshUser);
   const currentSeason = useLeagueStore((state) => state.currentSeason);
   const currentSeasonLoaded = useLeagueStore((state) => state.currentSeasonLoaded);
@@ -509,7 +508,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs uppercase tracking-wider text-secondary-500">Özel Etkinlik</p>
               <h2 className="mt-1 font-display text-xl font-bold text-text-primary">Dünya Kupası Efsaneleri</h2>
-              <p className="mt-2 text-sm text-text-secondary">Dünya Kupası tarihinin unutulmaz anları, rekorları ve Türkiye'nin 2002 yolculuğu üzerine özel 5 soruluk etkinlik.</p>
+              <p className="mt-2 text-sm text-text-secondary">Dünya Kupası tarihinin unutulmaz anları, rekorları ve Türkiyenin 2002 yolculuğu üzerine özel 5 soruluk etkinlik.</p>
               <div className="mt-4 flex gap-2">
                 <Link href="/play/daily?scope=world&event=world-cup">
                   <Button

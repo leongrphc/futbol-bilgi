@@ -439,7 +439,7 @@ export default function DuelPage() {
               )}
 
               {isChallengeMode && challengeOpponentProfile && (
-                <p className="mt-3 text-sm text-text-secondary">Arkadaş challenge'ı hazırlanıyor: {challengeOpponentProfile.username}</p>
+                <p className="mt-3 text-sm text-text-secondary">Arkadaş challengeı hazırlanıyor: {challengeOpponentProfile.username}</p>
               )}
 
               {phase === 'matched' && opponent && (

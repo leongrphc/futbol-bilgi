@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import {
   Palette,
@@ -320,24 +320,16 @@ export default function ThemesPage() {
     setMessage(`${FRAME_DEFINITION_MAP[frameKey].label} kuşanıldı.`);
   };
 
-  const collectionThemes = useMemo(
-    () =>
-      THEME_DEFINITIONS.filter((theme) => {
-        const item = getThemeItemByKey(theme.key, shopItems);
-        return item ? ownedItemIds.has(item.id) : theme.key === "dark";
-      }),
-    [ownedItemIds, shopItems],
-  );
+  const collectionThemes = THEME_DEFINITIONS.filter((theme) => {
+    const item = getThemeItemByKey(theme.key, shopItems);
+    return item ? ownedItemIds.has(item.id) : theme.key === "dark";
+  });
 
-  const collectionFrames = useMemo(
-    () =>
-      FRAME_DEFINITIONS.filter((frame) => {
-        if (frame.key === "default") return false;
-        const item = getFrameItemByKey(frame.key, shopItems);
-        return item ? ownedFrameItemIds.has(item.id) : false;
-      }),
-    [ownedFrameItemIds, shopItems],
-  );
+  const collectionFrames = FRAME_DEFINITIONS.filter((frame) => {
+    if (frame.key === "default") return false;
+    const item = getFrameItemByKey(frame.key, shopItems);
+    return item ? ownedFrameItemIds.has(item.id) : false;
+  });
 
   return (
     <div className="min-h-screen p-4 pb-24">

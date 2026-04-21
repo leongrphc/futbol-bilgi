@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGameStore } from '@/lib/stores/game-store';
@@ -57,7 +57,6 @@ export default function MillionairePage() {
     questionNumber,
     score,
     jokers,
-    isGameOver,
     result,
     safePointReached,
     xpEarned,
