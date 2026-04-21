@@ -24,6 +24,40 @@ interface HistoricalQuestionInput {
   explanation: string;
 }
 
+interface EuropeClubFact {
+  name: string;
+  country: string;
+  colors: string;
+  founded: number;
+  league: string;
+  stadium: string;
+  nickname?: string;
+}
+
+const EUROPE_CLUBS: EuropeClubFact[] = [
+  { name: 'Arsenal', country: 'İngiltere', colors: 'Kırmızı-Beyaz', founded: 1886, league: 'Premier League', stadium: 'Emirates Stadium', nickname: 'Topçular' },
+  { name: 'Liverpool', country: 'İngiltere', colors: 'Kırmızı', founded: 1892, league: 'Premier League', stadium: 'Anfield', nickname: 'Kırmızılar' },
+  { name: 'Manchester City', country: 'İngiltere', colors: 'Mavi-Beyaz', founded: 1880, league: 'Premier League', stadium: 'Etihad Stadium', nickname: 'Citizens' },
+  { name: 'Real Madrid', country: 'İspanya', colors: 'Beyaz', founded: 1902, league: 'La Liga', stadium: 'Santiago Bernabéu', nickname: 'Los Blancos' },
+  { name: 'Barcelona', country: 'İspanya', colors: 'Lacivert-Kırmızı', founded: 1899, league: 'La Liga', stadium: 'Camp Nou', nickname: 'Blaugrana' },
+  { name: 'Atletico Madrid', country: 'İspanya', colors: 'Kırmızı-Beyaz', founded: 1903, league: 'La Liga', stadium: 'Metropolitano', nickname: 'Colchoneros' },
+  { name: 'Bayern Münih', country: 'Almanya', colors: 'Kırmızı-Beyaz', founded: 1900, league: 'Bundesliga', stadium: 'Allianz Arena', nickname: 'Bavyeralılar' },
+  { name: 'Borussia Dortmund', country: 'Almanya', colors: 'Sarı-Siyah', founded: 1909, league: 'Bundesliga', stadium: 'Signal Iduna Park', nickname: 'Arılar' },
+  { name: 'Juventus', country: 'İtalya', colors: 'Siyah-Beyaz', founded: 1897, league: 'Serie A', stadium: 'Allianz Stadium', nickname: 'Bianconeri' },
+  { name: 'Milan', country: 'İtalya', colors: 'Kırmızı-Siyah', founded: 1899, league: 'Serie A', stadium: 'San Siro', nickname: 'Rossoneri' },
+  { name: 'Inter', country: 'İtalya', colors: 'Mavi-Siyah', founded: 1908, league: 'Serie A', stadium: 'San Siro', nickname: 'Nerazzurri' },
+  { name: 'Paris Saint-Germain', country: 'Fransa', colors: 'Lacivert-Kırmızı', founded: 1970, league: 'Ligue 1', stadium: 'Parc des Princes', nickname: 'PSG' },
+];
+
+const EUROPE_HONOURS = [
+  { club: 'Real Madrid', competition: 'Şampiyonlar Ligi', count: '15', season: '2023-2024', coach: 'Carlo Ancelotti' },
+  { club: 'Manchester City', competition: 'Şampiyonlar Ligi', count: '1', season: '2022-2023', coach: 'Pep Guardiola' },
+  { club: 'Sevilla', competition: 'Avrupa Ligi', count: '7', season: '2022-2023', coach: 'José Luis Mendilibar' },
+  { club: 'Roma', competition: 'Konferans Ligi', count: '1', season: '2021-2022', coach: 'José Mourinho' },
+  { club: 'Liverpool', competition: 'Şampiyonlar Ligi', count: '6', season: '2018-2019', coach: 'Jürgen Klopp' },
+  { club: 'Barcelona', competition: 'Şampiyonlar Ligi', count: '5', season: '2014-2015', coach: 'Luis Enrique' },
+];
+
 const CLUBS: ClubFact[] = [
   { name: 'Adana Demirspor', city: 'Adana', colors: 'Mavi-Lacivert', founded: 1940, region: 'Akdeniz', stadium: 'Yeni Adana Stadyumu', nickname: 'Mavi Şimşekler' },
   { name: 'Antalyaspor', city: 'Antalya', colors: 'Kırmızı-Beyaz', founded: 1966, region: 'Akdeniz', nickname: 'Akrepler' },
