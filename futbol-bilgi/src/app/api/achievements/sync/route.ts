@@ -13,14 +13,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { friendships, leagueEntries, currentSeasonId } = await request.json();
+  const { leagueEntries, currentSeasonId } = await request.json();
   const admin = createAdminClient();
 
-  const [{ data: profile, error: profileError }, { data: achievements, error: achievementsError }, { data: userAchievements, error: userAchievementsError }] = await Promise.all([
+  const [{ data: profile, error: profileError }, { data: achievements, error: achievementsError }, { data: userAchievements, error: userAchievementsError }, { data: friendships, error: friendshipsError }] = await Promise.all([
     admin.from('profiles').select('*').eq('id', user.id).single(),
     admin.from('achievements').select('*'),
     admin.from('user_achievements').select('*').eq('user_id', user.id),
+    admin.from('friendships').select('id, user_id, friend_id, status, created_at, updated_at').or(`user_id.eq.${user.id},friend_id.eq.${user.id}`),
   ]);
+
+  if (friendshipsError) {
+    return NextResponse.json({ error: friendshipsError.message }, { status: 500 });
+  }
+
+  const normalizedFriendships = (friendships ?? []).map((friendship) => ({
+    ...friendship,
+    updated_at: friendship.updated_at ?? friendship.created_at,
+  }));
 
   if (profileError || achievementsError || userAchievementsError) {
     return NextResponse.json({ error: profileError?.message || achievementsError?.message || userAchievementsError?.message }, { status: 500 });
@@ -28,7 +38,7 @@ export async function POST(request: Request) {
 
   const stats: AchievementStats = updateAchievementStatsFromStores({
     user: profile,
-    social: { friendships: friendships ?? [] },
+    social: { friendships: normalizedFriendships },
     league: { entries: leagueEntries ?? [] },
     currentSeasonId,
   });
@@ -118,4 +128,5 @@ export async function POST(request: Request) {
       },
     },
   });
+
 }

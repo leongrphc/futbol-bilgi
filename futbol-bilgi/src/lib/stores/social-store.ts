@@ -1,7 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { Friendship, FriendshipStatus, User } from '@/types';
-import { MOCK_SOCIAL_PLAYERS } from '@/lib/data/mock-social';
+import type { DuelInvite, Friendship, User } from '@/types';
 
 export interface SocialProfile {
   id: string;
@@ -15,277 +13,264 @@ export interface SocialProfile {
   last_seen_at: string;
 }
 
-export interface DuelInvite {
-  id: string;
-  from_user_id: string;
-  to_user_id: string;
-  status: 'pending' | 'accepted' | 'declined';
-  created_at: string;
-}
-
-interface SocialState {
+interface SocialSnapshot {
   profiles: SocialProfile[];
   friendships: Friendship[];
   duelInvites: DuelInvite[];
 }
 
+interface SocialState extends SocialSnapshot {
+  isLoaded: boolean;
+  isLoading: boolean;
+  error: string | null;
+  lastPresencePingAt: number | null;
+}
+
+interface SocialActionResult {
+  success: boolean;
+  message: string;
+}
+
 interface SocialActions {
-  ensureCurrentUserProfile: (user: User) => void;
-  markUserActive: (userId: string) => void;
-  sendFriendRequest: (userId: string, targetUsername: string) => { success: boolean; message: string };
-  acceptFriendRequest: (userId: string, requesterId: string) => void;
-  rejectFriendRequest: (userId: string, requesterId: string) => void;
-  removeFriend: (userId: string, friendId: string) => void;
-  sendDuelInvite: (fromUserId: string, toUserId: string) => { success: boolean; message: string };
-  acceptDuelInvite: (inviteId: string) => void;
-  rejectDuelInvite: (inviteId: string) => void;
+  hydrate: (user: User) => Promise<void>;
+  refresh: () => Promise<void>;
+  syncCurrentUser: (user: User) => void;
+  markUserActive: () => Promise<void>;
+  sendFriendRequest: (targetUsername: string) => Promise<SocialActionResult>;
+  acceptFriendRequest: (requesterId: string) => Promise<SocialActionResult>;
+  rejectFriendRequest: (requesterId: string) => Promise<SocialActionResult>;
+  removeFriend: (friendId: string) => Promise<SocialActionResult>;
+  sendDuelInvite: (toUserId: string) => Promise<SocialActionResult>;
+  acceptDuelInvite: (inviteId: string) => Promise<SocialActionResult>;
+  rejectDuelInvite: (inviteId: string) => Promise<SocialActionResult>;
 }
 
 export type SocialStore = SocialState & SocialActions;
 
-const initialProfiles: SocialProfile[] = MOCK_SOCIAL_PLAYERS.map((player, index) => ({
-  id: player.id,
-  username: player.username,
-  avatar_url: null,
-  avatar_frame: null,
-  favorite_team: player.favorite_team,
-  league_tier: player.league_tier,
-  elo_rating: player.elo_rating,
-  score: player.score,
-  last_seen_at: new Date(Date.now() - index * 1000 * 60 * 4).toISOString(),
-}));
+const initialState: SocialState = {
+  profiles: [],
+  friendships: [],
+  duelInvites: [],
+  isLoaded: false,
+  isLoading: false,
+  error: null,
+  lastPresencePingAt: null,
+};
 
-function createFriendship(userId: string, friendId: string, status: FriendshipStatus): Friendship {
-  const now = new Date().toISOString();
+function buildCurrentUserProfile(user: User): SocialProfile {
   return {
-    id: `${userId}_${friendId}`,
-    user_id: userId,
-    friend_id: friendId,
-    status,
-    created_at: now,
-    updated_at: now,
+    id: user.id,
+    username: user.username,
+    avatar_url: user.avatar_url,
+    avatar_frame: user.avatar_frame,
+    favorite_team: user.favorite_team,
+    league_tier: user.league_tier,
+    elo_rating: user.elo_rating,
+    score: user.xp,
+    last_seen_at: new Date().toISOString(),
   };
 }
 
-export const useSocialStore = create<SocialStore>()(
-  persist(
-    (set, get) => ({
-      profiles: initialProfiles,
-      friendships: [],
-      duelInvites: [],
+async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<{ ok: boolean; data: T | null; error: string | null }> {
+  const response = await fetch(input, init);
+  const json = await response.json().catch(() => null);
 
-      ensureCurrentUserProfile: (user) => {
-        const now = new Date().toISOString();
-        const state = get();
-        const existingProfile = state.profiles.find((profile) => profile.id === user.id);
-        const hasExistingRelations = state.friendships.some(
-          (friendship) => friendship.user_id === user.id || friendship.friend_id === user.id,
-        );
+  if (!response.ok) {
+    return {
+      ok: false,
+      data: null,
+      error: json?.error ?? 'İşlem başarısız oldu.',
+    };
+  }
 
-        const currentProfile: SocialProfile = {
-          id: user.id,
-          username: user.username,
-          avatar_url: user.avatar_url,
-          avatar_frame: user.avatar_frame,
-          favorite_team: user.favorite_team,
-          league_tier: user.league_tier,
-          elo_rating: user.elo_rating,
-          score: user.xp,
-          last_seen_at: now,
-        };
+  return {
+    ok: true,
+    data: (json?.data ?? null) as T | null,
+    error: null,
+  };
+}
 
-        const profiles = existingProfile
-          ? state.profiles.map((profile) => (profile.id === user.id ? currentProfile : profile))
-          : [currentProfile, ...state.profiles];
+export const useSocialStore = create<SocialStore>()((set, get) => ({
+  ...initialState,
 
-        let friendships = state.friendships;
-        let duelInvites = state.duelInvites;
+  syncCurrentUser: (user) => {
+    const currentProfile = buildCurrentUserProfile(user);
 
-        if (!hasExistingRelations) {
-          const acceptedFriend = state.profiles.find((profile) => profile.username === 'GalatasarayFan');
-          const incomingRequest = state.profiles.find((profile) => profile.username === 'FenerliYildiz');
-          const outgoingRequest = state.profiles.find((profile) => profile.username === 'TrabzonGucu');
+    set((state) => ({
+      profiles: state.profiles.some((profile) => profile.id === user.id)
+        ? state.profiles.map((profile) => (profile.id === user.id ? { ...profile, ...currentProfile } : profile))
+        : [currentProfile, ...state.profiles],
+    }));
+  },
 
-          friendships = [...state.friendships];
-          if (acceptedFriend) {
-            friendships.push(
-              createFriendship(user.id, acceptedFriend.id, 'accepted'),
-              createFriendship(acceptedFriend.id, user.id, 'accepted'),
-            );
-            duelInvites = [
-              ...state.duelInvites,
-              {
-                id: `invite_${acceptedFriend.id}_${user.id}`,
-                from_user_id: acceptedFriend.id,
-                to_user_id: user.id,
-                status: 'pending',
-                created_at: now,
-              },
-            ];
-          }
-          if (incomingRequest) {
-            friendships.push(createFriendship(incomingRequest.id, user.id, 'pending'));
-          }
-          if (outgoingRequest) {
-            friendships.push(createFriendship(user.id, outgoingRequest.id, 'pending'));
-          }
-        }
+  hydrate: async (user) => {
+    get().syncCurrentUser(user);
+    set({ isLoading: true, error: null });
 
-        set({ profiles, friendships, duelInvites });
-      },
+    const result = await fetchJson<SocialSnapshot>('/api/social');
+    if (!result.ok || !result.data) {
+      set({ isLoading: false, isLoaded: true, error: result.error ?? 'Sosyal veriler yüklenemedi.' });
+      return;
+    }
 
-      markUserActive: (userId) => {
-        const now = new Date().toISOString();
-        set((state) => ({
-          profiles: state.profiles.map((profile) =>
-            profile.id === userId ? { ...profile, last_seen_at: now } : profile,
-          ),
-        }));
-      },
+    const snapshot = result.data;
 
-      sendFriendRequest: (userId, targetUsername) => {
-        const state = get();
-        const normalized = targetUsername.trim().toLowerCase();
-        const sender = state.profiles.find((profile) => profile.id === userId);
-        const target = state.profiles.find((profile) => profile.username.toLowerCase() === normalized);
+    set((state) => ({
+      profiles: snapshot.profiles.some((profile) => profile.id === user.id)
+        ? snapshot.profiles
+        : [buildCurrentUserProfile(user), ...snapshot.profiles],
+      friendships: snapshot.friendships,
+      duelInvites: snapshot.duelInvites,
+      isLoading: false,
+      isLoaded: true,
+      error: null,
+      lastPresencePingAt: state.lastPresencePingAt,
+    }));
+  },
 
-        if (!sender || !target) {
-          return { success: false, message: 'Kullanıcı bulunamadı.' };
-        }
-        if (sender.id === target.id) {
-          return { success: false, message: 'Kendine arkadaş isteği gönderemezsin.' };
-        }
+  refresh: async () => {
+    const userProfile = get().profiles[0];
+    set({ isLoading: true, error: null });
 
-        const existing = state.friendships.find(
-          (friendship) =>
-            (friendship.user_id === sender.id && friendship.friend_id === target.id) ||
-            (friendship.user_id === target.id && friendship.friend_id === sender.id),
-        );
+    const result = await fetchJson<SocialSnapshot>('/api/social');
+    if (!result.ok || !result.data) {
+      set({ isLoading: false, error: result.error ?? 'Sosyal veriler yenilenemedi.' });
+      return;
+    }
 
-        if (existing?.status === 'accepted') {
-          return { success: false, message: 'Bu kullanıcı zaten arkadaş listende.' };
-        }
-        if (existing?.status === 'pending') {
-          return { success: false, message: 'Bu kullanıcı için zaten bekleyen bir istek var.' };
-        }
-        if (existing?.status === 'blocked') {
-          return { success: false, message: 'Bu kullanıcıyla işlem yapılamıyor.' };
-        }
+    const snapshot = result.data;
 
-        set((current) => ({
-          friendships: [...current.friendships, createFriendship(sender.id, target.id, 'pending')],
-        }));
+    set((state) => ({
+      profiles: userProfile && !snapshot.profiles.some((profile) => profile.id === userProfile.id)
+        ? [userProfile, ...snapshot.profiles]
+        : snapshot.profiles,
+      friendships: snapshot.friendships,
+      duelInvites: snapshot.duelInvites,
+      isLoading: false,
+      isLoaded: true,
+      error: null,
+      lastPresencePingAt: state.lastPresencePingAt,
+    }));
+  },
 
-        return { success: true, message: `${target.username} kullanıcısına arkadaş isteği gönderildi.` };
-      },
+  markUserActive: async () => {
+    const { lastPresencePingAt } = get();
+    const now = Date.now();
 
-      acceptFriendRequest: (userId, requesterId) => {
-        set((state) => {
-          const updated: Friendship[] = state.friendships.map((friendship) =>
-            friendship.user_id === requesterId && friendship.friend_id === userId && friendship.status === 'pending'
-              ? { ...friendship, status: 'accepted' as FriendshipStatus, updated_at: new Date().toISOString() }
-              : friendship,
-          );
+    if (lastPresencePingAt && now - lastPresencePingAt < 60_000) {
+      return;
+    }
 
-          const hasReciprocal = updated.some(
-            (friendship) => friendship.user_id === userId && friendship.friend_id === requesterId,
-          );
+    set((state) => ({
+      profiles: state.profiles.map((profile, index) => (index === 0 ? { ...profile, last_seen_at: new Date().toISOString() } : profile)),
+      lastPresencePingAt: now,
+    }));
 
-          return {
-            friendships: hasReciprocal
-              ? updated
-              : [...updated, createFriendship(userId, requesterId, 'accepted')],
-          };
-        });
-      },
+    await fetchJson('/api/social/presence', { method: 'POST' });
+  },
 
-      rejectFriendRequest: (userId, requesterId) => {
-        set((state) => ({
-          friendships: state.friendships.filter(
-            (friendship) => !(friendship.user_id === requesterId && friendship.friend_id === userId && friendship.status === 'pending'),
-          ),
-        }));
-      },
+  sendFriendRequest: async (targetUsername) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/friendships', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: targetUsername }),
+    });
 
-      removeFriend: (userId, friendId) => {
-        set((state) => ({
-          friendships: state.friendships.filter(
-            (friendship) =>
-              !(
-                (friendship.user_id === userId && friendship.friend_id === friendId) ||
-                (friendship.user_id === friendId && friendship.friend_id === userId)
-              ),
-          ),
-          duelInvites: state.duelInvites.filter(
-            (invite) =>
-              !(
-                (invite.from_user_id === userId && invite.to_user_id === friendId) ||
-                (invite.from_user_id === friendId && invite.to_user_id === userId)
-              ),
-          ),
-        }));
-      },
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Arkadaş isteği gönderilemedi.' };
+    }
 
-      sendDuelInvite: (fromUserId, toUserId) => {
-        const state = get();
-        const areFriends = state.friendships.some(
-          (friendship) =>
-            friendship.user_id === fromUserId &&
-            friendship.friend_id === toUserId &&
-            friendship.status === 'accepted',
-        );
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Arkadaş isteği gönderildi.' };
+  },
 
-        if (!areFriends) {
-          return { success: false, message: 'Sadece arkadaşlarına düello daveti gönderebilirsin.' };
-        }
+  acceptFriendRequest: async (requesterId) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/friendships', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'accept', requesterId }),
+    });
 
-        const existingInvite = state.duelInvites.find(
-          (invite) => invite.from_user_id === fromUserId && invite.to_user_id === toUserId && invite.status === 'pending',
-        );
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Arkadaş isteği kabul edilemedi.' };
+    }
 
-        if (existingInvite) {
-          return { success: false, message: 'Bu arkadaşın için zaten bekleyen bir düello daveti var.' };
-        }
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Arkadaş isteği kabul edildi.' };
+  },
 
-        set((current) => ({
-          duelInvites: [
-            ...current.duelInvites,
-            {
-              id: `invite_${fromUserId}_${toUserId}_${Date.now()}`,
-              from_user_id: fromUserId,
-              to_user_id: toUserId,
-              status: 'pending',
-              created_at: new Date().toISOString(),
-            },
-          ],
-        }));
+  rejectFriendRequest: async (requesterId) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/friendships', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject', requesterId }),
+    });
 
-        return { success: true, message: 'Düello daveti gönderildi.' };
-      },
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Arkadaş isteği reddedilemedi.' };
+    }
 
-      acceptDuelInvite: (inviteId) => {
-        set((state) => ({
-          duelInvites: state.duelInvites.map((invite) =>
-            invite.id === inviteId ? { ...invite, status: 'accepted' } : invite,
-          ),
-        }));
-      },
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Arkadaş isteği reddedildi.' };
+  },
 
-      rejectDuelInvite: (inviteId) => {
-        set((state) => ({
-          duelInvites: state.duelInvites.map((invite) =>
-            invite.id === inviteId ? { ...invite, status: 'declined' } : invite,
-          ),
-        }));
-      },
-    }),
-    {
-      name: 'futbol-bilgi-social',
-      partialize: (state) => ({
-        profiles: state.profiles,
-        friendships: state.friendships,
-        duelInvites: state.duelInvites,
-      }),
-    },
-  ),
-);
+  removeFriend: async (friendId) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/friendships', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ friendId }),
+    });
+
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Arkadaş kaldırılamadı.' };
+    }
+
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Arkadaş listenden kaldırıldı.' };
+  },
+
+  sendDuelInvite: async (toUserId) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/duel-invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toUserId }),
+    });
+
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Düello daveti gönderilemedi.' };
+    }
+
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Düello daveti gönderildi.' };
+  },
+
+  acceptDuelInvite: async (inviteId) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/duel-invites', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteId, action: 'accept' }),
+    });
+
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Düello daveti kabul edilemedi.' };
+    }
+
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Düello daveti kabul edildi.' };
+  },
+
+  rejectDuelInvite: async (inviteId) => {
+    const result = await fetchJson<SocialSnapshot>('/api/social/duel-invites', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inviteId, action: 'reject' }),
+    });
+
+    if (!result.ok || !result.data) {
+      return { success: false, message: result.error ?? 'Düello daveti reddedilemedi.' };
+    }
+
+    set((state) => ({ ...state, ...result.data, isLoaded: true, error: null }));
+    return { success: true, message: 'Düello daveti reddedildi.' };
+  },
+}));

@@ -100,18 +100,21 @@ export default function LeaderboardPage() {
   const fetchEntries = useLeagueStore((state) => state.fetchEntries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const finalizeSeasonForTier = useLeagueStore((state) => state.finalizeSeasonForTier);
-  const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
+  const hydrateSocial = useSocialStore((state) => state.hydrate);
+  const syncCurrentUser = useSocialStore((state) => state.syncCurrentUser);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const sendFriendRequest = useSocialStore((state) => state.sendFriendRequest);
+  const acceptFriendRequest = useSocialStore((state) => state.acceptFriendRequest);
   const sendDuelInvite = useSocialStore((state) => state.sendDuelInvite);
 
   useEffect(() => {
     if (!user) return;
-    ensureCurrentUserProfile(user);
-    markUserActive(user.id);
+    syncCurrentUser(user);
+    void hydrateSocial(user);
+    void markUserActive();
     fetchCurrentSeason();
     ensurePlayerEntry(user.id, user.league_tier);
-  }, [user, ensureCurrentUserProfile, markUserActive, fetchCurrentSeason, ensurePlayerEntry]);
+  }, [user, syncCurrentUser, hydrateSocial, markUserActive, fetchCurrentSeason, ensurePlayerEntry]);
 
   useEffect(() => {
     if (!currentSeason) return;
@@ -164,10 +167,25 @@ export default function LeaderboardPage() {
   }, [profiles, user]);
 
   const allPlayers = useMemo(() => {
-    const merged = [...overallPlayers];
+    const merged = new Map<string, OverallPlayer>();
 
-    if (currentUserProfile && !merged.some((player) => player.id === currentUserProfile.id)) {
-      merged.push({
+    for (const player of profiles) {
+      merged.set(player.id, {
+        id: player.id,
+        username: player.username,
+        avatar_url: player.avatar_url,
+        avatar_frame: player.avatar_frame,
+        league_tier: player.league_tier,
+        score: player.score,
+      });
+    }
+
+    for (const player of overallPlayers) {
+      merged.set(player.id, player);
+    }
+
+    if (currentUserProfile && !merged.has(currentUserProfile.id)) {
+      merged.set(currentUserProfile.id, {
         id: currentUserProfile.id,
         username: currentUserProfile.username,
         avatar_url: currentUserProfile.avatar_url,
@@ -177,8 +195,8 @@ export default function LeaderboardPage() {
       });
     }
 
-    return merged.sort((a, b) => b.score - a.score);
-  }, [overallPlayers, currentUserProfile]);
+    return [...merged.values()].sort((a, b) => b.score - a.score);
+  }, [overallPlayers, currentUserProfile, profiles]);
 
   const friendIds = useMemo(
     () => friendships
@@ -244,15 +262,17 @@ export default function LeaderboardPage() {
     return 'incoming';
   };
 
-  const handleFriendAction = (username: string) => {
+  const handleFriendAction = async (playerId: string, username: string, friendshipStatus: ReturnType<typeof friendshipStatusFor>) => {
     if (!user) return;
-    const result = sendFriendRequest(user.id, username);
+    const result = friendshipStatus === 'incoming'
+      ? await acceptFriendRequest(playerId)
+      : await sendFriendRequest(username);
     setMessage(result.message);
   };
 
-  const handleInviteAction = (playerId: string) => {
+  const handleInviteAction = async (playerId: string) => {
     if (!user) return;
-    const result = sendDuelInvite(user.id, playerId);
+    const result = await sendDuelInvite(playerId);
     setMessage(result.message);
   };
 
@@ -488,17 +508,23 @@ export default function LeaderboardPage() {
 
                     <div className="flex items-center gap-2">
                       {!isCurrentUser && friendshipStatus === 'none' && (
-                        <Button size="sm" variant="ghost" onClick={() => handleFriendAction(player.username)}>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          void handleFriendAction(player.id, player.username, friendshipStatus);
+                        }}>
                           <UserPlus className="h-4 w-4" /> Ekle
                         </Button>
                       )}
                       {!isCurrentUser && friendshipStatus === 'incoming' && (
-                        <Button size="sm" variant="secondary" onClick={() => handleFriendAction(player.username)}>
+                        <Button size="sm" variant="secondary" onClick={() => {
+                          void handleFriendAction(player.id, player.username, friendshipStatus);
+                        }}>
                           Kabul Et
                         </Button>
                       )}
                       {!isCurrentUser && friendshipStatus === 'accepted' && (
-                        <Button size="sm" variant="primary" onClick={() => handleInviteAction(player.id)}>
+                        <Button size="sm" variant="primary" onClick={() => {
+                          void handleInviteAction(player.id);
+                        }}>
                           <Swords className="h-4 w-4" /> Düello
                         </Button>
                       )}

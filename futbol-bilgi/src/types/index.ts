@@ -230,6 +230,16 @@ export interface Friendship {
   updated_at: string;
 }
 
+export interface DuelInvite {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  responded_at: string | null;
+}
+
 // ---------- Game Logic Types ----------
 
 export interface MillionaireStep {

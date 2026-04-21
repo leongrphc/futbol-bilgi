@@ -49,7 +49,8 @@ export default function DuelPage() {
   const setUser = useUserStore((state) => state.setUser);
   const profiles = useSocialStore((state) => state.profiles);
   const duelInvites = useSocialStore((state) => state.duelInvites);
-  const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
+  const hydrateSocial = useSocialStore((state) => state.hydrate);
+  const syncCurrentUser = useSocialStore((state) => state.syncCurrentUser);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const recordDuelResult = useLeagueStore((state) => state.recordDuelResult);
@@ -143,8 +144,9 @@ export default function DuelPage() {
       return;
     }
 
-    ensureCurrentUserProfile(user);
-    markUserActive(user.id);
+    syncCurrentUser(user);
+    void hydrateSocial(user);
+    void markUserActive();
     ensurePlayerEntry(user.id, user.league_tier);
 
     if (user.energy < ENERGY_CONFIG.cost_duel || sessionIdRef.current) {
@@ -152,7 +154,7 @@ export default function DuelPage() {
     }
 
     void startDuel();
-  }, [user, router, startDuel, ensureCurrentUserProfile, markUserActive, ensurePlayerEntry]);
+  }, [user, router, startDuel, syncCurrentUser, hydrateSocial, markUserActive, ensurePlayerEntry]);
 
   useEffect(() => {
     if (phase !== 'searching') return;

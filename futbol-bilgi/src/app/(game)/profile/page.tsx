@@ -93,13 +93,16 @@ export default function ProfilePage() {
   const setUser = useUserStore((state) => state.setUser);
   const [appliedAchievementKeys, setAppliedAchievementKeys] = useState<string[]>([]);
   const [achievementMessage, setAchievementMessage] = useState<string | null>(null);
-  const ensureCurrentUserProfile = useSocialStore((state) => state.ensureCurrentUserProfile);
+  const hydrateSocial = useSocialStore((state) => state.hydrate);
+  const syncCurrentUser = useSocialStore((state) => state.syncCurrentUser);
   const markUserActive = useSocialStore((state) => state.markUserActive);
   const sendFriendRequest = useSocialStore((state) => state.sendFriendRequest);
   const acceptFriendRequest = useSocialStore((state) => state.acceptFriendRequest);
   const rejectFriendRequest = useSocialStore((state) => state.rejectFriendRequest);
   const removeFriend = useSocialStore((state) => state.removeFriend);
   const sendDuelInvite = useSocialStore((state) => state.sendDuelInvite);
+  const acceptDuelInvite = useSocialStore((state) => state.acceptDuelInvite);
+  const rejectDuelInvite = useSocialStore((state) => state.rejectDuelInvite);
 
   const [friendUsername, setFriendUsername] = useState('');
   const [socialMessage, setSocialMessage] = useState<string | null>(null);
@@ -108,10 +111,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    ensureCurrentUserProfile(user);
-    markUserActive(user.id);
+    syncCurrentUser(user);
+    void hydrateSocial(user);
+    void markUserActive();
     fetchCurrentSeason();
-  }, [user, ensureCurrentUserProfile, markUserActive, fetchCurrentSeason]);
+  }, [user, syncCurrentUser, hydrateSocial, markUserActive, fetchCurrentSeason]);
 
   useEffect(() => {
     if (!currentSeason) return;
@@ -203,18 +207,47 @@ export default function ProfilePage() {
     }
   };
 
-  const handleAddFriend = () => {
+  const handleAddFriend = async () => {
     if (!user || !friendUsername.trim()) return;
-    const result = sendFriendRequest(user.id, friendUsername);
+    const result = await sendFriendRequest(friendUsername);
     setSocialMessage(result.message);
     if (result.success) {
       setFriendUsername('');
     }
   };
 
-  const handleDuelInvite = (friendId: string) => {
+  const handleDuelInvite = async (friendId: string) => {
     if (!user) return;
-    const result = sendDuelInvite(user.id, friendId);
+    const result = await sendDuelInvite(friendId);
+    setSocialMessage(result.message);
+  };
+
+  const pendingDuelInvites = duelInvites.filter(
+    (invite) => user && invite.to_user_id === user.id && invite.status === 'pending',
+  );
+
+  const handleAcceptDuelInvite = async (inviteId: string) => {
+    const result = await acceptDuelInvite(inviteId);
+    setSocialMessage(result.message);
+  };
+
+  const handleRejectDuelInvite = async (inviteId: string) => {
+    const result = await rejectDuelInvite(inviteId);
+    setSocialMessage(result.message);
+  };
+
+  const handleRemoveFriend = async (friendId: string) => {
+    const result = await removeFriend(friendId);
+    setSocialMessage(result.message);
+  };
+
+  const handleAcceptFriendRequest = async (requesterId: string) => {
+    const result = await acceptFriendRequest(requesterId);
+    setSocialMessage(result.message);
+  };
+
+  const handleRejectFriendRequest = async (requesterId: string) => {
+    const result = await rejectFriendRequest(requesterId);
     setSocialMessage(result.message);
   };
 
@@ -257,7 +290,6 @@ export default function ProfilePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          friendships,
           leagueEntries,
           currentSeasonId,
         }),
@@ -531,12 +563,59 @@ export default function ProfilePage() {
                       isOnline={Date.now() - new Date(requester.last_seen_at).getTime() < 1000 * 60 * 5}
                       primaryAction={{
                         label: 'Kabul Et',
-                        onClick: () => acceptFriendRequest(user.id, requester.id),
+                        onClick: () => {
+                          void handleAcceptFriendRequest(requester.id);
+                        },
                       }}
                       secondaryAction={{
                         label: 'Reddet',
                         variant: 'ghost',
-                        onClick: () => rejectFriendRequest(user.id, requester.id),
+                        onClick: () => {
+                          void handleRejectFriendRequest(requester.id);
+                        },
+                      }}
+                    />
+                  );
+                })
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Card padding="lg">
+            <div className="mb-4 flex items-center gap-2">
+              <Swords className="h-5 w-5 text-secondary-500" />
+              <h2 className="font-display text-lg font-semibold text-text-primary">Düello Davetleri</h2>
+            </div>
+            <div className="space-y-3">
+              {pendingDuelInvites.length === 0 ? (
+                <p className="text-sm text-text-secondary">Şu anda bekleyen düello davetin yok.</p>
+              ) : (
+                pendingDuelInvites.map((invite) => {
+                  const sender = profiles.find((profile) => profile.id === invite.from_user_id);
+                  if (!sender) return null;
+                  return (
+                    <FriendRow
+                      key={invite.id}
+                      username={sender.username}
+                      avatar={sender.avatar_url}
+                      frame={sender.avatar_frame}
+                      favoriteTeam={sender.favorite_team}
+                      status="pending"
+                      isOnline={Date.now() - new Date(sender.last_seen_at).getTime() < 1000 * 60 * 5}
+                      primaryAction={{
+                        label: 'Kabul Et',
+                        onClick: () => {
+                          void handleAcceptDuelInvite(invite.id);
+                        },
+                      }}
+                      secondaryAction={{
+                        label: 'Reddet',
+                        variant: 'ghost',
+                        onClick: () => {
+                          void handleRejectDuelInvite(invite.id);
+                        },
                       }}
                     />
                   );
@@ -571,7 +650,9 @@ export default function ProfilePage() {
                       primaryAction={{
                         label: 'İsteği Geri Çek',
                         variant: 'ghost',
-                        onClick: () => removeFriend(user.id, target.id),
+                        onClick: () => {
+                          void handleRemoveFriend(target.id);
+                        },
                       }}
                     />
                   );
@@ -602,12 +683,16 @@ export default function ProfilePage() {
                     isOnline={Date.now() - new Date(friend.last_seen_at).getTime() < 1000 * 60 * 5}
                     primaryAction={{
                       label: 'Düello Gönder',
-                      onClick: () => handleDuelInvite(friend.id),
+                      onClick: () => {
+                        void handleDuelInvite(friend.id);
+                      },
                     }}
                     secondaryAction={{
                       label: 'Kaldır',
                       variant: 'ghost',
-                      onClick: () => removeFriend(user.id, friend.id),
+                      onClick: () => {
+                        void handleRemoveFriend(friend.id);
+                      },
                     }}
                   />
                 ))
