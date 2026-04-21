@@ -172,6 +172,19 @@ export const DUEL_CONFIG = {
 } as const;
 
 // ==========================================
+// Tournament Mode
+// ==========================================
+
+export const TOURNAMENT_CONFIG = {
+  total_rounds: 3,
+  questions_per_round: 4,
+  time_per_question: 18,
+  points_per_correct: 120,
+  completion_xp: 180,
+  completion_coins: 90,
+} as const;
+
+// ==========================================
 // General Game Settings
 // ==========================================
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, ArrowLeft } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, ArrowLeft, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -107,6 +107,22 @@ const gameModeDetails = [
       'Tüm sorular aynı zorlukta',
     ],
     rewards: 'Günlük bonus + streak çarpanı',
+  },
+  {
+    id: 'tournament',
+    title: 'Turnuva Modu',
+    description: '3 turlu eleme serisi',
+    icon: Trophy,
+    tone: 'primary',
+    href: '/play/tournament',
+    energyCost: 1,
+    rules: [
+      'Çeyrek final, yarı final, final formatı',
+      'Her tur 4 soru içerir',
+      'İleri turda zorluk artar',
+      'Turnuvayı bitirene bonus ödül verilir',
+    ],
+    rewards: 'Tamamlayana büyük XP ve coin bonusu',
   },
 ] as const;
 

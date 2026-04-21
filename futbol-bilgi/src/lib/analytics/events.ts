@@ -18,6 +18,9 @@ export const ANALYTICS_EVENTS = {
   IAP_PREMIUM_CLAIMED: 'iap_premium_claimed',
   WORLD_CUP_EVENT_VIEWED: 'world_cup_event_viewed',
   WORLD_CUP_EVENT_STARTED: 'world_cup_event_started',
+  TOURNAMENT_MODE_VIEWED: 'tournament_mode_viewed',
+  TOURNAMENT_RUN_STARTED: 'tournament_run_started',
+  TOURNAMENT_RUN_COMPLETED: 'tournament_run_completed',
 } as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS];

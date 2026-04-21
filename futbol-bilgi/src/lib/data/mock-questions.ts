@@ -1251,6 +1251,17 @@ export function getWorldCupEventQuestions(): Question[] {
   }).filter(Boolean) as Question[];
 }
 
+export function getTournamentRoundQuestions(round: number, leagueScope: Question['league_scope'] = 'turkey'): Question[] {
+  const patterns = [
+    [1, 1, 2, 2],
+    [2, 2, 3, 3],
+    [3, 4, 4, 5],
+  ] as const;
+
+  const selectedPattern = patterns[Math.max(0, Math.min(patterns.length - 1, round - 1))];
+  return getQuestionsByPattern(selectedPattern, leagueScope);
+}
+
 export function getQuestionsByIds(questionIds: string[]): Question[] {
   const questionMap = new Map(MOCK_QUESTIONS.map((question) => [question.id, question]));
   return questionIds.map((id) => questionMap.get(id)).filter(Boolean) as Question[];
