@@ -37,7 +37,6 @@ async function fetchQuestions(searchParams: { search?: string; league_scope?: st
   }
 
   const { data, error } = await query;
-
   if (error) {
     throw new Error(error.message);
   }
@@ -59,6 +58,33 @@ async function fetchDraftQuestions() {
   }
 
   return data as QuestionAdmin[];
+}
+
+async function findSimilarQuestion(questionText: string, draftId: string) {
+  const supabase = createAdminClient();
+  const snippet = questionText.slice(0, 24);
+  const { data, error } = await supabase
+    .from('questions')
+    .select('id, question_text, is_active')
+    .neq('id', draftId)
+    .ilike('question_text', `%${snippet}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+function getDraftChecklist(draft: QuestionAdmin) {
+  return {
+    hasExplanation: Boolean(draft.explanation?.trim()),
+    hasFourOptions: Array.isArray(draft.options) && draft.options.length === 4,
+    hasTeamTags: Array.isArray(draft.team_tags) && draft.team_tags.length > 0,
+    hasSeasonRange: Boolean(draft.season_range?.trim()),
+  };
 }
 
 async function generateQuestions(formData: FormData) {
@@ -125,6 +151,7 @@ async function generateQuestions(formData: FormData) {
 async function publishDraft(formData: FormData) {
   'use server';
   await requireAdmin();
+
   const id = String(formData.get('id') || '');
   const supabase = createAdminClient();
   const { error } = await supabase
@@ -142,6 +169,7 @@ async function publishDraft(formData: FormData) {
 async function deleteDraft(formData: FormData) {
   'use server';
   await requireAdmin();
+
   const id = String(formData.get('id') || '');
   const supabase = createAdminClient();
   const { error } = await supabase.from('questions').delete().eq('id', id);
@@ -165,14 +193,21 @@ export default async function AdminQuestionsPage({
     fetchDraftQuestions(),
   ]);
 
+  const draftReviews = await Promise.all(
+    drafts.map(async (draft) => ({
+      draft,
+      checklist: getDraftChecklist(draft),
+      similarQuestion: await findSimilarQuestion(draft.question_text, draft.id),
+    })),
+  );
+
   return (
     <div className="space-y-4">
       <Card padding="lg" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-lg font-semibold">AI Soru Üretimi</h2>
-            <p className="text-sm text-text-secondary">Taslak üret, editoryal kontrol yap, sonra yayına al.</p>
-          </div>
+        <div>
+          <h2 className="font-display text-lg font-semibold">AI Soru Üretimi</h2>
+          <p className="text-sm text-text-secondary">Taslak üret, editoryal kontrol yap, sonra yayına al.</p>
+          <p className="mt-1 text-xs text-text-muted">Üretilen her taslak pasif gelir; editör onayı olmadan yayına alınmaz.</p>
         </div>
         <form action={generateQuestions} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Input name="topic" label="Konu" placeholder="Örn: Premier League derbileri" />
@@ -187,45 +222,99 @@ export default async function AdminQuestionsPage({
 
       <Card padding="lg" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Taslak İnceleme Kuyruğu</h2>
-          <span className="text-sm text-text-secondary">{drafts.length} taslak</span>
+          <div>
+            <h2 className="font-display text-lg font-semibold">Taslak İnceleme Kuyruğu</h2>
+            <p className="text-sm text-text-secondary">Taslakları kalite kontrolünden geçir, benzer kayıtları kontrol et ve ancak hazır olanları aktifleştir.</p>
+            <p className="mt-1 text-xs text-text-muted">Benzer soru uyarıları editöre karar desteği sağlar; otomatik bloklama yapmaz.</p>
+          </div>
+          <span className="text-sm text-text-secondary">{draftReviews.length} taslak</span>
         </div>
+
         <div className="space-y-3">
-          {drafts.length === 0 ? (
+          {draftReviews.length === 0 ? (
             <p className="text-sm text-text-secondary">Bekleyen AI taslağı yok.</p>
           ) : (
-            drafts.map((draft) => (
-              <Card key={draft.id} padding="md" className="space-y-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-text-secondary">{draft.league_scope} · {draft.league} · Zorluk {draft.difficulty}</p>
-                    <p className="font-medium text-text-primary">{draft.question_text}</p>
-                    <p className="mt-2 text-xs text-text-secondary">Doğru cevap: {draft.correct_answer} · Açıklama: {draft.explanation}</p>
+            draftReviews.map(({ draft, checklist, similarQuestion }) => {
+              const readinessScore = Object.values(checklist).filter(Boolean).length;
+              const isReady = Object.values(checklist).every(Boolean);
+              const correctOptionText = draft.options.find((option) => option.key === draft.correct_answer)?.text ?? draft.correct_answer;
+
+              return (
+                <Card key={draft.id} padding="md" className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-text-secondary">{draft.league_scope} · {draft.league} · Zorluk {draft.difficulty}</p>
+                      <p className="font-medium text-text-primary">{draft.question_text}</p>
+                      <p className="mt-1 text-xs text-text-muted">{draft.category} / {draft.sub_category} · {draft.season_range ?? 'sezon belirtilmedi'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={isReady ? 'success' : readinessScore >= 2 ? 'warning' : 'danger'}>
+                        {isReady ? 'Hazır' : readinessScore >= 2 ? 'İnceleme Gerekli' : 'Zayıf Taslak'}
+                      </Badge>
+                      <Badge variant="warning">Taslak</Badge>
+                    </div>
                   </div>
-                  <Badge variant="warning">Taslak</Badge>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <form action={publishDraft}>
-                    <input type="hidden" name="id" value={draft.id} />
-                    <Button type="submit" variant="secondary" fullWidth>Yayına Al</Button>
-                  </form>
-                  <form action={deleteDraft}>
-                    <input type="hidden" name="id" value={draft.id} />
-                    <Button type="submit" variant="ghost" fullWidth>Sil</Button>
-                  </form>
-                  <Link href={`/admin/questions/${draft.id}`}>
-                    <Button variant="outline" fullWidth>Düzenle</Button>
-                  </Link>
-                </div>
-              </Card>
-            ))
+
+                  <div className="grid gap-3 lg:grid-cols-3">
+                    <Card padding="sm" variant="elevated" className="space-y-2">
+                      <p className="text-xs font-semibold text-text-secondary">Oyuncuya gösterilecek önizleme</p>
+                      <p className="text-sm text-text-primary">{draft.question_text}</p>
+                      <p className="text-xs text-text-secondary">Şıklar: {draft.options.map((option) => `${option.key}) ${option.text}`).join(' · ')}</p>
+                      <p className="text-xs text-text-secondary">Doğru cevap: {correctOptionText}</p>
+                      <p className="text-xs text-text-secondary">Açıklama: {draft.explanation ?? 'Açıklama eksik'}</p>
+                    </Card>
+
+                    <Card padding="sm" variant="elevated" className="space-y-2">
+                      <p className="text-xs font-semibold text-text-secondary">Şema & yayın kontrolü</p>
+                      <ul className="space-y-1 text-xs text-text-secondary">
+                        <li>{checklist.hasExplanation ? '✓' : '✗'} Açıklama var</li>
+                        <li>{checklist.hasFourOptions ? '✓' : '✗'} 4 seçenek var</li>
+                        <li>{checklist.hasTeamTags ? '✓' : '✗'} Team tag var</li>
+                        <li>{checklist.hasSeasonRange ? '✓' : '✗'} Sezon aralığı var</li>
+                      </ul>
+                      <p className="text-xs font-medium text-text-primary">{readinessScore}/4 kontrol geçti</p>
+                      <p className="text-xs text-text-muted">{isReady ? 'JSON yapısı temel yayına alma kontrolünü geçti.' : 'Yayına almadan önce eksik alanları tamamla.'}</p>
+                    </Card>
+
+                    <Card padding="sm" variant="elevated" className="space-y-2">
+                      <p className="text-xs font-semibold text-text-secondary">Duplicate uyarısı</p>
+                      {similarQuestion ? (
+                        <>
+                          <Badge variant="warning">Benzer Soru Uyarısı</Badge>
+                          <p className="text-xs text-text-secondary">{similarQuestion.is_active ? 'Aktif' : 'Taslak'} benzer kayıt bulundu: {similarQuestion.question_text}</p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-text-secondary">Benzer kayıt bulunmadı.</p>
+                      )}
+                    </Card>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <form action={publishDraft}>
+                      <input type="hidden" name="id" value={draft.id} />
+                      <Button type="submit" variant="secondary" fullWidth disabled={!isReady}>Yayına Al</Button>
+                    </form>
+                    <form action={deleteDraft}>
+                      <input type="hidden" name="id" value={draft.id} />
+                      <Button type="submit" variant="ghost" fullWidth>Sil</Button>
+                    </form>
+                    <Link href={`/admin/questions/${draft.id}`}>
+                      <Button variant="outline" fullWidth>Düzenle</Button>
+                    </Link>
+                  </div>
+                </Card>
+              );
+            })
           )}
         </div>
       </Card>
 
       <Card padding="lg" className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">Sorular</h2>
+          <div>
+            <h2 className="font-display text-lg font-semibold">Sorular</h2>
+            <p className="text-xs text-text-muted">Aktif ve pasif kayıtları aynı listede izleyebilirsin.</p>
+          </div>
           <span className="text-sm text-text-secondary">{questions.length} kayıt</span>
         </div>
         <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5" action="/admin/questions" method="get">
