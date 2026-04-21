@@ -28,6 +28,20 @@ interface OverallPlayer {
   score: number;
 }
 
+interface LeaderboardMeta {
+  mode: Mode;
+  period: Period;
+  label: string;
+  supported: boolean;
+}
+
+const DEFAULT_LEADERBOARD_META: LeaderboardMeta = {
+  mode: 'overall',
+  period: 'all_time',
+  label: 'XP sıralaması',
+  supported: true,
+};
+
 type Period = 'daily' | 'weekly' | 'monthly' | 'all_time';
 type Mode = 'overall' | 'millionaire' | 'duel';
 type Scope = 'all' | 'friends';
@@ -71,7 +85,9 @@ export default function LeaderboardPage() {
   const [scope, setScope] = useState<Scope>('all');
   const [message, setMessage] = useState<string | null>(null);
   const [isFinalizingSeason, setIsFinalizingSeason] = useState(false);
+  const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
   const [overallPlayers, setOverallPlayers] = useState<OverallPlayer[]>([]);
+  const [leaderboardMeta, setLeaderboardMeta] = useState<LeaderboardMeta>(DEFAULT_LEADERBOARD_META);
 
   const user = useUserStore((state) => state.user);
   const setUser = useUserStore((state) => state.setUser);
@@ -105,23 +121,32 @@ export default function LeaderboardPage() {
   useEffect(() => {
     const fetchOverall = async () => {
       try {
-        const response = await fetch('/api/leaderboard/overall?limit=200');
+        setIsLoadingLeaderboard(true);
+        const params = new URLSearchParams({
+          limit: '200',
+          period,
+          mode,
+        });
+        const response = await fetch(`/api/leaderboard/overall?${params.toString()}`);
         const json = await response.json();
-        if (json.data) {
-          setOverallPlayers(
-            json.data.map((player: { xp: number }) => ({
-              ...player,
-              score: player.xp,
-            })),
-          );
+
+        if (!response.ok) {
+          setMessage(json.error || 'Sıralama yüklenemedi.');
+          return;
         }
+
+        setOverallPlayers((json.data ?? []) as OverallPlayer[]);
+        setLeaderboardMeta((json.meta ?? DEFAULT_LEADERBOARD_META) as LeaderboardMeta);
       } catch (error) {
         console.error('Failed to fetch overall leaderboard:', error);
+        setMessage('Sıralama yüklenemedi.');
+      } finally {
+        setIsLoadingLeaderboard(false);
       }
     };
 
     void fetchOverall();
-  }, []);
+  }, [mode, period]);
 
   const currentUserProfile = useMemo(() => {
     if (!user) return null;
@@ -273,7 +298,27 @@ export default function LeaderboardPage() {
             />
           </div>
           {message && <p className="mt-3 text-sm text-text-secondary">{message}</p>}
+          <p className="mt-2 text-xs text-text-muted">
+            {leaderboardMeta.label} · {PERIOD_LABELS[leaderboardMeta.period]} · {MODE_LABELS[leaderboardMeta.mode]}
+          </p>
         </motion.div>
+
+        {isLoadingLeaderboard && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Card padding="md" className="text-sm text-text-secondary">
+              Sıralama güncelleniyor...
+            </Card>
+          </motion.div>
+        )}
+
+        {!isLoadingLeaderboard && rankedPlayers.length === 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Card padding="lg" className="text-center">
+              <p className="font-display text-lg font-semibold text-text-primary">Bu filtre için veri bulunamadı</p>
+              <p className="mt-2 text-sm text-text-secondary">Başka bir dönem veya mod seçerek tekrar deneyebilirsin.</p>
+            </Card>
+          </motion.div>
+        )}
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Card padding="sm">
@@ -387,7 +432,7 @@ export default function LeaderboardPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="font-display text-lg font-semibold text-text-primary">Genel Klasman</h3>
-                  <p className="text-xs text-text-secondary">Arkadaş ve genel skor görünümü</p>
+                  <p className="text-xs text-text-secondary">{leaderboardMeta.label}</p>
                 </div>
                 {user && (
                   <Button size="sm" variant="ghost" onClick={handleFinalizeSeason} disabled={isFinalizingSeason}>

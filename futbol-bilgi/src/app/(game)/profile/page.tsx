@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import {
   User,
   Trophy,
+  Globe,
   Target,
   TrendingUp,
   Coins,
@@ -102,6 +103,8 @@ export default function ProfilePage() {
 
   const [friendUsername, setFriendUsername] = useState('');
   const [socialMessage, setSocialMessage] = useState<string | null>(null);
+  const [globalRank, setGlobalRank] = useState<number | null>(null);
+  const [globalTopCount, setGlobalTopCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -190,6 +193,8 @@ export default function ProfilePage() {
       }));
   }, [profiles, acceptedFriends, user]);
 
+  const friendRank = friendLeaderboardEntries.findIndex((entry) => entry.id === user?.id) + 1;
+
   const handleLogout = () => {
     trackEvent(ANALYTICS_EVENTS.PROFILE_ACTION, { action: 'logout_clicked' });
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
@@ -227,6 +232,22 @@ export default function ProfilePage() {
       }),
     )
     : [];
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchGlobalRank = async () => {
+      const response = await fetch('/api/leaderboard/overall?limit=200&period=all_time&mode=overall');
+      const json = await response.json();
+      if (!response.ok || !json.data) return;
+
+      const rank = json.data.findIndex((entry: { id: string }) => entry.id === user.id) + 1;
+      setGlobalRank(rank > 0 ? rank : null);
+      setGlobalTopCount(json.data.length);
+    };
+
+    void fetchGlobalRank();
+  }, [user]);
 
   useEffect(() => {
     if (!user || !currentSeasonId) return;
@@ -314,7 +335,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
               <ShareButton
                 payload={buildProfileShare({
                   username: user.username,
@@ -327,6 +348,19 @@ export default function ProfilePage() {
                 size="sm"
                 fullWidth
               />
+              <div className="rounded-xl bg-bg-primary/60 px-4 py-3 text-sm text-text-secondary">
+                <div className="flex items-center gap-2 text-text-primary">
+                  <Globe className="h-4 w-4 text-primary-500" />
+                  <span className="font-semibold">Global sıra</span>
+                </div>
+                <p className="mt-1 font-display text-lg font-bold text-text-primary">
+                  {globalRank ? `#${globalRank}` : 'İlk 200 dışında'}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {friendRank > 0 ? `Arkadaşlar arasında #${friendRank}` : 'Arkadaş sıralaması bekleniyor'}
+                  {globalTopCount > 0 ? ` · İlk ${globalTopCount}` : ''}
+                </p>
+              </div>
             </div>
 
             <div className="mt-4">
