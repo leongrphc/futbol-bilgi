@@ -3,14 +3,14 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 type Period = 'daily' | 'weekly' | 'monthly' | 'all_time';
-type Mode = 'overall' | 'millionaire' | 'duel';
+type Mode = 'overall' | 'millionaire' | 'duel' | 'team';
 
 function isPeriod(value: string | null): value is Period {
   return value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'all_time';
 }
 
 function isMode(value: string | null): value is Mode {
-  return value === 'overall' || value === 'millionaire' || value === 'duel';
+  return value === 'overall' || value === 'millionaire' || value === 'duel' || value === 'team';
 }
 
 function getPeriodStart(period: Exclude<Period, 'all_time'>) {
@@ -52,6 +52,44 @@ export async function GET(request: Request) {
     }
 
     const admin = createAdminClient();
+
+    if (mode === 'team') {
+      const { data, error } = await admin
+        .from('profiles')
+        .select('favorite_team, xp')
+        .not('favorite_team', 'is', null);
+
+      if (error) throw error;
+
+      const totals = new Map<string, number>();
+      for (const row of data ?? []) {
+        if (!row.favorite_team) continue;
+        totals.set(row.favorite_team, (totals.get(row.favorite_team) ?? 0) + (row.xp ?? 0));
+      }
+
+      const ranked = [...totals.entries()]
+        .map(([team, score], index) => ({
+          id: team,
+          username: team,
+          avatar_url: null,
+          avatar_frame: null,
+          league_tier: 'bronze',
+          score,
+          rank: index + 1,
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, Number.isFinite(limit) ? limit : 100);
+
+      return NextResponse.json({
+        data: ranked,
+        meta: {
+          mode,
+          period,
+          label: 'Takım toplam XP puanı',
+          supported: true,
+        },
+      });
+    }
 
     if (mode === 'overall' && period === 'all_time') {
       const { data, error } = await admin

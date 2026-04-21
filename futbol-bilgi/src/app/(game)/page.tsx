@@ -5,7 +5,7 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { LeagueScope } from '@/types';
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles, Percent, Users, Phone, Timer, SkipForward, Copy, Globe } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles, Percent, Users, Phone, Timer, SkipForward, Copy, Globe, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -490,6 +490,20 @@ export default function DashboardPage() {
       </motion.div>
 
       <motion.div variants={itemVariants} className="mb-6">
+        {user.favorite_team && (
+          <Card padding="md" className="mb-4 overflow-hidden">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs text-text-secondary">Takım Modu</p>
+                <h2 className="mt-1 font-display text-xl font-bold text-text-primary">{user.favorite_team} Taraftar Gücü</h2>
+                <p className="mt-2 text-sm text-text-secondary">Favori takımın için topladığın puanlar takım gücüne eklenir. Profile ekranında takım sırası ve toplam takım XP görünür.</p>
+              </div>
+              <div className="rounded-2xl bg-primary-500/10 p-4">
+                <Shield className="h-8 w-8 text-primary-500" />
+              </div>
+            </div>
+          </Card>
+        )}
         <Card padding="md" variant="highlighted" className="mb-4 overflow-hidden">
           <div className="flex items-start justify-between gap-4">
             <div>

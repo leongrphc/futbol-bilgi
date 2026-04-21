@@ -7,6 +7,7 @@ import {
   User,
   Trophy,
   Globe,
+  Shield,
   Target,
   TrendingUp,
   Coins,
@@ -108,6 +109,8 @@ export default function ProfilePage() {
   const [socialMessage, setSocialMessage] = useState<string | null>(null);
   const [globalRank, setGlobalRank] = useState<number | null>(null);
   const [globalTopCount, setGlobalTopCount] = useState(0);
+  const [teamRank, setTeamRank] = useState<number | null>(null);
+  const [teamScore, setTeamScore] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -304,17 +307,32 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchGlobalRank = async () => {
-      const response = await fetch('/api/leaderboard/overall?limit=200&period=all_time&mode=overall');
-      const json = await response.json();
-      if (!response.ok || !json.data) return;
+    const fetchRanks = async () => {
+      const [globalResponse, teamResponse] = await Promise.all([
+        fetch('/api/leaderboard/overall?limit=200&period=all_time&mode=overall'),
+        fetch('/api/leaderboard/overall?limit=50&period=all_time&mode=team'),
+      ]);
 
-      const rank = json.data.findIndex((entry: { id: string }) => entry.id === user.id) + 1;
-      setGlobalRank(rank > 0 ? rank : null);
-      setGlobalTopCount(json.data.length);
+      const [globalJson, teamJson] = await Promise.all([
+        globalResponse.json(),
+        teamResponse.json(),
+      ]);
+
+      if (globalResponse.ok && globalJson.data) {
+        const rank = globalJson.data.findIndex((entry: { id: string }) => entry.id === user.id) + 1;
+        setGlobalRank(rank > 0 ? rank : null);
+        setGlobalTopCount(globalJson.data.length);
+      }
+
+      if (teamResponse.ok && teamJson.data && user.favorite_team) {
+        const teamEntry = teamJson.data.find((entry: { id: string; score: number }) => entry.id === user.favorite_team);
+        const rank = teamJson.data.findIndex((entry: { id: string }) => entry.id === user.favorite_team) + 1;
+        setTeamRank(rank > 0 ? rank : null);
+        setTeamScore(teamEntry?.score ?? null);
+      }
     };
 
-    void fetchGlobalRank();
+    void fetchRanks();
   }, [user]);
 
   useEffect(() => {
@@ -402,7 +420,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
               <ShareButton
                 payload={buildProfileShare({
                   username: user.username,
@@ -426,6 +444,18 @@ export default function ProfilePage() {
                 <p className="text-xs text-text-muted">
                   {friendRank > 0 ? `Arkadaşlar arasında #${friendRank}` : 'Arkadaş sıralaması bekleniyor'}
                   {globalTopCount > 0 ? ` · İlk ${globalTopCount}` : ''}
+                </p>
+              </div>
+              <div className="rounded-xl bg-bg-primary/60 px-4 py-3 text-sm text-text-secondary">
+                <div className="flex items-center gap-2 text-text-primary">
+                  <Shield className="h-4 w-4 text-secondary-500" />
+                  <span className="font-semibold">Takım gücü</span>
+                </div>
+                <p className="mt-1 font-display text-lg font-bold text-text-primary">
+                  {teamRank && user.favorite_team ? `${user.favorite_team} · #${teamRank}` : 'Takım seçimi bekleniyor'}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {teamScore ? `${teamScore.toLocaleString()} toplam takım XP` : 'Takım puanı henüz oluşmadı'}
                 </p>
               </div>
             </div>
