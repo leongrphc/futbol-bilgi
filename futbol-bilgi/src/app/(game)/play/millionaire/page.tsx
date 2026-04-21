@@ -632,6 +632,7 @@ export default function MillionairePage() {
   if (phase === 'result') {
     return (
       <GameResultScreen
+        mode="millionaire"
         result={result ?? 'loss'}
         score={score}
         correctAnswers={correctAnswers}

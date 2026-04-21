@@ -8,8 +8,7 @@ import { ShareButton } from '@/components/social/share-button';
 import { AchievementStrip } from '@/components/achievement/achievement-strip';
 import { buildResultShare } from '@/lib/utils/share';
 import { useAchievementStore } from '@/lib/stores/achievement-store';
-import type { GameResult } from '@/types';
-import type { GameMode } from '@/types';
+import type { GameMode, GameResult } from '@/types';
 import { ACHIEVEMENT_DEFINITIONS } from '@/lib/achievements/definitions';
 
 function getUnlockedTitles(keys: string[]) {
@@ -23,18 +22,12 @@ const modeLabelMap: Record<string, string> = {
   daily: 'Günlük Meydan Okuma',
 };
 
-function inferMode(totalQuestions: number): GameMode {
-  if (totalQuestions === 15) return 'millionaire';
-  if (totalQuestions === 10) return 'quick';
-  if (totalQuestions === 5) return 'duel';
-  return 'daily';
-}
-
 // ==========================================
 // Game Result Screen — Score summary after game ends
 // ==========================================
 
 interface GameResultScreenProps {
+  mode: GameMode;
   result: GameResult;
   score: number;
   correctAnswers: number;
@@ -82,6 +75,7 @@ const resultConfig: Record<GameResult, { title: string; emoji: string; color: st
 };
 
 export function GameResultScreen({
+  mode,
   result,
   score,
   correctAnswers,
@@ -97,7 +91,7 @@ export function GameResultScreen({
   const config = resultConfig[result];
   const accuracy = calculateAccuracy(correctAnswers, totalAnswered);
   const finalScore = result === 'loss' || result === 'timeout' ? safePointScore : score;
-  const modeLabel = modeLabelMap[inferMode(totalQuestions)];
+  const modeLabel = modeLabelMap[mode];
   const newlyUnlocked = useAchievementStore((state) => state.newlyUnlocked);
   const sharePayload = buildResultShare({
     modeLabel,

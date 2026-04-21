@@ -496,7 +496,7 @@ export default function DashboardPage() {
         </Card>
       </motion.div>
 
-      {currentSeason && (
+      {currentSeason && seasonEndsAt && (
         <motion.div variants={itemVariants} className="mb-6">
           <SeasonSummaryCard
             tier={currentSeasonTier}

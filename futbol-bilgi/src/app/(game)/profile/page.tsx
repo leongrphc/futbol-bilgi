@@ -146,7 +146,9 @@ export default function ProfilePage() {
   }, [currentSeason, currentEntry, ensurePlayerEntry, user]);
 
   const rankedTierEntries = [...tierEntries].sort((a, b) => b.season_score - a.season_score);
-  const currentRank = rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1;
+  const currentRank = user
+    ? rankedTierEntries.findIndex((entry) => entry.user_id === user.id) + 1
+    : 0;
   const seasonZone = currentRank > 0 ? getLeagueZone(currentRank, rankedTierEntries.length) : 'safe';
 
   const incomingRequests = useMemo(

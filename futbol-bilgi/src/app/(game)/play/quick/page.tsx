@@ -258,6 +258,7 @@ export default function QuickPage() {
   if (phase === 'result') {
     return (
       <GameResultScreen
+        mode="quick"
         result={result ?? 'win'}
         score={score}
         correctAnswers={correctAnswers}

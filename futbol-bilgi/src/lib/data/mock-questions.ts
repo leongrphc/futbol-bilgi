@@ -1167,11 +1167,10 @@ export function getMillionaireQuestions(): Question[] {
   return [...d1, ...d2, ...d3, ...d4, ...d5];
 }
 
-export function getQuickPlayQuestions(): Question[] {
-  const pattern = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+function getQuestionsByPattern(pattern: readonly number[]): Question[] {
   const usedIds = new Set<string>();
 
-  const questions = pattern.map((difficulty, index) => {
+  return pattern.map((difficulty, index) => {
     const pool = shuffle(getQuestionsByDifficulty(difficulty)).filter((question) => !usedIds.has(question.id));
     const fallbackPool = shuffle(MOCK_QUESTIONS).filter((question) => !usedIds.has(question.id));
     const picked = pool[0] ?? fallbackPool[index];
@@ -1182,6 +1181,14 @@ export function getQuickPlayQuestions(): Question[] {
 
     return picked;
   }).filter(Boolean) as Question[];
+}
 
-  return shuffle(questions).slice(0, 10);
+export function getQuickPlayQuestions(): Question[] {
+  const pattern = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+  return shuffle(getQuestionsByPattern(pattern)).slice(0, 10);
+}
+
+export function getDailyChallengeQuestions(): Question[] {
+  const pattern = [1, 2, 3, 4, 5] as const;
+  return getQuestionsByPattern(pattern);
 }
