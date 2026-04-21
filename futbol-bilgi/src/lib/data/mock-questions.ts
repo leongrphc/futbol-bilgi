@@ -677,6 +677,7 @@ function getEraTag(founded: number): Question['era_tag'] {
 let questionCounter = 1;
 
 function createQuestion(input: {
+  league_scope?: Question['league_scope'];
   league: string;
   category: string;
   sub_category: string;
@@ -693,7 +694,7 @@ function createQuestion(input: {
 
   return {
     id: `q${String(questionCounter++).padStart(3, '0')}`,
-    league_scope: 'turkey',
+    league_scope: input.league_scope ?? 'turkey',
     league: input.league,
     category: input.category,
     sub_category: input.sub_category,
@@ -1124,6 +1125,7 @@ function buildClubQuestions(): Question[] {
 function buildHistoricalQuestions(): Question[] {
   return HISTORICAL_QUESTIONS.map((question) =>
     createQuestion({
+      league_scope: question.league === 'Avrupa' ? 'europe' : 'turkey',
       league: question.league,
       category: question.category,
       sub_category: question.sub_category,
@@ -1144,8 +1146,8 @@ export const MOCK_QUESTIONS: Question[] = [
   ...buildHistoricalQuestions(),
 ];
 
-export function getQuestionsByDifficulty(difficulty: number): Question[] {
-  return MOCK_QUESTIONS.filter((question) => question.difficulty === difficulty);
+export function getQuestionsByDifficulty(difficulty: number, leagueScope?: Question['league_scope']): Question[] {
+  return MOCK_QUESTIONS.filter((question) => question.difficulty === difficulty && (!leagueScope || question.league_scope === leagueScope));
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -1157,22 +1159,22 @@ function shuffle<T>(items: T[]): T[] {
   return shuffled;
 }
 
-export function getMillionaireQuestions(): Question[] {
-  const d1 = shuffle(getQuestionsByDifficulty(1)).slice(0, 3);
-  const d2 = shuffle(getQuestionsByDifficulty(2)).slice(0, 2);
-  const d3 = shuffle(getQuestionsByDifficulty(3)).slice(0, 2);
-  const d4 = shuffle(getQuestionsByDifficulty(4)).slice(0, 5);
-  const d5 = shuffle(getQuestionsByDifficulty(5)).slice(0, 3);
+export function getMillionaireQuestions(leagueScope: Question['league_scope'] = 'turkey'): Question[] {
+  const d1 = shuffle(getQuestionsByDifficulty(1, leagueScope)).slice(0, 3);
+  const d2 = shuffle(getQuestionsByDifficulty(2, leagueScope)).slice(0, 2);
+  const d3 = shuffle(getQuestionsByDifficulty(3, leagueScope)).slice(0, 2);
+  const d4 = shuffle(getQuestionsByDifficulty(4, leagueScope)).slice(0, 5);
+  const d5 = shuffle(getQuestionsByDifficulty(5, leagueScope)).slice(0, 3);
 
   return [...d1, ...d2, ...d3, ...d4, ...d5];
 }
 
-function getQuestionsByPattern(pattern: readonly number[]): Question[] {
+function getQuestionsByPattern(pattern: readonly number[], leagueScope: Question['league_scope'] = 'turkey'): Question[] {
   const usedIds = new Set<string>();
 
   return pattern.map((difficulty, index) => {
-    const pool = shuffle(getQuestionsByDifficulty(difficulty)).filter((question) => !usedIds.has(question.id));
-    const fallbackPool = shuffle(MOCK_QUESTIONS).filter((question) => !usedIds.has(question.id));
+    const pool = shuffle(getQuestionsByDifficulty(difficulty, leagueScope)).filter((question) => !usedIds.has(question.id));
+    const fallbackPool = shuffle(MOCK_QUESTIONS).filter((question) => !usedIds.has(question.id) && question.league_scope === leagueScope);
     const picked = pool[0] ?? fallbackPool[index];
 
     if (picked) {
@@ -1183,14 +1185,14 @@ function getQuestionsByPattern(pattern: readonly number[]): Question[] {
   }).filter(Boolean) as Question[];
 }
 
-export function getQuickPlayQuestions(): Question[] {
+export function getQuickPlayQuestions(leagueScope: Question['league_scope'] = 'turkey'): Question[] {
   const pattern = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
-  return shuffle(getQuestionsByPattern(pattern)).slice(0, 10);
+  return shuffle(getQuestionsByPattern(pattern, leagueScope)).slice(0, 10);
 }
 
-export function getDailyChallengeQuestions(): Question[] {
+export function getDailyChallengeQuestions(leagueScope: Question['league_scope'] = 'turkey'): Question[] {
   const pattern = [1, 2, 3, 4, 5] as const;
-  return getQuestionsByPattern(pattern);
+  return getQuestionsByPattern(pattern, leagueScope);
 }
 
 export function getQuestionsByIds(questionIds: string[]): Question[] {

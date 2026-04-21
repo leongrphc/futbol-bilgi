@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateLevel, calculateQuickXP } from '@/lib/utils/game';
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -11,13 +11,16 @@ export async function POST() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const leagueScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
+
   const admin = createAdminClient();
   const { data: session, error } = await admin
     .from('game_sessions')
     .insert({
       user_id: user.id,
       mode: 'quick',
-      league_scope: 'turkey',
+      league_scope: leagueScope,
     })
     .select('*')
     .single();

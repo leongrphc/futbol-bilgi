@@ -4,13 +4,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCoins, calculateLevel, calculateXP } from '@/lib/utils/game';
 import { ENERGY_CONFIG } from '@/lib/constants/game';
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const leagueScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
 
   const admin = createAdminClient();
   const { data: profile, error: profileError } = await admin.from('profiles').select('*').eq('id', user.id).single();
@@ -37,7 +40,7 @@ export async function POST() {
       .insert({
         user_id: user.id,
         mode: 'millionaire',
-        league_scope: 'turkey',
+        league_scope: leagueScope,
       })
       .select('*')
       .single(),

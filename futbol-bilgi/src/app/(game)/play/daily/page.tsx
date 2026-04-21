@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Calendar, Gift, Target } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,8 @@ const DAILY_POINTS_PER_CORRECT = 150;
 
 export default function DailyPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
   const {
     questionNumber,
     score,
@@ -175,7 +177,7 @@ export default function DailyPage() {
     hasInitializedRef.current = true;
 
     const initializeDaily = async () => {
-      const response = await fetch('/api/game/daily', { method: 'POST' });
+      const response = await fetch(`/api/game/daily?scope=${selectedScope}`, { method: 'POST' });
       const json = await response.json();
 
       if (!response.ok || !json.data) {
@@ -184,7 +186,7 @@ export default function DailyPage() {
         return;
       }
 
-      const gameQuestions = getDailyChallengeQuestions();
+      const gameQuestions = getDailyChallengeQuestions(selectedScope);
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;
@@ -192,11 +194,11 @@ export default function DailyPage() {
       isFinishingRef.current = false;
       setHasSession(true);
       resetGame();
-      startGame('daily', 'turkey', sessionId);
+      startGame('daily', selectedScope, sessionId);
       trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
         mode: 'daily',
         session_id: sessionId,
-        league_scope: 'turkey',
+        league_scope: selectedScope,
         question_count: DAILY_CHALLENGE_CONFIG.questions,
       });
 

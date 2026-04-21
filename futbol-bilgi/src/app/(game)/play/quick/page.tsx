@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Zap, Clock3 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { AnswerGrid } from '@/components/game/answer-option';
@@ -30,6 +30,8 @@ type QuickPhase = 'loading' | 'playing' | 'revealing' | 'result';
 
 export default function QuickPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
   const {
     questionNumber,
     score,
@@ -155,24 +157,24 @@ export default function QuickPage() {
     hasInitializedRef.current = true;
 
     const initializeQuick = async () => {
-      const response = await fetch('/api/game/quick', { method: 'POST' });
+      const response = await fetch(`/api/game/quick?scope=${selectedScope}`, { method: 'POST' });
       const json = await response.json();
 
       if (!response.ok || !json.data) {
         return;
       }
 
-      const gameQuestions = getQuickPlayQuestions();
+      const gameQuestions = getQuickPlayQuestions(selectedScope);
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;
       sessionIdRef.current = sessionId;
       resetGame();
-      startGame('quick', 'turkey', sessionId);
+      startGame('quick', selectedScope, sessionId);
       trackEvent(ANALYTICS_EVENTS.GAME_STARTED, {
         mode: 'quick',
         session_id: sessionId,
-        league_scope: 'turkey',
+        league_scope: selectedScope,
         question_count: QUICK_PLAY_CONFIG.total_questions,
       });
 

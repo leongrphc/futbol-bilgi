@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useGameStore } from '@/lib/stores/game-store';
 import { useUserStore } from '@/lib/stores/user-store';
 import { useTimer } from '@/lib/hooks/use-timer';
@@ -49,6 +49,8 @@ type GamePhase =
 
 export default function MillionairePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
 
   // Game store
   const {
@@ -176,7 +178,7 @@ export default function MillionairePage() {
 
     setShowEnergyWarning(false);
 
-    const response = await fetch('/api/game/millionaire', { method: 'POST' });
+    const response = await fetch(`/api/game/millionaire?scope=${selectedScope}`, { method: 'POST' });
     const json = await response.json();
 
     if (!response.ok || !json.data) {
@@ -184,13 +186,13 @@ export default function MillionairePage() {
       return;
     }
 
-    const gameQuestions = getMillionaireQuestions();
+    const gameQuestions = getMillionaireQuestions(selectedScope);
     setQuestions(gameQuestions);
 
     const sessionId = json.data.sessionId as string;
     const jokerInventory = (json.data.profile?.settings?.jokers ?? user.settings.jokers) as Partial<Record<JokerType, number>> | undefined;
     resetGame();
-    startGame('millionaire', 'turkey', sessionId, jokerInventory);
+    startGame('millionaire', selectedScope, sessionId, jokerInventory);
     trackMillionaireStarted(sessionId);
     sessionIdRef.current = sessionId;
     setUser({

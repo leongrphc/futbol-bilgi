@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Crown, Zap, Swords, Calendar, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { useUserStore } from '@/lib/stores/user-store';
@@ -133,7 +134,9 @@ const modeToneClasses = {
 // ==========================================
 
 export default function PlayPage() {
+  const searchParams = useSearchParams();
   const user = useUserStore((state) => state.user);
+  const selectedScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
 
   if (!user) {
     return null;
@@ -193,7 +196,7 @@ export default function PlayPage() {
                           {mode.title}
                         </h2>
                         <p className="mt-1 text-sm text-text-secondary">
-                          {mode.description}
+                          {mode.description} · {selectedScope === 'turkey' ? 'Türkiye' : selectedScope === 'europe' ? 'Avrupa' : 'Dünya'} kapsamı
                         </p>
                       </div>
                     </div>
@@ -273,7 +276,7 @@ export default function PlayPage() {
                   </div>
 
                   <Link
-                    href={mode.href}
+                    href={`${mode.href}?scope=${selectedScope}`}
                     onClick={() => {
                       trackEvent(ANALYTICS_EVENTS.GAME_MODE_SELECTED, {
                         mode: mode.id,
