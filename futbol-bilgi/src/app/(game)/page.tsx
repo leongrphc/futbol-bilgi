@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { trackEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { LeagueScope } from '@/types';
 import { motion } from 'framer-motion';
-import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles, Percent, Users, Phone, Timer, SkipForward, Copy } from 'lucide-react';
+import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles, Percent, Users, Phone, Timer, SkipForward, Copy, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -488,6 +490,28 @@ export default function DashboardPage() {
       </motion.div>
 
       <motion.div variants={itemVariants} className="mb-6">
+        <Card padding="md" variant="highlighted" className="mb-4 overflow-hidden">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-secondary-500">Özel Etkinlik</p>
+              <h2 className="mt-1 font-display text-xl font-bold text-text-primary">Dünya Kupası Efsaneleri</h2>
+              <p className="mt-2 text-sm text-text-secondary">Dünya Kupası tarihinin unutulmaz anları, rekorları ve Türkiye'nin 2002 yolculuğu üzerine özel 5 soruluk etkinlik.</p>
+              <div className="mt-4 flex gap-2">
+                <Link href="/play/daily?scope=world&event=world-cup">
+                  <Button
+                    onClick={() => trackEvent(ANALYTICS_EVENTS.WORLD_CUP_EVENT_STARTED, { entrypoint: 'dashboard_card' })}
+                  >
+                    <Globe className="h-4 w-4" />
+                    Etkinliği Oyna
+                  </Button>
+                </Link>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-secondary-500/15 p-4">
+              <Globe className="h-8 w-8 text-secondary-500" />
+            </div>
+          </div>
+        </Card>
         <Card padding="md">
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">

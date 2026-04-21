@@ -1229,6 +1229,28 @@ export function getDailyChallengeQuestions(leagueScope: Question['league_scope']
   return getQuestionsByPattern(pattern, leagueScope);
 }
 
+export function getWorldCupEventQuestions(): Question[] {
+  const worldCupQuestions = MOCK_QUESTIONS.filter((question) =>
+    question.league_scope === 'world' || question.sub_category === 'Dünya Kupası' || question.category === 'Milli Takım'
+  );
+
+  const usedIds = new Set<string>();
+  const pattern = [2, 3, 3, 4, 4] as const;
+
+  return pattern.map((difficulty, index) => {
+    const pool = shuffle(worldCupQuestions)
+      .filter((question) => question.difficulty === difficulty && !usedIds.has(question.id));
+    const fallbackPool = shuffle(worldCupQuestions).filter((question) => !usedIds.has(question.id));
+    const picked = pool[0] ?? fallbackPool[index];
+
+    if (picked) {
+      usedIds.add(picked.id);
+    }
+
+    return picked;
+  }).filter(Boolean) as Question[];
+}
+
 export function getQuestionsByIds(questionIds: string[]): Question[] {
   const questionMap = new Map(MOCK_QUESTIONS.map((question) => [question.id, question]));
   return questionIds.map((id) => questionMap.get(id)).filter(Boolean) as Question[];

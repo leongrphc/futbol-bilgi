@@ -19,7 +19,7 @@ import { useUserStore } from '@/lib/stores/user-store';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { DAILY_CHALLENGE_CONFIG } from '@/lib/constants/game';
 import { calculateLevel, formatNumber } from '@/lib/utils/game';
-import { getDailyChallengeQuestions } from '@/lib/data/mock-questions';
+import { getDailyChallengeQuestions, getWorldCupEventQuestions } from '@/lib/data/mock-questions';
 import type { Question } from '@/types';
 
 type DailyPhase = 'loading' | 'playing' | 'revealing' | 'result';
@@ -31,6 +31,7 @@ export default function DailyPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
+  const isWorldCupEvent = searchParams.get('event') === 'world-cup';
   const {
     questionNumber,
     score,
@@ -167,6 +168,12 @@ export default function DailyPage() {
     trackEvent(ANALYTICS_EVENTS.DAILY_MODE_VIEWED, {
       status: 'available',
     });
+
+    if (isWorldCupEvent) {
+      trackEvent(ANALYTICS_EVENTS.WORLD_CUP_EVENT_VIEWED, {
+        scope: selectedScope,
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -186,7 +193,7 @@ export default function DailyPage() {
         return;
       }
 
-      const gameQuestions = getDailyChallengeQuestions(selectedScope);
+      const gameQuestions = isWorldCupEvent ? getWorldCupEventQuestions() : getDailyChallengeQuestions(selectedScope);
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;
@@ -201,6 +208,13 @@ export default function DailyPage() {
         league_scope: selectedScope,
         question_count: DAILY_CHALLENGE_CONFIG.questions,
       });
+
+      if (isWorldCupEvent) {
+        trackEvent(ANALYTICS_EVENTS.WORLD_CUP_EVENT_STARTED, {
+          session_id: sessionId,
+          question_count: DAILY_CHALLENGE_CONFIG.questions,
+        });
+      }
 
       if (gameQuestions.length > 0) {
         setCurrentQuestion(gameQuestions[0]);
@@ -347,7 +361,7 @@ export default function DailyPage() {
           <Card padding="md">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-xs text-text-muted">Günlük Meydan Okuma</p>
+                <p className="text-xs text-text-muted">{isWorldCupEvent ? 'Dünya Kupası Etkinliği' : 'Günlük Meydan Okuma'}</p>
                 <p className="font-display text-xl font-bold text-text-primary">
                   {questionNumber}/{DAILY_CHALLENGE_CONFIG.questions}
                 </p>
