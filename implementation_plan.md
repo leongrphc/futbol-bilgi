@@ -880,14 +880,14 @@ src/
 - [x] Analytics entegrasyonu
 
 ### Faz 4 — Genişleme (Sürekli)
-- [ ] Avrupa ligleri ekleme (Premier League, La Liga, vb.)
-- [ ] Dünya Kupası özel etkinlikleri
-- [ ] Turnuva modu
-- [ ] Takım modu genişletme
+- [x] Avrupa ligleri ekleme (Premier League, La Liga, vb.)
+- [x] Dünya Kupası özel etkinlikleri
+- [x] Turnuva modu
+- [x] Takım modu genişletme
 - [ ] React Native mobil uygulama
-- [ ] Yapay zeka destekli soru üretimi
+- [x] Yapay zeka destekli soru üretimi
 - [ ] Sesli soru modu
-- [ ] Canlı turnuvalar
+- [x] Canlı turnuvalar
 
 ---
 
