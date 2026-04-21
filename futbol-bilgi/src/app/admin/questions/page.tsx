@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { revalidatePath } from 'next/cache';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ async function fetchQuestions(searchParams: { search?: string; league_scope?: st
     query = query.eq('difficulty', Number(searchParams.difficulty));
   }
 
-  if (searchParams.is_active !== undefined) {
+  if (searchParams.is_active !== undefined && searchParams.is_active !== '') {
     query = query.eq('is_active', searchParams.is_active === 'true');
   }
 
@@ -44,6 +45,114 @@ async function fetchQuestions(searchParams: { search?: string; league_scope?: st
   return data as QuestionAdmin[];
 }
 
+async function fetchDraftQuestions() {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('is_active', false)
+    .order('updated_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as QuestionAdmin[];
+}
+
+async function generateQuestions(formData: FormData) {
+  'use server';
+
+  await requireAdmin();
+
+  const topic = String(formData.get('topic') || '').trim();
+  const leagueScope = String(formData.get('league_scope') || 'turkey');
+  const difficulty = Number(formData.get('difficulty') || 3);
+  const count = Number(formData.get('count') || 3);
+
+  if (!topic) {
+    return;
+  }
+
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const response = await fetch(`${origin}/api/admin/questions/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic, league_scope: leagueScope, difficulty, count }),
+    cache: 'no-store',
+  });
+
+  const json = await response.json();
+  if (!response.ok || !json.data) {
+    throw new Error(json.error || 'AI soru taslağı üretilemedi.');
+  }
+
+  const supabase = createAdminClient();
+  const payload = json.data.map((draft: {
+    league_scope: string;
+    league: string;
+    category: string;
+    sub_category: string;
+    difficulty: number;
+    season_range: string;
+    team_tags: string[];
+    era_tag: string;
+    question_text: string;
+    options: { key: 'A' | 'B' | 'C' | 'D'; text: string }[];
+    correct_answer: 'A' | 'B' | 'C' | 'D';
+    explanation: string;
+    is_active: boolean;
+  }) => ({
+    ...draft,
+    media: null,
+    times_shown: 0,
+    times_correct: 0,
+    avg_answer_time_ms: 0,
+    reported_count: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from('questions').insert(payload);
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath('/admin/questions');
+}
+
+async function publishDraft(formData: FormData) {
+  'use server';
+  await requireAdmin();
+  const id = String(formData.get('id') || '');
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('questions')
+    .update({ is_active: true, updated_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath('/admin/questions');
+}
+
+async function deleteDraft(formData: FormData) {
+  'use server';
+  await requireAdmin();
+  const id = String(formData.get('id') || '');
+  const supabase = createAdminClient();
+  const { error } = await supabase.from('questions').delete().eq('id', id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath('/admin/questions');
+}
+
 export default async function AdminQuestionsPage({
   searchParams,
 }: {
@@ -51,10 +160,69 @@ export default async function AdminQuestionsPage({
 }) {
   await requireAdmin();
   const resolvedSearchParams = await searchParams;
-  const questions = await fetchQuestions(resolvedSearchParams);
+  const [questions, drafts] = await Promise.all([
+    fetchQuestions(resolvedSearchParams),
+    fetchDraftQuestions(),
+  ]);
 
   return (
     <div className="space-y-4">
+      <Card padding="lg" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-lg font-semibold">AI Soru Üretimi</h2>
+            <p className="text-sm text-text-secondary">Taslak üret, editoryal kontrol yap, sonra yayına al.</p>
+          </div>
+        </div>
+        <form action={generateQuestions} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Input name="topic" label="Konu" placeholder="Örn: Premier League derbileri" />
+          <Input name="league_scope" label="Lig Scope" placeholder="turkey / europe / world" defaultValue="turkey" />
+          <Input name="difficulty" label="Zorluk" placeholder="1-5" defaultValue="3" />
+          <Input name="count" label="Taslak Sayısı" placeholder="1-5" defaultValue="3" />
+          <div className="xl:col-span-4">
+            <Button type="submit">AI Taslak Üret</Button>
+          </div>
+        </form>
+      </Card>
+
+      <Card padding="lg" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-lg font-semibold">Taslak İnceleme Kuyruğu</h2>
+          <span className="text-sm text-text-secondary">{drafts.length} taslak</span>
+        </div>
+        <div className="space-y-3">
+          {drafts.length === 0 ? (
+            <p className="text-sm text-text-secondary">Bekleyen AI taslağı yok.</p>
+          ) : (
+            drafts.map((draft) => (
+              <Card key={draft.id} padding="md" className="space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-text-secondary">{draft.league_scope} · {draft.league} · Zorluk {draft.difficulty}</p>
+                    <p className="font-medium text-text-primary">{draft.question_text}</p>
+                    <p className="mt-2 text-xs text-text-secondary">Doğru cevap: {draft.correct_answer} · Açıklama: {draft.explanation}</p>
+                  </div>
+                  <Badge variant="warning">Taslak</Badge>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <form action={publishDraft}>
+                    <input type="hidden" name="id" value={draft.id} />
+                    <Button type="submit" variant="secondary" fullWidth>Yayına Al</Button>
+                  </form>
+                  <form action={deleteDraft}>
+                    <input type="hidden" name="id" value={draft.id} />
+                    <Button type="submit" variant="ghost" fullWidth>Sil</Button>
+                  </form>
+                  <Link href={`/admin/questions/${draft.id}`}>
+                    <Button variant="outline" fullWidth>Düzenle</Button>
+                  </Link>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </Card>
+
       <Card padding="lg" className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold">Sorular</h2>
