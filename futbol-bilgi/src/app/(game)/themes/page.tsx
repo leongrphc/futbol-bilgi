@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -233,24 +234,10 @@ export default function ThemesPage() {
     });
 
     const json = await response.json();
-
-    if (!response.ok) {
-      setPurchasingKey(null);
-      setMessage(json.error || "Tema kuşanılamadı.");
-      return;
-    }
-
-    const settingsResponse = await fetch("/api/me", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ settings: { theme: themeKey } }),
-    });
-
-    const settingsJson = await settingsResponse.json();
     setPurchasingKey(null);
 
-    if (!settingsResponse.ok) {
-      setMessage(settingsJson.error || "Tema kuşanılamadı.");
+    if (!response.ok) {
+      setMessage(json.error || "Tema kuşanılamadı.");
       return;
     }
 
@@ -521,8 +508,8 @@ export default function ThemesPage() {
               const requiresPremium = Boolean(item?.metadata?.isPremium) && !user.is_premium;
 
               return (
-                <motion.div whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                  <Card key={frame.key} padding="lg" className="space-y-4 transition-shadow hover:shadow-xl hover:shadow-secondary-500/10">
+                <motion.div key={frame.key} whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Card padding="lg" className="space-y-4 transition-shadow hover:shadow-xl hover:shadow-secondary-500/10">
                     <div className="flex items-center justify-center rounded-2xl bg-bg-elevated p-6">
                       <Avatar size="xl" fallback={user.username} frame={frame.key} />
                     </div>
@@ -538,7 +525,13 @@ export default function ThemesPage() {
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-secondary-500">
-                        {requiresPremium ? "Premium Gerekli" : getFramePriceLabel(item)}
+                        {equipped
+                          ? "Aktif"
+                          : owned
+                            ? "Sahip Olundu"
+                            : requiresPremium
+                              ? "Premium Gerekli"
+                              : getFramePriceLabel(item)}
                       </span>
                       {owned ? (
                         <Button
@@ -583,8 +576,8 @@ export default function ThemesPage() {
               const requiresPremium = isPremiumTheme && !user.is_premium;
 
               return (
-                <motion.div whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                  <Card key={theme.key} padding="lg" className="space-y-4 transition-shadow hover:shadow-xl hover:shadow-primary-500/10">
+                <motion.div key={theme.key} whileHover={{ y: -4, scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                  <Card padding="lg" className="space-y-4 transition-shadow hover:shadow-xl hover:shadow-primary-500/10">
                     <div
                       className="h-24 rounded-2xl"
                       style={getThemePreviewStyle(theme.key)}
@@ -614,15 +607,19 @@ export default function ThemesPage() {
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-secondary-500">
-                        {requiresPremium
-                          ? "Premium Gerekli"
-                          : getThemePriceLabel(item)}
+                        {equipped
+                          ? "Aktif"
+                          : owned
+                            ? "Sahip Olundu"
+                            : requiresPremium
+                              ? "Premium Gerekli"
+                              : getThemePriceLabel(item)}
                       </span>
                       {owned ? (
                         <Button
                           variant={equipped ? "secondary" : "primary"}
                           onClick={() => equipTheme(theme.key)}
-                          disabled={!item && theme.key !== "dark"}
+                          disabled={equipped || (!item && theme.key !== "dark")}
                           isLoading={purchasingKey === theme.key}
                         >
                           <Check className="h-4 w-4" />
@@ -689,7 +686,7 @@ export default function ThemesPage() {
                   <Button
                     variant={equipped ? "secondary" : "primary"}
                     onClick={() => equipTheme(theme.key)}
-                    disabled={!item && theme.key !== "dark"}
+                    disabled={equipped || (!item && theme.key !== "dark")}
                     isLoading={purchasingKey === theme.key}
                   >
                     <Check className="h-4 w-4" />
@@ -724,6 +721,7 @@ export default function ThemesPage() {
                       <Button
                         variant={equipped ? "secondary" : "primary"}
                         onClick={() => equipFrame(frame.key)}
+                        disabled={equipped}
                         isLoading={purchasingKey === `frame-${frame.key}`}
                       >
                         <Check className="h-4 w-4" />

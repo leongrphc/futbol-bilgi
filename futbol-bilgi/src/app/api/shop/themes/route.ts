@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { ensureDefaultThemeCatalog, ensureDefaultThemeInventory, mapThemeShopItem } from '@/lib/themes';
+import { ensureDefaultThemeCatalog, ensureDefaultThemeInventory, getThemeKeyFromShopItemName, mapThemeShopItem } from '@/lib/themes';
 
 export async function GET() {
   const supabase = await createClient();
@@ -103,27 +103,54 @@ export async function PATCH(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { error: clearEquippedError } = await admin
-    .from('user_inventory')
-    .update({ is_equipped: false })
-    .eq('user_id', user.id)
-    .eq('is_equipped', true);
+  const [{ data: profile, error: profileError }, { data: rawThemeItems, error: themeItemsError }] = await Promise.all([
+    admin.from('profiles').select('settings').eq('id', user.id).single(),
+    admin.from('shop_items').select('id, name').eq('item_type', 'theme').eq('is_active', true),
+  ]);
 
-  if (clearEquippedError) {
-    return NextResponse.json({ error: clearEquippedError.message }, { status: 500 });
+  if (profileError || themeItemsError) {
+    return NextResponse.json({ error: profileError?.message || themeItemsError?.message }, { status: 500 });
+  }
+
+  const themeItemIds = (rawThemeItems ?? []).map((item) => item.id);
+  if (themeItemIds.length > 0) {
+    const { error: clearEquippedError } = await admin
+      .from('user_inventory')
+      .update({ is_equipped: false })
+      .eq('user_id', user.id)
+      .in('item_id', themeItemIds);
+
+    if (clearEquippedError) {
+      return NextResponse.json({ error: clearEquippedError.message }, { status: 500 });
+    }
   }
 
   if (itemId === 'theme-dark-default') {
-    return NextResponse.json({
-      data: {
-        id: 'inventory-dark',
-        user_id: user.id,
-        item_id: 'theme-dark-default',
-        quantity: 1,
-        is_equipped: true,
-        purchased_at: new Date().toISOString(),
-      },
-    });
+    const { data: updatedProfile, error: updateProfileError } = await admin
+      .from('profiles')
+      .update({
+        settings: { ...(profile.settings ?? {}), theme: 'dark' },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+      .select('*')
+      .single();
+
+    if (updateProfileError) {
+      return NextResponse.json({ error: updateProfileError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data: { profile: updatedProfile } });
+  }
+
+  const selectedTheme = (rawThemeItems ?? []).find((item) => item.id === itemId);
+  if (!selectedTheme) {
+    return NextResponse.json({ error: 'Theme not found' }, { status: 404 });
+  }
+
+  const themeKey = getThemeKeyFromShopItemName(selectedTheme.name);
+  if (!themeKey) {
+    return NextResponse.json({ error: 'Theme mapping not found' }, { status: 400 });
   }
 
   const { data: inventoryItem, error: inventoryError } = await admin
@@ -138,19 +165,30 @@ export async function PATCH(request: Request) {
   }
 
   if (!inventoryItem) {
-    return NextResponse.json({ error: 'Item not owned' }, { status: 400 });
+    return NextResponse.json({ error: 'Tema hesabında bulunmuyor.' }, { status: 400 });
   }
 
-  const { data: equippedItem, error: equipError } = await admin
-    .from('user_inventory')
-    .update({ is_equipped: true })
-    .eq('id', inventoryItem.id)
-    .select('*')
-    .single();
+  const [{ data: equippedItem, error: equipError }, { data: updatedProfile, error: updateProfileError }] = await Promise.all([
+    admin
+      .from('user_inventory')
+      .update({ is_equipped: true })
+      .eq('id', inventoryItem.id)
+      .select('*')
+      .single(),
+    admin
+      .from('profiles')
+      .update({
+        settings: { ...(profile.settings ?? {}), theme: themeKey },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+      .select('*')
+      .single(),
+  ]);
 
-  if (equipError) {
-    return NextResponse.json({ error: equipError.message }, { status: 500 });
+  if (equipError || updateProfileError) {
+    return NextResponse.json({ error: equipError?.message || updateProfileError?.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: equippedItem });
+  return NextResponse.json({ data: { inventory: equippedItem, profile: updatedProfile } });
 }

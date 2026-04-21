@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { mapFrameShopItem } from '@/lib/frames';
+import { getFrameKeyFromShopItemName, mapFrameShopItem } from '@/lib/frames';
 
 export async function GET() {
   const supabase = await createClient();
@@ -99,15 +99,79 @@ export async function PATCH(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { data: profile, error } = await admin
-    .from('profiles')
-    .update({ avatar_frame: frameKey, updated_at: new Date().toISOString() })
-    .eq('id', user.id)
-    .select('*')
-    .single();
+  const { data: rawFrameItems, error: frameItemsError } = await admin
+    .from('shop_items')
+    .select('id, name')
+    .eq('item_type', 'avatar_frame')
+    .eq('is_active', true);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (frameItemsError) {
+    return NextResponse.json({ error: frameItemsError.message }, { status: 500 });
+  }
+
+  const frameItemIds = (rawFrameItems ?? []).map((item) => item.id);
+  if (frameItemIds.length > 0) {
+    const { error: clearEquippedError } = await admin
+      .from('user_inventory')
+      .update({ is_equipped: false })
+      .eq('user_id', user.id)
+      .in('item_id', frameItemIds);
+
+    if (clearEquippedError) {
+      return NextResponse.json({ error: clearEquippedError.message }, { status: 500 });
+    }
+  }
+
+  if (frameKey === 'default') {
+    const { data: profile, error } = await admin
+      .from('profiles')
+      .update({ avatar_frame: null, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .select('*')
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ data: profile });
+  }
+
+  const selectedFrame = (rawFrameItems ?? []).find((item) => getFrameKeyFromShopItemName(item.name) === frameKey);
+  if (!selectedFrame) {
+    return NextResponse.json({ error: 'Frame not found' }, { status: 404 });
+  }
+
+  const { data: inventoryItem, error: inventoryError } = await admin
+    .from('user_inventory')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('item_id', selectedFrame.id)
+    .maybeSingle();
+
+  if (inventoryError) {
+    return NextResponse.json({ error: inventoryError.message }, { status: 500 });
+  }
+
+  if (!inventoryItem) {
+    return NextResponse.json({ error: 'Çerçeve hesabında bulunmuyor.' }, { status: 400 });
+  }
+
+  const [{ error: equipError }, { data: profile, error: profileError }] = await Promise.all([
+    admin
+      .from('user_inventory')
+      .update({ is_equipped: true })
+      .eq('id', inventoryItem.id),
+    admin
+      .from('profiles')
+      .update({ avatar_frame: frameKey, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .select('*')
+      .single(),
+  ]);
+
+  if (equipError || profileError) {
+    return NextResponse.json({ error: equipError?.message || profileError?.message }, { status: 500 });
   }
 
   return NextResponse.json({ data: profile });
