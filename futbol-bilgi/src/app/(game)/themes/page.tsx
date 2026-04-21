@@ -135,14 +135,23 @@ export default function ThemesPage() {
   const [activeTab, setActiveTab] = useState<ShopTab>('themes');
 
   useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+
     const loadThemes = async () => {
       const [themeResponse, frameResponse] = await Promise.all([
         fetch("/api/shop/themes"),
         fetch("/api/shop/frames"),
       ]);
 
-      if (!themeResponse.ok || !frameResponse.ok || !user) {
-        setIsLoading(false);
+      if (!themeResponse.ok || !frameResponse.ok) {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -156,14 +165,9 @@ export default function ThemesPage() {
         shopItems: [],
         inventory: [],
       }) as FrameShopResponse;
-      const latestUser = useUserStore.getState().user;
-      if (!latestUser) {
-        setIsLoading(false);
-        return;
-      }
 
       const resolved = getResolvedThemeData(
-        latestUser.id,
+        user.id,
         data.shopItems,
         data.inventory,
       );
@@ -171,16 +175,22 @@ export default function ThemesPage() {
       const mergedInventory = [...resolved.inventory, ...frameData.inventory.filter((entry) => !resolved.inventory.some((themeEntry) => themeEntry.id === entry.id))];
       const mergedShopItems = [...resolved.shopItems, ...frameData.shopItems.filter((item) => !resolved.shopItems.some((themeItem) => themeItem.id === item.id))];
 
-      setUser({
-        ...latestUser,
-        inventory: mergedInventory,
-        shop_items: mergedShopItems,
-      });
-      setIsLoading(false);
+      if (!isCancelled) {
+        setUser({
+          ...user,
+          inventory: mergedInventory,
+          shop_items: mergedShopItems,
+        });
+        setIsLoading(false);
+      }
     };
 
     void loadThemes();
-  }, [user, setUser]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [setUser, user?.id]);
 
   if (!user) {
     return null;
