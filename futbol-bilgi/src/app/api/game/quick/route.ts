@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateLevel, calculateQuickXP } from '@/lib/utils/game';
+import { getQuickModeQuestionsFromDb } from '@/lib/questions/server';
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -15,21 +16,24 @@ export async function POST(request: Request) {
   const leagueScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
 
   const admin = createAdminClient();
-  const { data: session, error } = await admin
-    .from('game_sessions')
-    .insert({
-      user_id: user.id,
-      mode: 'quick',
-      league_scope: leagueScope,
-    })
-    .select('*')
-    .single();
+  const [{ data: session, error }, questionsResult] = await Promise.all([
+    admin
+      .from('game_sessions')
+      .insert({
+        user_id: user.id,
+        mode: 'quick',
+        league_scope: leagueScope,
+      })
+      .select('*')
+      .single(),
+    getQuickModeQuestionsFromDb(leagueScope, 5),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: { sessionId: session.id } });
+  return NextResponse.json({ data: { sessionId: session.id, questions: questionsResult } });
 }
 
 export async function PATCH(request: Request) {

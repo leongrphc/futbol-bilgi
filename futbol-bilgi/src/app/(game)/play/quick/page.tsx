@@ -23,7 +23,6 @@ import {
   calculateQuickXP,
   formatNumber,
 } from '@/lib/utils/game';
-import { getQuickPlayQuestions } from '@/lib/data/mock-questions';
 import type { Question } from '@/types';
 
 type QuickPhase = 'loading' | 'playing' | 'revealing' | 'result';
@@ -147,7 +146,7 @@ export default function QuickPage() {
     const data = await finalizeQuick(gameResult, finalScore, correctAnswers, totalAnswered);
     endGame(gameResult, xp, 0);
     applyPersistedRewards(data?.profile ?? null, xp);
-  }, [timer.timeRemaining, correctAnswers, totalAnswered, score, applyScoreBonus, endGame, setUser, user]);
+  }, [timer.timeRemaining, correctAnswers, totalAnswered, score, applyPersistedRewards, applyScoreBonus, endGame, setUser, user]);
 
   useEffect(() => {
     if (hasInitializedRef.current) {
@@ -164,7 +163,7 @@ export default function QuickPage() {
         return;
       }
 
-      const gameQuestions = getQuickPlayQuestions(selectedScope);
+      const gameQuestions = (json.data.questions ?? []) as Question[];
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;
@@ -193,7 +192,7 @@ export default function QuickPage() {
         clearTimeout(revealTimeoutRef.current);
       }
     };
-  }, [resetGame, startGame, setCurrentQuestion, timer, timer.reset, timer.start]);
+  }, [resetGame, selectedScope, setCurrentQuestion, startGame, timer, timer.reset, timer.start]);
 
   useEffect(() => {
     setTimeRemaining(timer.timeRemaining);

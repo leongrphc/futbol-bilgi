@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { requireAdmin } from '@/lib/admin/guard';
 import type { QuestionAdmin } from '@/lib/admin/types';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { buildQuestionInsertPayload, parseCsvImport } from '@/lib/admin/question-import';
 
 async function fetchQuestions(searchParams: { search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string }) {
   const supabase = createAdminClient();
@@ -106,6 +108,121 @@ function getReadinessVariant(readinessScore: number) {
   if (readinessScore === 4) return 'success';
   if (readinessScore >= 2) return 'warning';
   return 'danger';
+}
+
+function buildAdminQuestionsUrl(params: Record<string, string | number | null | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === '') return;
+    searchParams.set(key, String(value));
+  });
+
+  const query = searchParams.toString();
+  return query ? `/admin/questions?${query}` : '/admin/questions';
+}
+
+async function createManualQuestion(formData: FormData) {
+  'use server';
+
+  await requireAdmin();
+
+  try {
+    const payload = buildQuestionInsertPayload({
+      league_scope: String(formData.get('league_scope') || 'turkey'),
+      league: String(formData.get('league') || ''),
+      category: String(formData.get('category') || ''),
+      sub_category: String(formData.get('sub_category') || ''),
+      difficulty: String(formData.get('difficulty') || ''),
+      season_range: String(formData.get('season_range') || ''),
+      team_tags: String(formData.get('team_tags') || ''),
+      era_tag: String(formData.get('era_tag') || ''),
+      question_text: String(formData.get('question_text') || ''),
+      correct_answer: String(formData.get('correct_answer') || ''),
+      explanation: String(formData.get('explanation') || ''),
+      option_a: String(formData.get('option_a') || ''),
+      option_b: String(formData.get('option_b') || ''),
+      option_c: String(formData.get('option_c') || ''),
+      option_d: String(formData.get('option_d') || ''),
+      is_active: formData.get('is_active') === 'on',
+    });
+
+    const supabase = createAdminClient();
+    const { data: existingQuestion, error: existingError } = await supabase
+      .from('questions')
+      .select('id')
+      .eq('question_text', payload.question_text)
+      .maybeSingle();
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    if (existingQuestion) {
+      redirect(buildAdminQuestionsUrl({ create: 'error', message: 'Aynı soru metniyle kayıt zaten mevcut.' }));
+    }
+
+    const { error } = await supabase.from('questions').insert(payload);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath('/admin/questions');
+    redirect(buildAdminQuestionsUrl({ create: 'success', message: 'Soru başarıyla eklendi.' }));
+  } catch (error) {
+    redirect(buildAdminQuestionsUrl({ create: 'error', message: error instanceof Error ? error.message : 'Soru eklenemedi.' }));
+  }
+}
+
+async function importQuestionsFromCsv(formData: FormData) {
+  'use server';
+
+  await requireAdmin();
+
+  const file = formData.get('csv_file');
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(buildAdminQuestionsUrl({ import: 'error', message: 'Lütfen bir CSV dosyası seç.' }));
+  }
+
+  try {
+    const content = await file.text();
+    const importActive = formData.get('import_active') === 'on';
+    const { payloads, errors } = parseCsvImport(content, importActive);
+
+    if (payloads.length === 0) {
+      redirect(buildAdminQuestionsUrl({ import: 'error', message: errors[0] ?? 'İçe aktarılacak geçerli satır bulunamadı.' }));
+    }
+
+    const supabase = createAdminClient();
+    const questionTexts = payloads.map((payload) => payload.question_text);
+    const { data: existingQuestions, error: existingError } = await supabase
+      .from('questions')
+      .select('question_text')
+      .in('question_text', questionTexts);
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    const existingSet = new Set((existingQuestions ?? []).map((question) => String(question.question_text).toLocaleLowerCase('tr-TR')));
+    const validPayloads = payloads.filter((payload) => !existingSet.has(payload.question_text.toLocaleLowerCase('tr-TR')));
+    const duplicateCount = payloads.length - validPayloads.length;
+    const totalErrors = errors.length + duplicateCount;
+
+    if (validPayloads.length === 0) {
+      redirect(buildAdminQuestionsUrl({ import: 'error', message: 'Tüm satırlar hatalı veya mevcut kayıtlarla çakışıyor.', imported: 0, failed: totalErrors }));
+    }
+
+    const { error } = await supabase.from('questions').insert(validPayloads);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath('/admin/questions');
+    redirect(buildAdminQuestionsUrl({ import: 'success', imported: validPayloads.length, failed: totalErrors }));
+  } catch (error) {
+    redirect(buildAdminQuestionsUrl({ import: 'error', message: error instanceof Error ? error.message : 'CSV içe aktarma başarısız oldu.' }));
+  }
 }
 
 async function generateQuestions(formData: FormData) {
@@ -213,7 +330,7 @@ async function deleteDraft(formData: FormData) {
 export default async function AdminQuestionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string }>;
+  searchParams: Promise<{ search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string; create?: string; import?: string; message?: string; imported?: string; failed?: string }>;
 }) {
   await requireAdmin();
   const resolvedSearchParams = await searchParams;
@@ -232,9 +349,98 @@ export default async function AdminQuestionsPage({
 
   const readyDraftCount = draftReviews.filter(({ checklist }) => Object.values(checklist).every(Boolean)).length;
   const flaggedDraftCount = draftReviews.length - readyDraftCount;
+  const feedbackVariant = resolvedSearchParams.create === 'success' || resolvedSearchParams.import === 'success' ? 'success' : resolvedSearchParams.message ? 'danger' : null;
+  const importSummary = resolvedSearchParams.imported || resolvedSearchParams.failed
+    ? `${resolvedSearchParams.imported ?? '0'} içe aktarıldı · ${resolvedSearchParams.failed ?? '0'} hata/çakışma`
+    : null;
 
   return (
     <div className="space-y-4">
+      {resolvedSearchParams.message ? (
+        <Card padding="md" className={feedbackVariant === 'success' ? 'border-success/30 bg-success/10' : 'border-danger/30 bg-danger/10'}>
+          <p className="text-sm text-text-primary">{resolvedSearchParams.message}</p>
+          {importSummary ? <p className="mt-1 text-xs text-text-secondary">{importSummary}</p> : null}
+        </Card>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card padding="lg" className="space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-semibold">Tekli Soru Ekle</h2>
+            <p className="text-sm text-text-secondary">Soruyu doğrudan aktif olarak ekle. Oyun havuzuna girecek kayıtlar için zorunlu alanları eksiksiz doldur.</p>
+          </div>
+          <form action={createManualQuestion} className="space-y-4">
+            <Input name="question_text" label="Soru Metni" placeholder="Örn: 2002 Dünya Kupası'nda Türkiye kaçıncı oldu?" required />
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input name="option_a" label="Şık A" required />
+              <Input name="option_b" label="Şık B" required />
+              <Input name="option_c" label="Şık C" required />
+              <Input name="option_d" label="Şık D" required />
+              <Input name="correct_answer" label="Doğru Cevap" placeholder="A / B / C / D" maxLength={1} pattern="[ABCDabcd]" required />
+              <Input name="difficulty" label="Zorluk" type="number" min={1} max={5} defaultValue="3" required />
+              <Input name="league_scope" label="Lig Scope" placeholder="turkey / europe / world" defaultValue="turkey" required />
+              <Input name="league" label="Lig Kodu" placeholder="super_lig / champions_league / world_cup" />
+              <Input name="category" label="Kategori" placeholder="Tarih" required />
+              <Input name="sub_category" label="Alt Kategori" placeholder="Dünya Kupası" />
+              <Input name="season_range" label="Sezon Aralığı" placeholder="Örn: 2002 veya 2018-2024" />
+              <Input name="era_tag" label="Dönem Etiketi" placeholder="modern / classic / legendary" />
+              <div className="md:col-span-2">
+                <Input name="team_tags" label="Team Tags" placeholder="Galatasaray, Fenerbahçe, Türkiye" />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="manual-explanation" className="mb-2 block text-sm font-medium text-text-primary">Açıklama</label>
+              <textarea
+                id="manual-explanation"
+                name="explanation"
+                rows={4}
+                className="w-full rounded-xl border border-white/[0.08] bg-bg-elevated px-4 py-3 text-base text-text-primary placeholder:text-text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                placeholder="Doğru cevabın nedenini kısaca açıkla."
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <input type="checkbox" name="is_active" defaultChecked />
+              Doğrudan aktif olarak ekle
+            </label>
+            <Button type="submit">Soruyu Ekle</Button>
+          </form>
+        </Card>
+
+        <Card padding="lg" className="space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-semibold">CSV ile İçe Aktar</h2>
+            <p className="text-sm text-text-secondary">CSV dosyasındaki soruları toplu olarak ekle. Aynı soru metnine sahip mevcut kayıtlar atlanır.</p>
+          </div>
+          <form action={importQuestionsFromCsv} className="space-y-4">
+            <div>
+              <label htmlFor="csv_file" className="mb-2 block text-sm font-medium text-text-primary">CSV Dosyası</label>
+              <input
+                id="csv_file"
+                name="csv_file"
+                type="file"
+                accept=".csv,text/csv"
+                required
+                className="w-full rounded-xl border border-white/[0.08] bg-bg-elevated px-4 py-3 text-sm text-text-primary file:mr-3 file:rounded-lg file:border-0 file:bg-primary-500 file:px-3 file:py-2 file:font-semibold file:text-white"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <input type="checkbox" name="import_active" defaultChecked />
+              Geçerli satırları doğrudan aktif ekle
+            </label>
+            <Button type="submit">CSV&apos;yi İçe Aktar</Button>
+          </form>
+          <Card padding="md" variant="elevated" className="space-y-2">
+            <p className="text-xs font-semibold text-text-secondary">Desteklenen kolonlar</p>
+            <p className="text-xs text-text-secondary">`question_text, option_a, option_b, option_c, option_d, correct_answer, league_scope, league, category, sub_category, difficulty, season_range, team_tags, era_tag, explanation`</p>
+            <p className="text-xs text-text-secondary">Alternatif olarak <code>options</code> kolonunda JSON dizi de kullanabilirsin: <code>[&#123;&quot;key&quot;:&quot;A&quot;,&quot;text&quot;:&quot;...&quot;&#125;, ...]</code></p>
+            <pre className="overflow-x-auto rounded-lg bg-bg-primary/60 p-3 text-[11px] text-text-secondary">
+{`question_text,option_a,option_b,option_c,option_d,correct_answer,league_scope,league,category,sub_category,difficulty,season_range,team_tags,era_tag,explanation
+"Türkiye 2002 Dünya Kupası'nı kaçıncı sırada tamamladı?","İkinci","Üçüncü","Dördüncü","Çeyrek finalist","B","world","world_cup","Milli Takım","Dünya Kupası",4,"2002","Türkiye","classic","Türkiye turnuvayı üçüncü sırada tamamladı."`}
+            </pre>
+          </Card>
+        </Card>
+      </div>
+
       <Card padding="lg" className="space-y-4">
         <div>
           <h2 className="font-display text-lg font-semibold">Taslak Soru Üretimi</h2>
