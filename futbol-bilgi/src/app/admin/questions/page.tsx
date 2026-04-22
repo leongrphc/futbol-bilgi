@@ -9,6 +9,7 @@ import { requireAdmin } from '@/lib/admin/guard';
 import type { QuestionAdmin } from '@/lib/admin/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildQuestionInsertPayload, parseCsvImport } from '@/lib/admin/question-import';
+import { QuestionImportPreview } from '@/components/admin/question-import-preview';
 
 async function fetchQuestions(searchParams: { search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string }) {
   const supabase = createAdminClient();
@@ -353,13 +354,16 @@ export default async function AdminQuestionsPage({
   const importSummary = resolvedSearchParams.imported || resolvedSearchParams.failed
     ? `${resolvedSearchParams.imported ?? '0'} içe aktarıldı · ${resolvedSearchParams.failed ?? '0'} hata/çakışma`
     : null;
+  const importFeedbackTitle = resolvedSearchParams.import === 'success' ? 'CSV içe aktarma tamamlandı' : resolvedSearchParams.import === 'error' ? 'CSV içe aktarma başarısız' : null;
 
   return (
     <div className="space-y-4">
       {resolvedSearchParams.message ? (
         <Card padding="md" className={feedbackVariant === 'success' ? 'border-success/30 bg-success/10' : 'border-danger/30 bg-danger/10'}>
+          {importFeedbackTitle ? <p className="text-sm font-semibold text-text-primary">{importFeedbackTitle}</p> : null}
           <p className="text-sm text-text-primary">{resolvedSearchParams.message}</p>
           {importSummary ? <p className="mt-1 text-xs text-text-secondary">{importSummary}</p> : null}
+          {resolvedSearchParams.import === 'error' ? <p className="mt-1 text-xs text-text-secondary">Satır bazlı önizleme için aşağıdaki CSV Önizleme alanını kullanabilirsin.</p> : null}
         </Card>
       ) : null}
 
@@ -429,6 +433,7 @@ export default async function AdminQuestionsPage({
             </label>
             <Button type="submit">CSV&apos;yi İçe Aktar</Button>
           </form>
+          <QuestionImportPreview />
           <Card padding="md" variant="elevated" className="space-y-2">
             <p className="text-xs font-semibold text-text-secondary">Desteklenen kolonlar</p>
             <p className="text-xs text-text-secondary">`question_text, option_a, option_b, option_c, option_d, correct_answer, league_scope, league, category, sub_category, difficulty, season_range, team_tags, era_tag, explanation`</p>

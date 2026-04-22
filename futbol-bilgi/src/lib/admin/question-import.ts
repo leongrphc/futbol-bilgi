@@ -48,6 +48,16 @@ export type CsvImportSummary = {
   errors: string[];
 };
 
+export type CsvPreviewRow = {
+  rowNumber: number;
+  questionText: string;
+  leagueScope: string;
+  difficulty: string;
+  correctAnswer: string;
+  status: 'valid' | 'invalid';
+  errors: string[];
+};
+
 const VALID_SCOPES = new Set(['turkey', 'europe', 'world']);
 const VALID_ANSWERS = new Set(['A', 'B', 'C', 'D']);
 
@@ -234,25 +244,77 @@ function parseCsvRows(content: string) {
   return rows;
 }
 
-export function parseCsvImport(content: string, defaultActive = true): CsvImportSummary {
+function parseCsvRecords(content: string) {
   const rows = parseCsvRows(content);
   if (rows.length < 2) {
-    return { payloads: [], errors: ['CSV içinde başlık satırı ve en az bir veri satırı olmalı.'] };
+    return { headers: [] as string[], records: [] as Record<string, string>[], rowCount: rows.length };
   }
 
   const [headerRow, ...dataRows] = rows;
   const headers = headerRow.map((header) => normalizeText(header).toLowerCase());
+  const records = dataRows
+    .filter((row) => !row.every((cell) => !normalizeText(cell)))
+    .map((row) => Object.fromEntries(headers.map((header, cellIndex) => [header, row[cellIndex] ?? ''])));
+
+  return { headers, records, rowCount: rows.length };
+}
+
+export function buildCsvPreview(content: string): CsvPreviewRow[] {
+  const { records, rowCount } = parseCsvRecords(content);
+
+  if (rowCount < 2) {
+    throw new Error('CSV içinde başlık satırı ve en az bir veri satırı olmalı.');
+  }
+
+  return records.map((record, index) => {
+    const errors: string[] = [];
+
+    try {
+      buildQuestionInsertPayload({
+        league_scope: record.league_scope,
+        league: record.league,
+        category: record.category,
+        sub_category: record.sub_category,
+        difficulty: record.difficulty,
+        season_range: record.season_range,
+        team_tags: record.team_tags,
+        era_tag: record.era_tag,
+        question_text: record.question_text,
+        correct_answer: record.correct_answer,
+        explanation: record.explanation,
+        option_a: record.option_a,
+        option_b: record.option_b,
+        option_c: record.option_c,
+        option_d: record.option_d,
+        options_json: record.options,
+      });
+    } catch (previewError) {
+      errors.push(previewError instanceof Error ? previewError.message : 'Geçersiz veri.');
+    }
+
+    return {
+      rowNumber: index + 2,
+      questionText: normalizeText(record.question_text),
+      leagueScope: normalizeText(record.league_scope),
+      difficulty: normalizeText(record.difficulty),
+      correctAnswer: normalizeText(record.correct_answer).toUpperCase(),
+      status: errors.length === 0 ? 'valid' : 'invalid',
+      errors,
+    };
+  });
+}
+
+export function parseCsvImport(content: string, defaultActive = true): CsvImportSummary {
+  const { records, rowCount } = parseCsvRecords(content);
+  if (rowCount < 2) {
+    return { payloads: [], errors: ['CSV içinde başlık satırı ve en az bir veri satırı olmalı.'] };
+  }
+
   const payloads: QuestionInsertPayload[] = [];
   const errors: string[] = [];
   const seenQuestions = new Set<string>();
 
-  dataRows.forEach((row, rowIndex) => {
-    if (row.every((cell) => !normalizeText(cell))) {
-      return;
-    }
-
-    const record = Object.fromEntries(headers.map((header, cellIndex) => [header, row[cellIndex] ?? '']));
-
+  records.forEach((record, rowIndex) => {
     try {
       const payload = buildQuestionInsertPayload({
         league_scope: record.league_scope,
