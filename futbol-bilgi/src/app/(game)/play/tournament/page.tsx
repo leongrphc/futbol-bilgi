@@ -19,7 +19,6 @@ import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { TOURNAMENT_CONFIG } from '@/lib/constants/game';
 import { calculateLevel, formatNumber } from '@/lib/utils/game';
-import { getTournamentRoundQuestions } from '@/lib/data/mock-questions';
 import type { Question } from '@/types';
 
 type TournamentPhase = 'lobby' | 'loading' | 'playing' | 'revealing' | 'between-rounds' | 'result';
@@ -188,13 +187,27 @@ export default function TournamentPage() {
     setMyEntry((json.data.myEntry ?? null) as TournamentEntry | null);
   }, []);
 
-  const prepareRound = useCallback((nextRound: number) => {
-    const roundQuestions = getTournamentRoundQuestions(nextRound, selectedScope);
+  const prepareRound = useCallback(async (nextRound: number) => {
+    if (!selectedTournament) {
+      setFlowError('Turnuva seçimi bulunamadı.');
+      setPhase('lobby');
+      return;
+    }
+
+    const response = await fetch(`/api/tournaments/${selectedTournament.id}/questions?round=${nextRound}`);
+    const json = await response.json();
+
+    if (!response.ok || !json.data?.questions) {
+      setFlowError(typeof json.error === 'string' ? json.error : 'Bu tur için soru hazırlanamadı.');
+      setPhase('lobby');
+      return;
+    }
+
+    const roundQuestions = json.data.questions as Question[];
     setQuestions(roundQuestions);
     setRound(nextRound);
     resetGame();
     startGame('quick', selectedScope, `tournament-round-${nextRound}-${Date.now()}`);
-    setRoundStartScore(accumulatedScore);
 
     if (roundQuestions.length > 0) {
       setCurrentQuestion(roundQuestions[0]);
@@ -206,7 +219,7 @@ export default function TournamentPage() {
 
     setFlowError('Bu tur için soru hazırlanamadı. Lütfen daha sonra tekrar dene.');
     setPhase('lobby');
-  }, [accumulatedScore, resetGame, selectedScope, setCurrentQuestion, startGame, timer]);
+  }, [resetGame, selectedScope, selectedTournament, setCurrentQuestion, startGame, timer]);
 
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -347,7 +360,7 @@ export default function TournamentPage() {
         tournament_id: tournament.id,
       });
       await loadTournamentDetails(tournament.id);
-      prepareRound(1);
+      await prepareRound(1);
     } catch (error) {
       setSelectedTournament(null);
       setFlowError(error instanceof Error ? error.message : 'Turnuvaya katılım başlatılamadı.');
@@ -360,7 +373,6 @@ export default function TournamentPage() {
 
   const handleAdvanceRound = useCallback(async () => {
     if (!selectedTournament) {
-      prepareRound(round + 1);
       return;
     }
 
@@ -388,7 +400,7 @@ export default function TournamentPage() {
       const nextRound = round + 1;
       setSelectedAnswer(null);
       setCorrectAnswer(null);
-      prepareRound(nextRound);
+      await prepareRound(nextRound);
     } catch (error) {
       setFlowError(error instanceof Error ? error.message : 'Tur ilerlemesi kaydedilemedi.');
     } finally {

@@ -177,3 +177,35 @@ export async function getWorldCupEventQuestionsFromDb(totalQuestions: number) {
 export async function getMillionaireQuestionsFromDb(leagueScope: LeagueScope, difficultyPlan: DifficultyLevel[]) {
   return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan);
 }
+
+export async function getTournamentRoundQuestionsFromDb(leagueScope: LeagueScope, round: number, questionsPerRound: number) {
+  const roundPlans: Record<number, DifficultyLevel[]> = {
+    1: [1, 2, 2, 3],
+    2: [2, 3, 3, 4],
+    3: [3, 4, 4, 5],
+  };
+
+  const fallbackPlan: DifficultyLevel[] = [1, 2, 3, 4];
+  const difficultyPlan = (roundPlans[round] ?? fallbackPlan).slice(0, questionsPerRound);
+  return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan);
+}
+
+export { mapQuestionRow };
+export type { QuestionRow };
+
+export async function getTournamentQuestionSetForEntry(entryId: string, leagueScope: LeagueScope, round: number, questionsPerRound: number) {
+  const admin = createAdminClient();
+  const { data: existingAnswers, error: answersError } = await admin
+    .from('question_answers')
+    .select('question_id')
+    .eq('session_id', entryId)
+    .limit(100);
+
+  if (answersError) {
+    throw new Error(answersError.message);
+  }
+
+  const usedIds = new Set((existingAnswers ?? []).map((answer) => String(answer.question_id)));
+  const questions = await getTournamentRoundQuestionsFromDb(leagueScope, round, questionsPerRound);
+  return questions.filter((question) => !usedIds.has(question.id)).slice(0, questionsPerRound);
+}
