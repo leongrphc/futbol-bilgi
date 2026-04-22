@@ -19,7 +19,6 @@ import { useUserStore } from '@/lib/stores/user-store';
 import { useTimer } from '@/lib/hooks/use-timer';
 import { DAILY_CHALLENGE_CONFIG } from '@/lib/constants/game';
 import { calculateLevel, formatNumber } from '@/lib/utils/game';
-import { getDailyChallengeQuestions, getWorldCupEventQuestions } from '@/lib/data/mock-questions';
 import type { Question } from '@/types';
 
 type DailyPhase = 'loading' | 'playing' | 'revealing' | 'result';
@@ -174,7 +173,7 @@ export default function DailyPage() {
         scope: selectedScope,
       });
     }
-  }, []);
+  }, [isWorldCupEvent, selectedScope]);
 
   useEffect(() => {
     if (hasInitializedRef.current) {
@@ -184,7 +183,7 @@ export default function DailyPage() {
     hasInitializedRef.current = true;
 
     const initializeDaily = async () => {
-      const response = await fetch(`/api/game/daily?scope=${selectedScope}`, { method: 'POST' });
+      const response = await fetch(`/api/game/daily?scope=${selectedScope}${isWorldCupEvent ? '&event=world-cup' : ''}`, { method: 'POST' });
       const json = await response.json();
 
       if (!response.ok || !json.data) {
@@ -193,7 +192,7 @@ export default function DailyPage() {
         return;
       }
 
-      const gameQuestions = isWorldCupEvent ? getWorldCupEventQuestions() : getDailyChallengeQuestions(selectedScope);
+      const gameQuestions = (json.data.questions ?? []) as Question[];
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;
@@ -231,7 +230,7 @@ export default function DailyPage() {
         clearTimeout(revealTimeoutRef.current);
       }
     };
-  }, [resetGame, setCurrentQuestion, startGame, timer]);
+  }, [isWorldCupEvent, resetGame, selectedScope, setCurrentQuestion, startGame, timer]);
 
   useEffect(() => {
     setTimeRemaining(timer.timeRemaining);

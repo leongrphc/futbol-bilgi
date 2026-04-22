@@ -100,13 +100,12 @@ function mapQuestionRow(row: QuestionRow): Question {
   };
 }
 
-export async function getQuickModeQuestionsFromDb(leagueScope: LeagueScope, totalQuestions: number) {
+async function getQuestionsByDifficultyPlan(leagueScope: LeagueScope, difficultyPlan: DifficultyLevel[]) {
   const admin = createAdminClient();
-  const difficultyPlan: DifficultyLevel[] = totalQuestions <= 5 ? [1, 2, 2, 3, 4] : [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
   const selectedQuestions: Question[] = [];
   const usedIds = new Set<string>();
 
-  for (const difficulty of difficultyPlan.slice(0, totalQuestions)) {
+  for (const difficulty of difficultyPlan) {
     const { data, error } = await admin
       .from('questions')
       .select('*')
@@ -132,8 +131,8 @@ export async function getQuickModeQuestionsFromDb(leagueScope: LeagueScope, tota
     selectedQuestions.push(chosen);
   }
 
-  if (selectedQuestions.length >= totalQuestions) {
-    return selectedQuestions.slice(0, totalQuestions);
+  if (selectedQuestions.length >= difficultyPlan.length) {
+    return selectedQuestions.slice(0, difficultyPlan.length);
   }
 
   const { data: fallbackData, error: fallbackError } = await admin
@@ -152,10 +151,25 @@ export async function getQuickModeQuestionsFromDb(leagueScope: LeagueScope, tota
     .filter((question) => question.options.length === 4 && !usedIds.has(question.id));
 
   for (const question of fallbackPool) {
-    if (selectedQuestions.length >= totalQuestions) break;
+    if (selectedQuestions.length >= difficultyPlan.length) break;
     usedIds.add(question.id);
     selectedQuestions.push(question);
   }
 
-  return selectedQuestions.slice(0, totalQuestions);
+  return selectedQuestions.slice(0, difficultyPlan.length);
+}
+
+export async function getQuickModeQuestionsFromDb(leagueScope: LeagueScope, totalQuestions: number) {
+  const difficultyPlan: DifficultyLevel[] = totalQuestions <= 5 ? [1, 2, 2, 3, 4] : [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
+  return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan.slice(0, totalQuestions));
+}
+
+export async function getDailyModeQuestionsFromDb(leagueScope: LeagueScope, totalQuestions: number) {
+  const difficultyPlan: DifficultyLevel[] = totalQuestions <= 5 ? [1, 2, 3, 3, 4] : [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
+  return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan.slice(0, totalQuestions));
+}
+
+export async function getWorldCupEventQuestionsFromDb(totalQuestions: number) {
+  const difficultyPlan: DifficultyLevel[] = totalQuestions <= 5 ? [2, 3, 3, 4, 5] : [1, 2, 2, 3, 3, 4, 4, 5, 5, 5];
+  return getQuestionsByDifficultyPlan('world', difficultyPlan.slice(0, totalQuestions));
 }

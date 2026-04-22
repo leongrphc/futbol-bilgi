@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DAILY_CHALLENGE_CONFIG } from '@/lib/constants/game';
 import { calculateLevel } from '@/lib/utils/game';
+import { getDailyModeQuestionsFromDb, getWorldCupEventQuestionsFromDb } from '@/lib/questions/server';
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const leagueScope = searchParams.get('scope') === 'europe' ? 'europe' : searchParams.get('scope') === 'world' ? 'world' : 'turkey';
+  const isWorldCupEvent = searchParams.get('event') === 'world-cup';
 
   const admin = createAdminClient();
   const startOfToday = new Date();
@@ -36,21 +38,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Daily challenge already started today' }, { status: 400 });
   }
 
-  const { data: session, error: sessionError } = await admin
-    .from('game_sessions')
-    .insert({
-      user_id: user.id,
-      mode: 'daily',
-      league_scope: leagueScope,
-    })
-    .select('*')
-    .single();
+  const [{ data: session, error: sessionError }, questions] = await Promise.all([
+    admin
+      .from('game_sessions')
+      .insert({
+        user_id: user.id,
+        mode: 'daily',
+        league_scope: leagueScope,
+      })
+      .select('*')
+      .single(),
+    isWorldCupEvent
+      ? getWorldCupEventQuestionsFromDb(DAILY_CHALLENGE_CONFIG.questions)
+      : getDailyModeQuestionsFromDb(leagueScope, DAILY_CHALLENGE_CONFIG.questions),
+  ]);
 
   if (sessionError) {
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: { sessionId: session.id } });
+  return NextResponse.json({ data: { sessionId: session.id, questions } });
 }
 
 export async function PATCH(request: Request) {
