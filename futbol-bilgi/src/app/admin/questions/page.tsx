@@ -4,12 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { requireAdmin } from '@/lib/admin/guard';
 import type { QuestionAdmin } from '@/lib/admin/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { buildQuestionInsertPayload, parseCsvImport } from '@/lib/admin/question-import';
 import { QuestionImportPreview } from '@/components/admin/question-import-preview';
+import { CATEGORIES, SUBCATEGORY_LABELS, getCategoryName } from '@/lib/constants/categories';
 
 async function fetchQuestions(searchParams: { search?: string; league_scope?: string; difficulty?: string; is_active?: string; sort?: string }) {
   const supabase = createAdminClient();
@@ -110,6 +112,37 @@ function getReadinessVariant(readinessScore: number) {
   if (readinessScore >= 2) return 'warning';
   return 'danger';
 }
+
+const SCOPE_OPTIONS = [
+  { value: 'turkey', label: 'Türkiye' },
+  { value: 'europe', label: 'Avrupa' },
+  { value: 'world', label: 'Dünya' },
+] as const;
+
+const LEAGUE_OPTIONS = Object.entries(CATEGORIES).flatMap(([scope, categories]) =>
+  Object.keys(categories).map((key) => ({
+    value: key,
+    label: `${scope === 'turkey' ? 'Türkiye' : scope === 'europe' ? 'Avrupa' : 'Dünya'} · ${getCategoryName(scope, key)}`,
+  })),
+);
+
+const CATEGORY_OPTIONS = [
+  { value: 'Tarih', label: 'Tarih' },
+  { value: 'İstatistik', label: 'İstatistik' },
+  { value: 'Teknik Direktörler', label: 'Teknik Direktörler' },
+  { value: 'Milli Takım', label: 'Milli Takım' },
+  { value: 'Avrupa', label: 'Avrupa' },
+  { value: 'Rekorlar', label: 'Rekorlar' },
+  { value: 'Transfer', label: 'Transfer' },
+  { value: 'Kupalar', label: 'Kupalar' },
+] as const;
+
+const SUBCATEGORY_OPTIONS = Object.entries(SUBCATEGORY_LABELS).map(([value, label]) => ({ value, label }));
+const ERA_OPTIONS = [
+  { value: 'modern', label: 'Modern' },
+  { value: 'classic', label: 'Klasik' },
+  { value: 'legendary', label: 'Efsane' },
+] as const;
 
 function buildAdminQuestionsUrl(params: Record<string, string | number | null | undefined>) {
   const searchParams = new URLSearchParams();
@@ -382,12 +415,12 @@ export default async function AdminQuestionsPage({
               <Input name="option_d" label="Şık D" required />
               <Input name="correct_answer" label="Doğru Cevap" placeholder="A / B / C / D" maxLength={1} pattern="[ABCDabcd]" required />
               <Input name="difficulty" label="Zorluk" type="number" min={1} max={5} defaultValue="3" required />
-              <Input name="league_scope" label="Lig Scope" placeholder="turkey / europe / world" defaultValue="turkey" required />
-              <Input name="league" label="Lig Kodu" placeholder="super_lig / champions_league / world_cup" />
-              <Input name="category" label="Kategori" placeholder="Tarih" required />
-              <Input name="sub_category" label="Alt Kategori" placeholder="Dünya Kupası" />
+              <Select name="league_scope" label="Lig Scope" defaultValue="turkey" options={[...SCOPE_OPTIONS]} required />
+              <Select name="league" label="Lig Kodu" options={LEAGUE_OPTIONS} placeholder="Lig seç" />
+              <Select name="category" label="Kategori" options={[...CATEGORY_OPTIONS]} placeholder="Kategori seç" required />
+              <Select name="sub_category" label="Alt Kategori" options={SUBCATEGORY_OPTIONS} placeholder="Alt kategori seç" />
               <Input name="season_range" label="Sezon Aralığı" placeholder="Örn: 2002 veya 2018-2024" />
-              <Input name="era_tag" label="Dönem Etiketi" placeholder="modern / classic / legendary" />
+              <Select name="era_tag" label="Dönem Etiketi" options={[...ERA_OPTIONS]} placeholder="Dönem seç" />
               <div className="md:col-span-2">
                 <Input name="team_tags" label="Team Tags" placeholder="Galatasaray, Fenerbahçe, Türkiye" />
               </div>

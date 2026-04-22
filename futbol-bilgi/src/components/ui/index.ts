@@ -15,3 +15,6 @@ export type { AvatarProps } from './avatar';
 
 export { Input, inputVariants } from './input';
 export type { InputProps } from './input';
+
+export { Select } from './select';
+export type { SelectProps, SelectOption } from './select';

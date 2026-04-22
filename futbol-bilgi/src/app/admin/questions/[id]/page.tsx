@@ -3,9 +3,11 @@ import { requireAdmin } from '@/lib/admin/guard';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { redirect } from 'next/navigation';
 import type { QuestionAdmin } from '@/lib/admin/types';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { CATEGORIES, SUBCATEGORY_LABELS, getCategoryName } from '@/lib/constants/categories';
 
 async function getQuestion(id: string): Promise<QuestionAdmin> {
   const supabase = createAdminClient();
@@ -24,6 +26,31 @@ function parseTeamTags(value: string) {
     .map((item) => item.trim())
     .filter(Boolean);
 }
+
+const LEAGUE_OPTIONS = Object.entries(CATEGORIES).flatMap(([scope, categories]) =>
+  Object.keys(categories).map((key) => ({
+    value: key,
+    label: `${scope === 'turkey' ? 'Türkiye' : scope === 'europe' ? 'Avrupa' : 'Dünya'} · ${getCategoryName(scope, key)}`,
+  })),
+);
+
+const CATEGORY_OPTIONS = [
+  { value: 'Tarih', label: 'Tarih' },
+  { value: 'İstatistik', label: 'İstatistik' },
+  { value: 'Teknik Direktörler', label: 'Teknik Direktörler' },
+  { value: 'Milli Takım', label: 'Milli Takım' },
+  { value: 'Avrupa', label: 'Avrupa' },
+  { value: 'Rekorlar', label: 'Rekorlar' },
+  { value: 'Transfer', label: 'Transfer' },
+  { value: 'Kupalar', label: 'Kupalar' },
+] as const;
+
+const SUBCATEGORY_OPTIONS = Object.entries(SUBCATEGORY_LABELS).map(([value, label]) => ({ value, label }));
+const ERA_OPTIONS = [
+  { value: 'modern', label: 'Modern' },
+  { value: 'classic', label: 'Klasik' },
+  { value: 'legendary', label: 'Efsane' },
+] as const;
 
 export default async function AdminQuestionEdit({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -53,6 +80,8 @@ export default async function AdminQuestionEdit({ params }: { params: Promise<{ 
             const teamTags = parseTeamTags(String(formData.get('team_tags') || ''));
             const category = String(formData.get('category') || '').trim();
             const subCategory = String(formData.get('sub_category') || '').trim();
+            const league = String(formData.get('league') || '').trim();
+            const eraTag = String(formData.get('era_tag') || '').trim();
             const rawCorrectAnswer = String(formData.get('correct_answer') || question.correct_answer).trim().toUpperCase();
             const isActive = formData.get('is_active') === 'on';
 
@@ -74,8 +103,10 @@ export default async function AdminQuestionEdit({ params }: { params: Promise<{ 
                 explanation: explanation || null,
                 season_range: seasonRange || null,
                 team_tags: teamTags,
+                league: league || question.league,
                 category: category || question.category,
                 sub_category: subCategory || null,
+                era_tag: eraTag || null,
                 correct_answer: correctAnswer,
                 is_active: isActive,
                 updated_at: new Date().toISOString(),
@@ -94,11 +125,13 @@ export default async function AdminQuestionEdit({ params }: { params: Promise<{ 
           <Input label="Soru Metni" name="question_text" defaultValue={question.question_text} required />
           <Input label="Açıklama" name="explanation" defaultValue={question.explanation || ''} />
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Kategori" name="category" defaultValue={question.category} />
-            <Input label="Alt Kategori" name="sub_category" defaultValue={question.sub_category || ''} />
+            <Select label="Kategori" name="category" defaultValue={question.category} options={[...CATEGORY_OPTIONS]} placeholder="Kategori seç" />
+            <Select label="Alt Kategori" name="sub_category" defaultValue={question.sub_category || ''} options={SUBCATEGORY_OPTIONS} placeholder="Alt kategori seç" />
             <Input label="Sezon Aralığı" name="season_range" defaultValue={question.season_range || ''} placeholder="Örn: 2018-2024" />
             <Input label="Team Tags" name="team_tags" defaultValue={question.team_tags.join(', ')} placeholder="Örn: Galatasaray, Fenerbahçe" />
             <Input label="Doğru Cevap" name="correct_answer" defaultValue={question.correct_answer} placeholder="A / B / C / D" maxLength={1} pattern="[ABCDabcd]" />
+            <Select label="Lig Kodu" name="league" defaultValue={question.league} options={LEAGUE_OPTIONS} placeholder="Lig seç" />
+            <Select label="Dönem Etiketi" name="era_tag" defaultValue={question.era_tag || ''} options={[...ERA_OPTIONS]} placeholder="Dönem seç" />
           </div>
 
           <Card padding="md" variant="elevated" className="space-y-2">
