@@ -190,8 +190,58 @@ export async function getTournamentRoundQuestionsFromDb(leagueScope: LeagueScope
   return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan);
 }
 
-export { mapQuestionRow };
+
+export async function getQuestionsByIdsFromDb(questionIds: string[]) {
+  if (questionIds.length === 0) {
+    return [] as Question[];
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('questions')
+    .select('*')
+    .in('id', questionIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const byId = new Map(((data ?? []) as QuestionRow[]).map((row) => [row.id, mapQuestionRow(row)]));
+  return questionIds.map((id) => byId.get(id)).filter(Boolean) as Question[];
+}
+
+export async function getDuelQuestionsFromDb(leagueScope: LeagueScope, totalQuestions: number) {
+  const difficultyPlan: DifficultyLevel[] = totalQuestions <= 5 ? [1, 2, 3, 4, 5] : [1, 1, 2, 3, 3, 4, 4, 5, 5, 5];
+  return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan.slice(0, totalQuestions));
+}
+
+export async function getDuelChallengeQuestionIdsFromDb(leagueScope: LeagueScope, totalQuestions: number) {
+  const questions = await getDuelQuestionsFromDb(leagueScope, totalQuestions);
+  return questions.map((question) => question.id);
+}
+
+export async function getDuelChallengeQuestionsFromDb(questionIds: string[]) {
+  return getQuestionsByIdsFromDb(questionIds);
+}
+
+export async function getDuelQuestionPayload(leagueScope: LeagueScope, totalQuestions: number) {
+  const questions = await getDuelQuestionsFromDb(leagueScope, totalQuestions);
+  return {
+    questions,
+    questionIds: questions.map((question) => question.id),
+  };
+}
+
+export async function getDuelChallengePayload(questionIds: string[]) {
+  const questions = await getQuestionsByIdsFromDb(questionIds);
+  return {
+    questions,
+    questionIds: questions.map((question) => question.id),
+  };
+}
+
 export type { QuestionRow };
+export { mapQuestionRow };
 
 export async function getTournamentQuestionSetForEntry(entryId: string, leagueScope: LeagueScope, round: number, questionsPerRound: number) {
   const admin = createAdminClient();

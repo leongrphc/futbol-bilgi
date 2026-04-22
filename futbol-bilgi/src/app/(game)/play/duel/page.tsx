@@ -28,8 +28,7 @@ import {
   generateMockOpponentResponse,
   sumAnswerTimesMs,
 } from '@/lib/utils/game';
-import { getQuestionsByDifficulty, getQuestionsByIds } from '@/lib/data/mock-questions';
-import type { DifficultyLevel, Question } from '@/types';
+import type { Question } from '@/types';
 
 type DuelPhase = 'loading' | 'searching' | 'matched' | 'countdown' | 'playing' | 'revealing' | 'result';
 
@@ -40,7 +39,6 @@ interface MockOpponent {
   avatar: string;
 }
 
-const DIFFICULTY_PATTERN: DifficultyLevel[] = [1, 2, 3, 4, 5];
 const OPPONENT_NAMES = ['AslanKral', 'KartalRuhu', 'Kanarya1907', 'KaradenizGol', 'AnadoluYıldızı', 'TribunBeyni', 'FutbolUstasi', 'DerbiAvcısı'];
 
 export default function DuelPage() {
@@ -102,13 +100,6 @@ export default function DuelPage() {
     },
   });
 
-  const buildDuelQuestions = useCallback(() => {
-    return DIFFICULTY_PATTERN.map((difficulty, index) => {
-      const pool = getQuestionsByDifficulty(difficulty);
-      return pool[(questionIndex + index * 7) % pool.length];
-    }).filter(Boolean) as Question[];
-  }, [questionIndex]);
-
   const createMockOpponent = useCallback((): MockOpponent => {
     const elo = generateMockOpponentElo(user?.elo_rating ?? 1000);
     const username = OPPONENT_NAMES[Math.floor(Math.random() * OPPONENT_NAMES.length)];
@@ -152,7 +143,7 @@ export default function DuelPage() {
 
     if (isChallengeMode) {
       setChallengeInviteId((json.data.inviteId as string | null) ?? challengeInviteIdFromQuery);
-      setQuestions(getQuestionsByIds((json.data.questionIds as string[] | undefined) ?? []));
+      setQuestions((json.data.questions ?? []) as Question[]);
       const challengeOpponent = json.data.opponent as { id: string; username: string; elo: number } | undefined;
       setOpponent(challengeOpponent ? {
         id: challengeOpponent.id,
@@ -164,10 +155,10 @@ export default function DuelPage() {
       return;
     }
 
-    setQuestions(buildDuelQuestions());
+    setQuestions((json.data.questions ?? []) as Question[]);
     setOpponent(createMockOpponent());
     setPhase('searching');
-  }, [user, setUser, buildDuelQuestions, createMockOpponent, isChallengeMode, challengeInviteIdFromQuery]);
+  }, [user, setUser, createMockOpponent, isChallengeMode, challengeInviteIdFromQuery]);
 
   useEffect(() => {
     if (!user) {

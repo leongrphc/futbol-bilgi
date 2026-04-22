@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DUEL_CONFIG, ENERGY_CONFIG } from '@/lib/constants/game';
 import { calculateDuelEloDelta, calculateDuelWinner, calculateLevel } from '@/lib/utils/game';
+import { getDuelChallengePayload, getDuelQuestionPayload } from '@/lib/questions/server';
 
 function normalizeAnswerTimeMs(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
@@ -413,14 +414,15 @@ async function fetchChallengeQuestions(admin: ReturnType<typeof createAdminClien
   const invite = await fetchChallengeInviteData(admin, inviteId, userId);
   const opponent = await fetchChallengeOpponent(admin, invite, userId);
   const questionIds = normalizeInviteQuestionIds(invite.question_ids);
+  const questionPayload = await getDuelChallengePayload(questionIds);
 
-  return { invite, opponent, questionIds };
+  return { invite, opponent, ...questionPayload };
 }
 
 async function buildChallengeStartPayload(admin: ReturnType<typeof createAdminClient>, userId: string, inviteId: string, profile: Record<string, unknown>) {
   const updatedProfile = await spendDuelEnergy(admin, profile, userId);
   const session = await createDuelSession(admin, userId);
-  const { invite, opponent, questionIds } = await fetchChallengeQuestions(admin, inviteId, userId);
+  const { invite, opponent, questionIds, questions } = await fetchChallengeQuestions(admin, inviteId, userId);
 
   return {
     profile: updatedProfile,
@@ -428,6 +430,7 @@ async function buildChallengeStartPayload(admin: ReturnType<typeof createAdminCl
     inviteId: invite.id,
     opponent,
     questionIds,
+    questions,
   };
 }
 
@@ -493,8 +496,17 @@ async function buildChallengeFinalizePayload(params: {
 }
 
 async function buildStandardStartPayload(admin: ReturnType<typeof createAdminClient>, profile: Record<string, unknown>, userId: string) {
-  const { updatedProfile, session } = await createStandardDuel(admin, profile, userId);
-  return { profile: updatedProfile, sessionId: session.id };
+  const [{ updatedProfile, session }, questionPayload] = await Promise.all([
+    createStandardDuel(admin, profile, userId),
+    getDuelQuestionPayload('turkey', DUEL_CONFIG.total_questions),
+  ]);
+
+  return {
+    profile: updatedProfile,
+    sessionId: session.id,
+    questionIds: questionPayload.questionIds,
+    questions: questionPayload.questions,
+  };
 }
 
 async function buildStandardFinalizePayload(params: {
@@ -512,10 +524,6 @@ async function buildStandardFinalizePayload(params: {
 }
 
 function isChallengeStartPayload(value: unknown): value is { inviteId: string } {
-  return typeof value === 'object' && value !== null && typeof (value as { inviteId?: unknown }).inviteId === 'string';
-}
-
-function isChallengeFinalizePayload(value: unknown): value is { inviteId: string; answerTimeMs: number } {
   return typeof value === 'object' && value !== null && typeof (value as { inviteId?: unknown }).inviteId === 'string';
 }
 
@@ -580,21 +588,6 @@ function hasEnoughEnergy(profile: Record<string, unknown>) {
   return Number(profile.energy) >= ENERGY_CONFIG.cost_duel;
 }
 
-function getProfileId(profile: Record<string, unknown>) {
-  return String(profile.id);
-}
-
-function getProfileStats(profile: Record<string, unknown>) {
-  return {
-    xp: Number(profile.xp),
-    coins: Number(profile.coins),
-    level: Number(profile.level),
-    elo_rating: Number(profile.elo_rating),
-    total_questions_answered: Number(profile.total_questions_answered),
-    total_correct_answers: Number(profile.total_correct_answers),
-  };
-}
-
 function toErrorResponse(error: unknown) {
   return NextResponse.json({ error: error instanceof Error ? error.message : 'Düello işlemi başarısız oldu.' }, { status: 500 });
 }
@@ -617,6 +610,7 @@ function toChallengeStartResponse(data: {
   inviteId: string;
   opponent: { id: string; username: string; elo_rating: number };
   questionIds: string[];
+  questions: unknown[];
 }) {
   return NextResponse.json({
     data: {
@@ -625,11 +619,12 @@ function toChallengeStartResponse(data: {
       inviteId: data.inviteId,
       opponent: getChallengeOpponentPayload(data.opponent),
       questionIds: getChallengeQuestionIdsPayload(data.questionIds),
+      questions: data.questions,
     },
   });
 }
 
-function toStandardStartResponse(data: { profile: Record<string, unknown>; sessionId: string }) {
+function toStandardStartResponse(data: { profile: Record<string, unknown>; sessionId: string; questionIds: string[]; questions: unknown[] }) {
   return NextResponse.json({ data });
 }
 
