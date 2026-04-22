@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCoins, calculateLevel, calculateXP } from '@/lib/utils/game';
-import { ENERGY_CONFIG } from '@/lib/constants/game';
+import { ENERGY_CONFIG, MILLIONAIRE_STEPS } from '@/lib/constants/game';
+import { getMillionaireQuestionsFromDb } from '@/lib/questions/server';
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -27,8 +28,9 @@ export async function POST(request: Request) {
   }
 
   const nextEnergy = Math.max(0, profile.energy - ENERGY_CONFIG.cost_millionaire);
+  const difficultyPlan = MILLIONAIRE_STEPS.map((step) => step.difficulty);
 
-  const [{ data: updatedProfile, error: updateProfileError }, { data: session, error: sessionError }] = await Promise.all([
+  const [{ data: updatedProfile, error: updateProfileError }, { data: session, error: sessionError }, questions] = await Promise.all([
     admin
       .from('profiles')
       .update({ energy: nextEnergy, updated_at: new Date().toISOString() })
@@ -44,13 +46,14 @@ export async function POST(request: Request) {
       })
       .select('*')
       .single(),
+    getMillionaireQuestionsFromDb(leagueScope, difficultyPlan),
   ]);
 
   if (updateProfileError || sessionError) {
     return NextResponse.json({ error: updateProfileError?.message || sessionError?.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: { profile: updatedProfile, sessionId: session.id } });
+  return NextResponse.json({ data: { profile: updatedProfile, sessionId: session.id, questions } });
 }
 
 export async function PATCH(request: Request) {

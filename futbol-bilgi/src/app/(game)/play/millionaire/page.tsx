@@ -15,7 +15,6 @@ import {
   formatNumber,
   getMillionaireStep,
 } from '@/lib/utils/game';
-import { getMillionaireQuestions } from '@/lib/data/mock-questions';
 
 import { TimerBar } from '@/components/game/timer-bar';
 import { AnswerGrid } from '@/components/game/answer-option';
@@ -150,7 +149,7 @@ export default function MillionairePage() {
       endGame('timeout', xp, coins);
       applyPersistedRewards(data?.profile ?? null, xp, coins);
     }
-  }, [trackMillionaireCompleted, endGame]);
+  }, [applyPersistedRewards, endGame, finalizeMillionaire, trackMillionaireCompleted]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -185,7 +184,7 @@ export default function MillionairePage() {
       return;
     }
 
-    const gameQuestions = getMillionaireQuestions(selectedScope);
+    const gameQuestions = (json.data.questions ?? []) as Question[];
     setQuestions(gameQuestions);
 
     const sessionId = json.data.sessionId as string;
@@ -208,22 +207,12 @@ export default function MillionairePage() {
         timer.start();
       }, 500);
     }
-  }, [resetGame, startGame, setCurrentQuestion, timer, trackMillionaireStarted, setUser, user]);
+  }, [resetGame, selectedScope, startGame, setCurrentQuestion, timer, trackMillionaireStarted, setUser, user]);
 
-  useEffect(() => {
-    if (!user || hasInitializedRef.current) {
-      return;
-    }
-
+  if (!hasInitializedRef.current && user && user.energy >= ENERGY_CONFIG.cost_millionaire) {
     hasInitializedRef.current = true;
-
-    if (user.energy < ENERGY_CONFIG.cost_millionaire) {
-      setShowEnergyWarning(true);
-      return;
-    }
-
     void initializeGame();
-  }, [initializeGame, user]);
+  }
 
   // ==========================================
   // Handle Answer Selection

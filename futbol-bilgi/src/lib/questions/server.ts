@@ -173,3 +173,7 @@ export async function getWorldCupEventQuestionsFromDb(totalQuestions: number) {
   const difficultyPlan: DifficultyLevel[] = totalQuestions <= 5 ? [2, 3, 3, 4, 5] : [1, 2, 2, 3, 3, 4, 4, 5, 5, 5];
   return getQuestionsByDifficultyPlan('world', difficultyPlan.slice(0, totalQuestions));
 }
+
+export async function getMillionaireQuestionsFromDb(leagueScope: LeagueScope, difficultyPlan: DifficultyLevel[]) {
+  return getQuestionsByDifficultyPlan(leagueScope, difficultyPlan);
+}
