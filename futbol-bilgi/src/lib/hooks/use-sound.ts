@@ -45,7 +45,6 @@ export function useSound(): UseSoundReturn {
   // Cleanup on unmount
   useEffect(() => {
     const cachedAudio = audioCache.current;
-    const music = musicRef.current;
 
     return () => {
       cachedAudio.forEach((audio) => {
@@ -54,9 +53,9 @@ export function useSound(): UseSoundReturn {
       });
       cachedAudio.clear();
 
-      if (music) {
-        music.pause();
-        music.src = '';
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.src = '';
       }
     };
   }, []);

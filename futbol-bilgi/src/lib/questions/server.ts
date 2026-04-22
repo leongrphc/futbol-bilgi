@@ -124,7 +124,8 @@ async function getQuestionsByDifficultyPlan(leagueScope: LeagueScope, difficulty
     const exactPool = allScopeQuestions.filter((question) => question.difficulty === difficulty && !usedIds.has(question.id));
     const nearbyPool = allScopeQuestions.filter((question) => Math.abs(question.difficulty - difficulty) <= 1 && !usedIds.has(question.id));
     const fallbackPool = allScopeQuestions.filter((question) => !usedIds.has(question.id));
-    const chosen = exactPool[0] ?? nearbyPool[0] ?? fallbackPool[0];
+    const randomPick = <T,>(items: T[]) => items[Math.floor(Math.random() * items.length)];
+    const chosen = exactPool.length > 0 ? randomPick(exactPool) : nearbyPool.length > 0 ? randomPick(nearbyPool) : fallbackPool.length > 0 ? randomPick(fallbackPool) : undefined;
 
     if (!chosen) {
       throw new Error(`${leagueScope} kapsamı için yeterli aktif soru yok. Beklenen ${difficultyPlan.length}, bulunan ${selectedQuestions.length}.`);

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { revalidatePath } from 'next/cache';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -204,6 +205,9 @@ async function createManualQuestion(formData: FormData) {
     revalidatePath('/admin/questions');
     redirect(buildAdminQuestionsUrl({ create: 'success', message: 'Soru başarıyla eklendi.' }));
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
     redirect(buildAdminQuestionsUrl({ create: 'error', message: error instanceof Error ? error.message : 'Soru eklenemedi.' }));
   }
 }
@@ -259,6 +263,9 @@ async function importQuestionsFromCsv(formData: FormData) {
     revalidatePath('/admin/questions');
     redirect(buildAdminQuestionsUrl({ import: 'success', imported: validPayloads.length, failed: totalErrors }));
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
     redirect(buildAdminQuestionsUrl({ import: 'error', message: error instanceof Error ? error.message : 'CSV içe aktarma başarısız oldu.' }));
   }
 }
