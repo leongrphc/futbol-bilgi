@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { applyIapGrant, IAP_PRODUCT_CONFIG, isIapProductId } from '@/lib/iap/products';
+import { applyIapGrant, isIapProductId } from '@/lib/iap/products';
 import { isMockVerificationEnabled } from '@/lib/iap/verification';
 
 export async function POST(request: Request) {
@@ -38,7 +38,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
-  const product = IAP_PRODUCT_CONFIG[productId];
   const purchases = profile.settings?.purchases ?? {};
 
   if (productId === 'starter_pack' && purchases.starter_pack_claimed) {

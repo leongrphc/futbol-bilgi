@@ -1,6 +1,6 @@
 import posthog from 'posthog-js';
 import { createNoopAnalyticsProvider } from './noop';
-import type { AnalyticsProperties, AnalyticsProvider } from '../types';
+import type { AnalyticsProvider } from '../types';
 
 export function createPosthogAnalyticsProvider(): AnalyticsProvider {
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;

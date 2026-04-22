@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { trackEvent } from '@/lib/analytics';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import type { LeagueScope } from '@/types';
 import { motion } from 'framer-motion';
 import { Crown, Zap, Swords, Calendar, Coins, Gem, Flame, Battery, PlayCircle, ShoppingBag, Sparkles, Percent, Users, Phone, Timer, SkipForward, Copy, Globe, Shield } from 'lucide-react';
 import Link from 'next/link';
@@ -41,12 +40,6 @@ const itemVariants = {
       damping: 24,
     },
   },
-};
-
-const SCOPE_LABELS: Record<LeagueScope, string> = {
-  turkey: 'Türkiye',
-  europe: 'Avrupa',
-  world: 'Dünya',
 };
 
 const gameModes = [
@@ -157,7 +150,6 @@ export default function DashboardPage() {
   const fetchEntries = useLeagueStore((state) => state.fetchEntries);
   const ensurePlayerEntry = useLeagueStore((state) => state.ensurePlayerEntry);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
-  const [selectedScope, setSelectedScope] = useState<LeagueScope>('turkey');
   const [adMessage, setAdMessage] = useState<string | null>(null);
   const [shopMessage, setShopMessage] = useState<string | null>(null);
   const [iapMessage, setIapMessage] = useState<string | null>(null);

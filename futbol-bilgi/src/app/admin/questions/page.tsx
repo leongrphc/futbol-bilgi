@@ -247,9 +247,13 @@ async function importQuestionsFromCsv(formData: FormData) {
       redirect(buildAdminQuestionsUrl({ import: 'error', message: 'Tüm satırlar hatalı veya mevcut kayıtlarla çakışıyor.', imported: 0, failed: totalErrors }));
     }
 
-    const { error } = await supabase.from('questions').insert(validPayloads);
-    if (error) {
-      throw new Error(error.message);
+    const batchSize = 50;
+    for (let index = 0; index < validPayloads.length; index += batchSize) {
+      const batch = validPayloads.slice(index, index + batchSize);
+      const { error } = await supabase.from('questions').insert(batch);
+      if (error) {
+        throw new Error(error.message);
+      }
     }
 
     revalidatePath('/admin/questions');

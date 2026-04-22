@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -55,6 +56,14 @@ function getUnlockedTitles(keys: string[]) {
   return ACHIEVEMENT_DEFINITIONS.filter((achievement) => keys.includes(achievement.key)).map((achievement) => achievement.name);
 }
 
+function isRecentlyOnline(lastSeenAt: string | null | undefined) {
+  if (!lastSeenAt) {
+    return false;
+  }
+
+  return Date.now() - new Date(lastSeenAt).getTime() < 1000 * 60 * 5;
+}
+
 const container = {
   hidden: { opacity: 0 },
   show: {
@@ -71,6 +80,7 @@ const item = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const user = useUserStore((state) => state.user);
   const updateSettings = useUserStore((state) => state.updateSettings);
   const clearUser = useUserStore((state) => state.clearUser);
@@ -88,11 +98,8 @@ export default function ProfilePage() {
   const unlockedAchievements = useAchievementStore((state) => state.unlocked);
   const newlyUnlocked = useAchievementStore((state) => state.newlyUnlocked);
   const updateAchievementStats = useAchievementStore((state) => state.updateStats);
-  const evaluateAchievements = useAchievementStore((state) => state.evaluate);
-  const clearNewlyUnlocked = useAchievementStore((state) => state.clearNewlyUnlocked);
   const { toggleSubscription, isSupported } = useNotifications();
   const setUser = useUserStore((state) => state.setUser);
-  const [appliedAchievementKeys, setAppliedAchievementKeys] = useState<string[]>([]);
   const [achievementMessage, setAchievementMessage] = useState<string | null>(null);
   const hydrateSocial = useSocialStore((state) => state.hydrate);
   const syncCurrentUser = useSocialStore((state) => state.syncCurrentUser);
@@ -241,7 +248,7 @@ export default function ProfilePage() {
   };
 
   const handlePlayAcceptedInvite = (inviteId: string) => {
-    window.location.href = `/play/duel?invite=${inviteId}`;
+    router.push(`/play/duel?invite=${inviteId}`);
   };
 
   const getCompletedInviteLabel = (invite: typeof duelInvites[number]) => {
@@ -359,7 +366,6 @@ export default function ProfilePage() {
         ...user,
         ...json.data.profile,
       });
-      setAppliedAchievementKeys((prev) => [...prev, ...json.data.newlyUnlocked]);
       setAchievementMessage(`${json.data.newlyUnlocked.length} yeni başarım ödülü hesabına işlendi.`);
     };
 
@@ -626,7 +632,7 @@ export default function ProfilePage() {
                       frame={requester.avatar_frame}
                       favoriteTeam={requester.favorite_team}
                       status="pending"
-                      isOnline={Date.now() - new Date(requester.last_seen_at).getTime() < 1000 * 60 * 5}
+                      isOnline={isRecentlyOnline(requester.last_seen_at)}
                       primaryAction={{
                         label: 'Kabul Et',
                         onClick: () => {
@@ -669,7 +675,7 @@ export default function ProfilePage() {
                       frame={sender.avatar_frame}
                       favoriteTeam={sender.favorite_team}
                       status="pending"
-                      isOnline={Date.now() - new Date(sender.last_seen_at).getTime() < 1000 * 60 * 5}
+                      isOnline={isRecentlyOnline(sender.last_seen_at)}
                       primaryAction={{
                         label: 'Kabul Et',
                         onClick: () => {
@@ -695,7 +701,7 @@ export default function ProfilePage() {
           <Card padding="lg">
             <div className="mb-4 flex items-center gap-2">
               <Swords className="h-5 w-5 text-primary-500" />
-              <h2 className="font-display text-lg font-semibold text-text-primary">Aktif Challenge'lar</h2>
+              <h2 className="font-display text-lg font-semibold text-text-primary">Aktif Challenge&apos;lar</h2>
             </div>
             <div className="space-y-3">
               {acceptedDuelInvites.length === 0 ? (
@@ -715,7 +721,7 @@ export default function ProfilePage() {
                       favoriteTeam={opponent.favorite_team}
                       subtitle={`${label} · ${invite.from_user_score ?? 0} - ${invite.to_user_score ?? 0}`}
                       status="accepted"
-                      isOnline={Date.now() - new Date(opponent.last_seen_at).getTime() < 1000 * 60 * 5}
+                      isOnline={isRecentlyOnline(opponent.last_seen_at)}
                       primaryAction={canPlay ? {
                         label: 'Şimdi Oyna',
                         onClick: () => handlePlayAcceptedInvite(invite.id),
@@ -750,7 +756,7 @@ export default function ProfilePage() {
                       favoriteTeam={opponent.favorite_team}
                       subtitle={`${getCompletedInviteLabel(invite)} · ${invite.from_user_score ?? 0} - ${invite.to_user_score ?? 0}`}
                       status="accepted"
-                      isOnline={Date.now() - new Date(opponent.last_seen_at).getTime() < 1000 * 60 * 5}
+                      isOnline={isRecentlyOnline(opponent.last_seen_at)}
                     />
                   );
                 })
@@ -780,7 +786,7 @@ export default function ProfilePage() {
                       frame={target.avatar_frame}
                       favoriteTeam={target.favorite_team}
                       status="outgoing"
-                      isOnline={Date.now() - new Date(target.last_seen_at).getTime() < 1000 * 60 * 5}
+                      isOnline={isRecentlyOnline(target.last_seen_at)}
                       primaryAction={{
                         label: 'İsteği Geri Çek',
                         variant: 'ghost',
@@ -814,7 +820,7 @@ export default function ProfilePage() {
                     frame={friend.avatar_frame}
                     favoriteTeam={friend.favorite_team}
                     status="accepted"
-                    isOnline={Date.now() - new Date(friend.last_seen_at).getTime() < 1000 * 60 * 5}
+                    isOnline={isRecentlyOnline(friend.last_seen_at)}
                     primaryAction={{
                       label: 'Düello Gönder',
                       onClick: () => {

@@ -136,7 +136,6 @@ export default function ThemesPage() {
 
   useEffect(() => {
     if (!user) {
-      setIsLoading(false);
       return;
     }
 
@@ -190,7 +189,7 @@ export default function ThemesPage() {
     return () => {
       isCancelled = true;
     };
-  }, [setUser, user?.id]);
+  }, [setUser, user]);
 
   if (!user) {
     return null;

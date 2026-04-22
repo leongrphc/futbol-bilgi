@@ -124,7 +124,7 @@ interface MiniPrizeProps {
   onOpenLadder: () => void;
 }
 
-export function MiniPrize({ currentQuestion, score, safePointScore, onOpenLadder }: MiniPrizeProps) {
+export function MiniPrize({ currentQuestion, safePointScore, onOpenLadder }: MiniPrizeProps) {
   const step = MILLIONAIRE_STEPS.find(s => s.questionNumber === currentQuestion);
 
   return (
