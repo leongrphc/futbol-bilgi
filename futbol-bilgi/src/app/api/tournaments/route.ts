@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   const { tournamentId } = await request.json();
-  if (typeof tournamentId !== 'string') {
+  if (typeof tournamentId !== 'string' || !tournamentId.trim()) {
     return NextResponse.json({ error: 'Tournament id gerekli.' }, { status: 400 });
   }
 
@@ -42,18 +42,34 @@ export async function POST(request: Request) {
     .from('live_tournaments')
     .select('*')
     .eq('id', tournamentId)
-    .single();
+    .maybeSingle();
 
   if (tournamentError) {
     return NextResponse.json({ error: tournamentError.message }, { status: 500 });
   }
 
-  const { data: existingEntry } = await admin
+  if (!tournament) {
+    return NextResponse.json({ error: 'Turnuva bulunamadı.' }, { status: 404 });
+  }
+
+  if (tournament.status !== 'live') {
+    return NextResponse.json({ error: 'Bu turnuva şu anda katılıma açık değil.' }, { status: 409 });
+  }
+
+  if (Number(tournament.current_players ?? 0) >= Number(tournament.max_players ?? 0)) {
+    return NextResponse.json({ error: 'Bu turnuvanın oyuncu kapasitesi doldu.' }, { status: 409 });
+  }
+
+  const { data: existingEntry, error: existingEntryError } = await admin
     .from('live_tournament_entries')
     .select('*')
     .eq('tournament_id', tournamentId)
     .eq('user_id', user.id)
     .maybeSingle();
+
+  if (existingEntryError) {
+    return NextResponse.json({ error: existingEntryError.message }, { status: 500 });
+  }
 
   if (existingEntry) {
     return NextResponse.json({ data: existingEntry });
@@ -69,10 +85,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: entryError.message }, { status: 500 });
   }
 
-  await admin
+  const { error: updateError } = await admin
     .from('live_tournaments')
     .update({ current_players: Number(tournament.current_players ?? 0) + 1, updated_at: new Date().toISOString() })
     .eq('id', tournamentId);
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ data: entry });
 }

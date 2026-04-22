@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const admin = createAdminClient();
 
   const [{ data: tournament, error: tournamentError }, { data: leaderboard, error: leaderboardError }, { data: myEntry, error: entryError }] = await Promise.all([
-    admin.from('live_tournaments').select('*').eq('id', id).single(),
+    admin.from('live_tournaments').select('*').eq('id', id).maybeSingle(),
     admin
       .from('live_tournament_entries')
       .select('id, user_id, score, wins, losses, round_reached, profiles!inner(username, favorite_team)')
@@ -26,6 +26,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   if (tournamentError || leaderboardError || entryError) {
     return NextResponse.json({ error: tournamentError?.message || leaderboardError?.message || entryError?.message }, { status: 500 });
+  }
+
+  if (!tournament) {
+    return NextResponse.json({ error: 'Turnuva bulunamadı.' }, { status: 404 });
   }
 
   return NextResponse.json({ data: { tournament, leaderboard, myEntry } });
@@ -43,6 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { score, round_reached, completed } = await request.json();
   const safeScore = typeof score === 'number' ? Math.max(0, Math.round(score)) : 0;
   const safeRound = typeof round_reached === 'number' ? Math.max(1, Math.round(round_reached)) : 1;
+  const isCompleted = typeof completed === 'boolean' ? completed : false;
 
   const admin = createAdminClient();
   const { data: entry, error: entryError } = await admin
@@ -50,14 +55,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .select('*')
     .eq('tournament_id', id)
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   if (entryError) {
     return NextResponse.json({ error: entryError.message }, { status: 500 });
   }
 
-  const wins = completed ? Math.max(Number(entry.wins ?? 0), safeRound) : Number(entry.wins ?? 0);
-  const losses = completed ? Number(entry.losses ?? 0) : Number(entry.losses ?? 0);
+  if (!entry) {
+    return NextResponse.json({ error: 'Turnuva kaydı bulunamadı.' }, { status: 404 });
+  }
+
+  const wins = isCompleted ? Math.max(Number(entry.wins ?? 0), safeRound) : Number(entry.wins ?? 0);
+  const losses = Number(entry.losses ?? 0);
 
   const { data, error } = await admin
     .from('live_tournament_entries')

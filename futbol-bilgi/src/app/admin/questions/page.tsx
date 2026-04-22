@@ -87,19 +87,48 @@ function getDraftChecklist(draft: QuestionAdmin) {
   };
 }
 
+function getChecklistIssues(checklist: ReturnType<typeof getDraftChecklist>) {
+  return [
+    checklist.hasExplanation ? null : 'Açıklama eksik',
+    checklist.hasFourOptions ? null : '4 seçenek tamamlanmalı',
+    checklist.hasTeamTags ? null : 'En az 1 team tag eklenmeli',
+    checklist.hasSeasonRange ? null : 'Sezon aralığı gerekli',
+  ].filter(Boolean) as string[];
+}
+
+function getScopeLabel(scope: string) {
+  if (scope === 'europe') return 'Avrupa';
+  if (scope === 'world') return 'Dünya';
+  return 'Türkiye';
+}
+
+function getReadinessVariant(readinessScore: number) {
+  if (readinessScore === 4) return 'success';
+  if (readinessScore >= 2) return 'warning';
+  return 'danger';
+}
+
 async function generateQuestions(formData: FormData) {
   'use server';
 
   await requireAdmin();
 
   const topic = String(formData.get('topic') || '').trim();
-  const leagueScope = String(formData.get('league_scope') || 'turkey');
-  const difficulty = Number(formData.get('difficulty') || 3);
-  const count = Number(formData.get('count') || 3);
+  const rawLeagueScope = String(formData.get('league_scope') || 'turkey').trim();
+  const rawDifficulty = Number(formData.get('difficulty') || 3);
+  const rawCount = Number(formData.get('count') || 3);
 
   if (!topic) {
-    return;
+    throw new Error('Taslak üretmek için konu girmelisin.');
   }
+
+  if (topic.length < 3) {
+    throw new Error('Konu en az 3 karakter olmalı.');
+  }
+
+  const leagueScope = rawLeagueScope === 'europe' || rawLeagueScope === 'world' ? rawLeagueScope : 'turkey';
+  const difficulty = Number.isFinite(rawDifficulty) ? Math.max(1, Math.min(5, rawDifficulty)) : 3;
+  const count = Number.isFinite(rawCount) ? Math.max(1, Math.min(5, rawCount)) : 3;
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const response = await fetch(`${origin}/api/admin/questions/generate`, {
@@ -111,7 +140,7 @@ async function generateQuestions(formData: FormData) {
 
   const json = await response.json();
   if (!response.ok || !json.data) {
-    throw new Error(json.error || 'AI soru taslağı üretilemedi.');
+    throw new Error(json.error || 'Taslak üretimi tamamlanamadı.');
   }
 
   const supabase = createAdminClient();
@@ -201,54 +230,76 @@ export default async function AdminQuestionsPage({
     })),
   );
 
+  const readyDraftCount = draftReviews.filter(({ checklist }) => Object.values(checklist).every(Boolean)).length;
+  const flaggedDraftCount = draftReviews.length - readyDraftCount;
+
   return (
     <div className="space-y-4">
       <Card padding="lg" className="space-y-4">
         <div>
-          <h2 className="font-display text-lg font-semibold">AI Soru Üretimi</h2>
-          <p className="text-sm text-text-secondary">Taslak üret, editoryal kontrol yap, sonra yayına al.</p>
-          <p className="mt-1 text-xs text-text-muted">Üretilen her taslak pasif gelir; editör onayı olmadan yayına alınmaz.</p>
+          <h2 className="font-display text-lg font-semibold">Taslak Soru Üretimi</h2>
+          <p className="text-sm text-text-secondary">Taslak üret, editoryal kontrol yap, ardından yalnızca hazır kayıtları yayına al.</p>
+          <p className="mt-1 text-xs text-text-muted">Bu akış şu anda mock üretim kullanıyor. Üretilen içerikler yayınlanmadan önce editör tarafından doğrulanmalı.</p>
         </div>
         <form action={generateQuestions} className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <Input name="topic" label="Konu" placeholder="Örn: Premier League derbileri" />
+          <Input name="topic" label="Konu" placeholder="Örn: Premier League derbileri" minLength={3} maxLength={80} required />
           <Input name="league_scope" label="Lig Scope" placeholder="turkey / europe / world" defaultValue="turkey" />
-          <Input name="difficulty" label="Zorluk" placeholder="1-5" defaultValue="3" />
-          <Input name="count" label="Taslak Sayısı" placeholder="1-5" defaultValue="3" />
-          <div className="xl:col-span-4">
-            <Button type="submit">AI Taslak Üret</Button>
+          <Input name="difficulty" label="Zorluk" type="number" min={1} max={5} placeholder="1-5" defaultValue="3" />
+          <Input name="count" label="Taslak Sayısı" type="number" min={1} max={5} placeholder="1-5" defaultValue="3" />
+          <div className="xl:col-span-4 space-y-2">
+            <Button type="submit">Taslak Üret</Button>
+            <p className="text-xs text-text-muted">Kısa ve net konu gir. Scope yalnızca turkey, europe veya world olmalı.</p>
           </div>
         </form>
       </Card>
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card padding="md" variant="elevated" className="space-y-1">
+          <p className="text-xs text-text-secondary">Bekleyen taslak</p>
+          <p className="font-display text-2xl font-bold text-text-primary">{draftReviews.length}</p>
+        </Card>
+        <Card padding="md" variant="elevated" className="space-y-1">
+          <p className="text-xs text-text-secondary">Yayına hazır</p>
+          <p className="font-display text-2xl font-bold text-success">{readyDraftCount}</p>
+        </Card>
+        <Card padding="md" variant="elevated" className="space-y-1">
+          <p className="text-xs text-text-secondary">İnceleme gereken</p>
+          <p className="font-display text-2xl font-bold text-warning">{flaggedDraftCount}</p>
+        </Card>
+      </div>
+
       <Card padding="lg" className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-display text-lg font-semibold">Taslak İnceleme Kuyruğu</h2>
-            <p className="text-sm text-text-secondary">Taslakları kalite kontrolünden geçir, benzer kayıtları kontrol et ve ancak hazır olanları aktifleştir.</p>
-            <p className="mt-1 text-xs text-text-muted">Benzer soru uyarıları editöre karar desteği sağlar; otomatik bloklama yapmaz.</p>
+            <p className="text-sm text-text-secondary">Checklist, benzer kayıt uyarısı ve eksik alanları tek kartta gör.</p>
+            <p className="mt-1 text-xs text-text-muted">Benzer soru uyarısı karar desteğidir; otomatik engelleme yapmaz.</p>
           </div>
           <span className="text-sm text-text-secondary">{draftReviews.length} taslak</span>
         </div>
 
         <div className="space-y-3">
           {draftReviews.length === 0 ? (
-            <p className="text-sm text-text-secondary">Bekleyen AI taslağı yok.</p>
+            <Card padding="md" variant="elevated" className="text-center">
+              <p className="text-sm text-text-secondary">Bekleyen taslak yok. Yeni bir konu girerek inceleme kuyruğunu doldurabilirsin.</p>
+            </Card>
           ) : (
             draftReviews.map(({ draft, checklist, similarQuestion }) => {
               const readinessScore = Object.values(checklist).filter(Boolean).length;
               const isReady = Object.values(checklist).every(Boolean);
+              const issues = getChecklistIssues(checklist);
               const correctOptionText = draft.options.find((option) => option.key === draft.correct_answer)?.text ?? draft.correct_answer;
 
               return (
                 <Card key={draft.id} padding="md" className="space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm text-text-secondary">{draft.league_scope} · {draft.league} · Zorluk {draft.difficulty}</p>
+                      <p className="text-sm text-text-secondary">{getScopeLabel(draft.league_scope)} · {draft.league} · Zorluk {draft.difficulty}</p>
                       <p className="font-medium text-text-primary">{draft.question_text}</p>
-                      <p className="mt-1 text-xs text-text-muted">{draft.category} / {draft.sub_category} · {draft.season_range ?? 'sezon belirtilmedi'}</p>
+                      <p className="mt-1 text-xs text-text-muted">{draft.category} / {draft.sub_category ?? 'alt kategori yok'} · {draft.season_range ?? 'sezon belirtilmedi'}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={isReady ? 'success' : readinessScore >= 2 ? 'warning' : 'danger'}>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Badge variant={getReadinessVariant(readinessScore)}>
                         {isReady ? 'Hazır' : readinessScore >= 2 ? 'İnceleme Gerekli' : 'Zayıf Taslak'}
                       </Badge>
                       <Badge variant="warning">Taslak</Badge>
@@ -265,7 +316,7 @@ export default async function AdminQuestionsPage({
                     </Card>
 
                     <Card padding="sm" variant="elevated" className="space-y-2">
-                      <p className="text-xs font-semibold text-text-secondary">Şema & yayın kontrolü</p>
+                      <p className="text-xs font-semibold text-text-secondary">Yayın checklist&apos;i</p>
                       <ul className="space-y-1 text-xs text-text-secondary">
                         <li>{checklist.hasExplanation ? '✓' : '✗'} Açıklama var</li>
                         <li>{checklist.hasFourOptions ? '✓' : '✗'} 4 seçenek var</li>
@@ -273,14 +324,24 @@ export default async function AdminQuestionsPage({
                         <li>{checklist.hasSeasonRange ? '✓' : '✗'} Sezon aralığı var</li>
                       </ul>
                       <p className="text-xs font-medium text-text-primary">{readinessScore}/4 kontrol geçti</p>
-                      <p className="text-xs text-text-muted">{isReady ? 'JSON yapısı temel yayına alma kontrolünü geçti.' : 'Yayına almadan önce eksik alanları tamamla.'}</p>
+                      {issues.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {issues.map((issue) => (
+                            <Badge key={issue} variant="warning">{issue}</Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-success">Temel yayına alma kontrolleri tamamlandı.</p>
+                      )}
                     </Card>
 
                     <Card padding="sm" variant="elevated" className="space-y-2">
-                      <p className="text-xs font-semibold text-text-secondary">Duplicate uyarısı</p>
+                      <p className="text-xs font-semibold text-text-secondary">İnceleme sinyalleri</p>
+                      <p className="text-xs text-text-secondary">Takım etiketleri: {draft.team_tags.length > 0 ? draft.team_tags.join(', ') : 'etiket yok'}</p>
+                      <p className="text-xs text-text-secondary">Dönem etiketi: {draft.era_tag ?? 'belirtilmedi'}</p>
                       {similarQuestion ? (
                         <>
-                          <Badge variant="warning">Benzer Soru Uyarısı</Badge>
+                          <Badge variant="warning">Benzer soru uyarısı</Badge>
                           <p className="text-xs text-text-secondary">{similarQuestion.is_active ? 'Aktif' : 'Taslak'} benzer kayıt bulundu: {similarQuestion.question_text}</p>
                         </>
                       ) : (
@@ -330,30 +391,36 @@ export default async function AdminQuestionsPage({
       </Card>
 
       <div className="space-y-3">
-        {questions.map((question) => (
-          <Card key={question.id} padding="md" className="space-y-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-sm text-text-secondary">
-                  {question.league_scope} · {question.league} · Zorluk {question.difficulty}
-                </p>
-                <p className="font-medium text-text-primary">{question.question_text}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={question.is_active ? 'success' : 'danger'}>
-                  {question.is_active ? 'Aktif' : 'Pasif'}
-                </Badge>
-                {question.reported_count > 0 && (
-                  <Badge variant="warning">{question.reported_count} rapor</Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-text-secondary">{new Date(question.updated_at).toLocaleString('tr-TR')}</div>
-              <Link href={`/admin/questions/${question.id}`} className="text-sm text-primary-500">Düzenle</Link>
-            </div>
+        {questions.length === 0 ? (
+          <Card padding="md" className="text-center">
+            <p className="text-sm text-text-secondary">Bu filtrelerle eşleşen soru bulunamadı.</p>
           </Card>
-        ))}
+        ) : (
+          questions.map((question) => (
+            <Card key={question.id} padding="md" className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-text-secondary">
+                    {getScopeLabel(question.league_scope)} · {question.league} · Zorluk {question.difficulty}
+                  </p>
+                  <p className="font-medium text-text-primary">{question.question_text}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={question.is_active ? 'success' : 'danger'}>
+                    {question.is_active ? 'Aktif' : 'Pasif'}
+                  </Badge>
+                  {question.reported_count > 0 && (
+                    <Badge variant="warning">{question.reported_count} rapor</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-text-secondary">{new Date(question.updated_at).toLocaleString('tr-TR')}</div>
+                <Link href={`/admin/questions/${question.id}`} className="text-sm text-primary-500">Düzenle</Link>
+              </div>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

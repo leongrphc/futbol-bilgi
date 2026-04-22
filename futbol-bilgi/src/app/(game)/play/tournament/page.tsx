@@ -65,6 +65,24 @@ function getRoundLabel(round: number) {
   return ROUND_LABELS[Math.max(0, Math.min(ROUND_LABELS.length - 1, round - 1))] ?? 'Başlangıç';
 }
 
+function getTournamentStatusLabel(status: LiveTournament['status']) {
+  if (status === 'live') return 'Canlı';
+  if (status === 'scheduled') return 'Planlandı';
+  return 'Tamamlandı';
+}
+
+function getTournamentStatusHint(status: LiveTournament['status']) {
+  if (status === 'live') return 'Şimdi açık';
+  if (status === 'scheduled') return 'Başlama saatini bekliyor';
+  return 'Katılım kapandı';
+}
+
+function getTournamentActionLabel(tournament: LiveTournament) {
+  if (tournament.status === 'live') return 'Katıl ve Oyna';
+  if (tournament.status === 'scheduled') return 'Henüz Başlamadı';
+  return 'Turnuva Tamamlandı';
+}
+
 export default function TournamentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,13 +112,18 @@ export default function TournamentPage() {
   const [selectedTournament, setSelectedTournament] = useState<LiveTournament | null>(null);
   const [leaderboard, setLeaderboard] = useState<TournamentLeaderboardEntry[]>([]);
   const [myEntry, setMyEntry] = useState<TournamentEntry | null>(null);
+  const [isListLoading, setIsListLoading] = useState(true);
   const [isJoiningTournament, setIsJoiningTournament] = useState(false);
+  const [joiningTournamentId, setJoiningTournamentId] = useState<string | null>(null);
+  const [isAdvancingRound, setIsAdvancingRound] = useState(false);
   const [round, setRound] = useState(1);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
   const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
-  const [roundStartScore, setRoundStartScore] = useState(0);
   const [showRewardOverlay, setShowRewardOverlay] = useState(false);
+  const [lobbyError, setLobbyError] = useState<string | null>(null);
+  const [flowError, setFlowError] = useState<string | null>(null);
+  const [accumulatedScore, setAccumulatedScore] = useState(0);
   const [rewardData, setRewardData] = useState<{ xp: number; coins: number; levelUp: { from: number; to: number } | null }>({
     xp: 0,
     coins: 0,
@@ -113,7 +136,8 @@ export default function TournamentPage() {
   const roundQuestionCount = TOURNAMENT_CONFIG.questions_per_round;
   const totalQuestions = TOURNAMENT_CONFIG.total_rounds * TOURNAMENT_CONFIG.questions_per_round;
   const currentRoundLabel = getRoundLabel(round);
-  const canAdvanceRound = score - roundStartScore >= TOURNAMENT_CONFIG.points_per_correct * 2;
+  const totalScore = accumulatedScore + score;
+  const canAdvanceRound = score >= TOURNAMENT_CONFIG.points_per_correct * 2;
 
   const timer = useTimer({
     initialTime: TOURNAMENT_CONFIG.time_per_question,
@@ -127,16 +151,28 @@ export default function TournamentPage() {
   });
 
   const scopedTournaments = useMemo(
-    () => liveTournaments.filter((tournament) => tournament.league_scope === selectedScope || tournament.league_scope === 'turkey'),
+    () => liveTournaments.filter((tournament) => tournament.league_scope === selectedScope),
     [liveTournaments, selectedScope],
   );
 
   const loadTournamentList = useCallback(async () => {
-    const response = await fetch('/api/tournaments');
-    const json = await response.json();
+    setIsListLoading(true);
+    setLobbyError(null);
 
-    if (response.ok && json.data) {
+    try {
+      const response = await fetch('/api/tournaments');
+      const json = await response.json();
+
+      if (!response.ok || !json.data) {
+        throw new Error(typeof json.error === 'string' ? json.error : 'Turnuvalar alınamadı.');
+      }
+
       setLiveTournaments(json.data as LiveTournament[]);
+    } catch (error) {
+      setLiveTournaments([]);
+      setLobbyError(error instanceof Error ? error.message : 'Turnuvalar yüklenemedi.');
+    } finally {
+      setIsListLoading(false);
     }
   }, []);
 
@@ -145,7 +181,7 @@ export default function TournamentPage() {
     const json = await response.json();
 
     if (!response.ok || !json.data) {
-      return;
+      throw new Error(typeof json.error === 'string' ? json.error : 'Turnuva detayları alınamadı.');
     }
 
     setLeaderboard((json.data.leaderboard ?? []) as TournamentLeaderboardEntry[]);
@@ -158,15 +194,19 @@ export default function TournamentPage() {
     setRound(nextRound);
     resetGame();
     startGame('quick', selectedScope, `tournament-round-${nextRound}-${Date.now()}`);
-    setRoundStartScore(score);
+    setRoundStartScore(accumulatedScore);
 
     if (roundQuestions.length > 0) {
       setCurrentQuestion(roundQuestions[0]);
       setPhase('playing');
       timer.reset(TOURNAMENT_CONFIG.time_per_question);
       timer.start();
+      return;
     }
-  }, [resetGame, score, selectedScope, setCurrentQuestion, startGame, timer]);
+
+    setFlowError('Bu tur için soru hazırlanamadı. Lütfen daha sonra tekrar dene.');
+    setPhase('lobby');
+  }, [accumulatedScore, resetGame, selectedScope, setCurrentQuestion, startGame, timer]);
 
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -180,47 +220,66 @@ export default function TournamentPage() {
     setTimeRemaining(timer.timeRemaining);
   }, [setTimeRemaining, timer.timeRemaining]);
 
+  useEffect(() => {
+    return () => {
+      if (revealTimeoutRef.current) {
+        clearTimeout(revealTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const finalizeTournament = useCallback(async () => {
     if (!user || !selectedTournament) {
       setPhase('result');
       return;
     }
 
-    await fetch(`/api/tournaments/${selectedTournament.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        score,
-        round_reached: round,
-        completed: true,
-      }),
-    });
+    try {
+      const response = await fetch(`/api/tournaments/${selectedTournament.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          score: totalScore,
+          round_reached: round,
+          completed: true,
+        }),
+      });
+      const json = await response.json();
 
-    const xp = TOURNAMENT_CONFIG.completion_xp;
-    const coins = TOURNAMENT_CONFIG.completion_coins;
-    const currentLevel = calculateLevel(user.xp).level;
-    const nextXp = user.xp + xp;
-    const nextLevel = calculateLevel(nextXp).level;
-    const levelUp = nextLevel > currentLevel ? { from: currentLevel, to: nextLevel } : null;
+      if (!response.ok) {
+        throw new Error(typeof json.error === 'string' ? json.error : 'Turnuva sonucu kaydedilemedi.');
+      }
 
-    setUser({
-      ...user,
-      xp: nextXp,
-      coins: user.coins + coins,
-      level: nextLevel,
-    });
-    endGame('win', xp, coins);
-    setRewardData({ xp, coins, levelUp });
-    setShowRewardOverlay(true);
-    trackEvent(ANALYTICS_EVENTS.TOURNAMENT_RUN_COMPLETED, {
-      scope: selectedScope,
-      result: 'win',
-      round,
-      score,
-      tournament_id: selectedTournament.id,
-    });
-    void loadTournamentDetails(selectedTournament.id);
-  }, [endGame, loadTournamentDetails, round, score, selectedScope, selectedTournament, setUser, user]);
+      const xp = TOURNAMENT_CONFIG.completion_xp;
+      const coins = TOURNAMENT_CONFIG.completion_coins;
+      const currentLevel = calculateLevel(user.xp).level;
+      const nextXp = user.xp + xp;
+      const nextLevel = calculateLevel(nextXp).level;
+      const levelUp = nextLevel > currentLevel ? { from: currentLevel, to: nextLevel } : null;
+
+      setUser({
+        ...user,
+        xp: nextXp,
+        coins: user.coins + coins,
+        level: nextLevel,
+      });
+      endGame('win', xp, coins);
+      setRewardData({ xp, coins, levelUp });
+      setShowRewardOverlay(true);
+      setFlowError(null);
+      trackEvent(ANALYTICS_EVENTS.TOURNAMENT_RUN_COMPLETED, {
+        scope: selectedScope,
+        result: 'win',
+        round,
+        score: totalScore,
+        tournament_id: selectedTournament.id,
+      });
+      await loadTournamentDetails(selectedTournament.id);
+    } catch (error) {
+      setFlowError(error instanceof Error ? error.message : 'Turnuva sonucu kaydedilemedi.');
+      setPhase('result');
+    }
+  }, [endGame, loadTournamentDetails, round, selectedScope, selectedTournament, setUser, totalScore, user]);
 
   const handleSelectAnswer = useCallback((answer: 'A' | 'B' | 'C' | 'D') => {
     if (!currentQuestion || phase !== 'playing') return;
@@ -256,53 +315,86 @@ export default function TournamentPage() {
   }, [answerQuestion, currentQuestion, finalizeTournament, nextQuestion, phase, questionNumber, questions, round, roundQuestionCount, setCurrentQuestion, timer]);
 
   const handleJoinTournament = useCallback(async (tournament: LiveTournament) => {
-    setIsJoiningTournament(true);
-    const response = await fetch('/api/tournaments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tournamentId: tournament.id }),
-    });
-    const json = await response.json();
-    setIsJoiningTournament(false);
-
-    if (!response.ok || !json.data) {
+    if (tournament.status !== 'live') {
       return;
     }
 
+    setJoiningTournamentId(tournament.id);
+    setIsJoiningTournament(true);
+    setFlowError(null);
     setSelectedTournament(tournament);
-    setMyEntry(json.data as TournamentEntry);
-    setPhase('loading');
-    trackEvent(ANALYTICS_EVENTS.LIVE_TOURNAMENT_JOINED, {
-      tournament_id: tournament.id,
-      scope: selectedScope,
-    });
-    trackEvent(ANALYTICS_EVENTS.TOURNAMENT_RUN_STARTED, {
-      scope: selectedScope,
-      tournament_id: tournament.id,
-    });
-    await loadTournamentDetails(tournament.id);
-    prepareRound(1);
+
+    try {
+      const response = await fetch('/api/tournaments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournamentId: tournament.id }),
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json.data) {
+        throw new Error(typeof json.error === 'string' ? json.error : 'Turnuvaya katılım başlatılamadı.');
+      }
+
+      setMyEntry(json.data as TournamentEntry);
+      setPhase('loading');
+      trackEvent(ANALYTICS_EVENTS.LIVE_TOURNAMENT_JOINED, {
+        tournament_id: tournament.id,
+        scope: selectedScope,
+      });
+      trackEvent(ANALYTICS_EVENTS.TOURNAMENT_RUN_STARTED, {
+        scope: selectedScope,
+        tournament_id: tournament.id,
+      });
+      await loadTournamentDetails(tournament.id);
+      prepareRound(1);
+    } catch (error) {
+      setSelectedTournament(null);
+      setFlowError(error instanceof Error ? error.message : 'Turnuvaya katılım başlatılamadı.');
+      setPhase('lobby');
+    } finally {
+      setIsJoiningTournament(false);
+      setJoiningTournamentId(null);
+    }
   }, [loadTournamentDetails, prepareRound, selectedScope]);
 
   const handleAdvanceRound = useCallback(async () => {
-    if (selectedTournament) {
-      await fetch(`/api/tournaments/${selectedTournament.id}`, {
+    if (!selectedTournament) {
+      prepareRound(round + 1);
+      return;
+    }
+
+    setIsAdvancingRound(true);
+    setFlowError(null);
+
+    try {
+      const response = await fetch(`/api/tournaments/${selectedTournament.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          score,
+          score: totalScore,
           round_reached: round,
           completed: false,
         }),
       });
-      void loadTournamentDetails(selectedTournament.id);
-    }
+      const json = await response.json();
 
-    const nextRound = round + 1;
-    setSelectedAnswer(null);
-    setCorrectAnswer(null);
-    prepareRound(nextRound);
-  }, [loadTournamentDetails, prepareRound, round, score, selectedTournament]);
+      if (!response.ok) {
+        throw new Error(typeof json.error === 'string' ? json.error : 'Tur ilerlemesi kaydedilemedi.');
+      }
+
+      await loadTournamentDetails(selectedTournament.id);
+      setAccumulatedScore(totalScore);
+      const nextRound = round + 1;
+      setSelectedAnswer(null);
+      setCorrectAnswer(null);
+      prepareRound(nextRound);
+    } catch (error) {
+      setFlowError(error instanceof Error ? error.message : 'Tur ilerlemesi kaydedilemedi.');
+    } finally {
+      setIsAdvancingRound(false);
+    }
+  }, [loadTournamentDetails, prepareRound, round, selectedTournament, totalScore]);
 
   const handleRewardComplete = useCallback(() => {
     setShowRewardOverlay(false);
@@ -313,6 +405,13 @@ export default function TournamentPage() {
     router.refresh();
   }, [router]);
 
+  const handleRetryLobby = useCallback(() => {
+    void loadTournamentList();
+  }, [loadTournamentList]);
+
+  const showLobbyError = phase === 'lobby' && lobbyError;
+  const showFlowError = phase !== 'lobby' && flowError;
+
   if (phase === 'lobby') {
     return (
       <div className="min-h-screen p-4 pb-24">
@@ -322,8 +421,8 @@ export default function TournamentPage() {
               <div>
                 <p className="text-xs text-text-secondary">Canlı Turnuvalar</p>
                 <h1 className="mt-1 font-display text-2xl font-bold text-text-primary">Katılabileceğin Turnuvalar</h1>
-                <p className="mt-2 text-sm text-text-secondary">Scope bazlı planlanan ve aktif turnuvalara katıl, ardından 3 turlu mini bracket akışını oyna.</p>
-                <p className="mt-2 text-xs text-text-muted">Katıldıktan sonra 3 turlu turnuva akışı başlar ve skorun global turnuva tablosuna yazılır.</p>
+                <p className="mt-2 text-sm text-text-secondary">Kapsamına uygun canlı turnuvalara katıl, 3 turlu akışı tamamla ve skorunu sıralamaya yazdır.</p>
+                <p className="mt-2 text-xs text-text-muted">Her turnuva yalnızca kendi kapsamındaki oyunculara gösterilir ve sadece canlı olduğunda başlatılabilir.</p>
               </div>
               <div className="rounded-2xl bg-primary-500/12 p-4">
                 <Users className="h-8 w-8 text-primary-500" />
@@ -331,52 +430,68 @@ export default function TournamentPage() {
             </div>
           </Card>
 
-          {scopedTournaments.length === 0 ? (
+          {showLobbyError ? (
+            <Card padding="lg" className="space-y-3 text-center">
+              <p className="font-display text-lg font-semibold text-text-primary">Turnuvalar yüklenemedi</p>
+              <p className="text-sm text-text-secondary">{lobbyError}</p>
+              <Button onClick={handleRetryLobby}>Tekrar Dene</Button>
+            </Card>
+          ) : isListLoading ? (
             <Card padding="lg" className="text-center">
-              <p className="font-display text-lg font-semibold text-text-primary">Şu anda uygun turnuva yok</p>
-              <p className="mt-2 text-sm text-text-secondary">Yeni turnuva açıldığında burada görünecek.</p>
+              <p className="text-sm text-text-secondary">Canlı turnuvalar yükleniyor...</p>
+            </Card>
+          ) : scopedTournaments.length === 0 ? (
+            <Card padding="lg" className="text-center">
+              <p className="font-display text-lg font-semibold text-text-primary">Bu kapsam için uygun turnuva yok</p>
+              <p className="mt-2 text-sm text-text-secondary">Yeni bir turnuva açıldığında burada görünecek.</p>
             </Card>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
               <div className="grid gap-4">
-                {scopedTournaments.map((tournament) => (
-                  <Card key={tournament.id} padding="lg" className="space-y-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs text-text-secondary">{tournament.league_scope} · {tournament.status === 'live' ? 'Canlı' : tournament.status === 'scheduled' ? 'Planlandı' : 'Tamamlandı'}</p>
-                        <h2 className="font-display text-xl font-bold text-text-primary">{tournament.title}</h2>
-                        <p className="mt-1 text-sm text-text-secondary">{tournament.description}</p>
+                {scopedTournaments.map((tournament) => {
+                  const isTournamentJoinable = tournament.status === 'live';
+                  const isCurrentTournamentLoading = isJoiningTournament && joiningTournamentId === tournament.id;
+
+                  return (
+                    <Card key={tournament.id} padding="lg" className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-text-secondary">{tournament.league_scope} · {getTournamentStatusLabel(tournament.status)}</p>
+                          <h2 className="font-display text-xl font-bold text-text-primary">{tournament.title}</h2>
+                          <p className="mt-1 text-sm text-text-secondary">{tournament.description ?? 'Turnuva açıklaması yakında eklenecek.'}</p>
+                        </div>
+                        <span className="rounded-full bg-primary-500 px-3 py-1 text-xs font-bold text-white">{tournament.current_players}/{tournament.max_players}</span>
                       </div>
-                      <span className="rounded-full bg-primary-500 px-3 py-1 text-xs font-bold text-white">{tournament.current_players}/{tournament.max_players}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-text-secondary">
-                      <span>Başlangıç: {new Date(tournament.starts_at).toLocaleString('tr-TR')}</span>
-                      <span>{tournament.status === 'live' ? 'Şimdi açık' : tournament.status === 'scheduled' ? 'Yakında' : 'Kapandı'}</span>
-                    </div>
-                    <Button
-                      onClick={() => void handleJoinTournament(tournament)}
-                      isLoading={isJoiningTournament && selectedTournament?.id === tournament.id}
-                      fullWidth
-                    >
-                      {tournament.status === 'live' ? 'Katıl ve Oyna' : tournament.status === 'scheduled' ? 'Ön Kayıt Ol' : 'Sonuçları Gör'}
-                    </Button>
-                  </Card>
-                ))}
+                      <div className="flex items-center justify-between text-xs text-text-secondary">
+                        <span>Başlangıç: {new Date(tournament.starts_at).toLocaleString('tr-TR')}</span>
+                        <span>{getTournamentStatusHint(tournament.status)}</span>
+                      </div>
+                      <Button
+                        onClick={() => void handleJoinTournament(tournament)}
+                        isLoading={isCurrentTournamentLoading}
+                        disabled={!isTournamentJoinable || isJoiningTournament}
+                        fullWidth
+                      >
+                        {getTournamentActionLabel(tournament)}
+                      </Button>
+                    </Card>
+                  );
+                })}
               </div>
 
               <div className="space-y-4">
                 <Card padding="lg" variant="elevated">
                   <h2 className="font-display text-lg font-semibold text-text-primary">Turnuva Özeti</h2>
-                  <p className="mt-2 text-sm text-text-secondary">{myEntry ? `${myEntry.score} puan · ${myEntry.wins} galibiyet · ${getRoundLabel(myEntry.round_reached)}` : 'Turnuva kaydın oluşturulunca burada görünür.'}</p>
+                  <p className="mt-2 text-sm text-text-secondary">{myEntry ? `${myEntry.score} puan · ${myEntry.wins} galibiyet · ${getRoundLabel(myEntry.round_reached)}` : totalScore > 0 ? `${totalScore} puan · Koşun devam ediyor` : 'Bir turnuvaya katıldığında koşun ve ilerlemen burada görünür.'}</p>
                 </Card>
 
                 <Card padding="lg" variant="elevated" className="space-y-3">
                   <div>
                     <h2 className="font-display text-lg font-semibold text-text-primary">Canlı Turnuva Sıralaması</h2>
-                    <p className="mt-1 text-xs text-text-muted">Bu turnuvadaki en iyi oyuncular</p>
+                    <p className="mt-1 text-xs text-text-muted">{selectedTournament ? 'Seçtiğin turnuvadaki en iyi oyuncular' : 'Bir turnuva başlattığında güncel sıralama burada görünür.'}</p>
                   </div>
                   {leaderboard.length === 0 ? (
-                    <p className="text-sm text-text-secondary">Henüz turnuva katılımı görünmüyor.</p>
+                    <p className="text-sm text-text-secondary">Henüz görüntülenecek sıralama verisi yok.</p>
                   ) : (
                     leaderboard.slice(0, 8).map((entry, index) => {
                       const profile = getProfileData(entry.profiles);
@@ -395,6 +510,12 @@ export default function TournamentPage() {
               </div>
             </div>
           )}
+
+          {flowError ? (
+            <Card padding="md" className="border-danger/30 bg-danger/10 text-center">
+              <p className="text-sm text-text-primary">{flowError}</p>
+            </Card>
+          ) : null}
         </div>
       </div>
     );
@@ -414,20 +535,29 @@ export default function TournamentPage() {
 
   if (phase === 'result') {
     return (
-      <GameResultScreen
-        mode="quick"
-        result={result ?? 'win'}
-        score={score}
-        correctAnswers={correctAnswers}
-        totalAnswered={totalAnswered}
-        xpEarned={xpEarned}
-        coinsEarned={coinsEarned}
-        questionReached={totalQuestions}
-        totalQuestions={totalQuestions}
-        safePointScore={score}
-        onPlayAgain={handleRestart}
-        onGoHome={() => router.push('/play')}
-      />
+      <div className="min-h-screen p-4 pb-24">
+        <div className="mx-auto max-w-xl space-y-4">
+          {flowError ? (
+            <Card padding="md" className="border-danger/30 bg-danger/10 text-center">
+              <p className="text-sm text-text-primary">{flowError}</p>
+            </Card>
+          ) : null}
+          <GameResultScreen
+            mode="quick"
+            result={result ?? 'win'}
+            score={score}
+            correctAnswers={correctAnswers}
+            totalAnswered={totalAnswered}
+            xpEarned={xpEarned}
+            coinsEarned={coinsEarned}
+            questionReached={totalQuestions}
+            totalQuestions={totalQuestions}
+            safePointScore={score}
+            onPlayAgain={handleRestart}
+            onGoHome={() => router.push('/play')}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -442,10 +572,11 @@ export default function TournamentPage() {
           </div>
           <p className="text-sm text-text-secondary">
             {canAdvanceRound
-              ? 'Yeterli puanı topladın. Bir sonraki tura geçebilirsin.'
-              : 'Bu prototip sürümde yine de ilerleyebilirsin; sonraki iterasyonda eleme kuralı sertleşecek.'}
+              ? 'Hedef puanı yakaladın. Hazırsan bir sonraki tura geçebilirsin.'
+              : 'Puanın hedefin altında kaldı, ancak bu koşuda devam edip genel sıralamadaki yerini iyileştirebilirsin.'}
           </p>
-          <Button onClick={() => void handleAdvanceRound()} fullWidth>
+          {flowError ? <p className="text-sm text-danger">{flowError}</p> : null}
+          <Button onClick={() => void handleAdvanceRound()} isLoading={isAdvancingRound} fullWidth>
             <ChevronRight className="h-4 w-4" />
             Sonraki Tur
           </Button>
@@ -457,8 +588,9 @@ export default function TournamentPage() {
   if (!currentQuestion) {
     return (
       <div className="min-h-screen p-4 pb-24 flex items-center justify-center">
-        <Card padding="lg" className="text-center">
+        <Card padding="lg" className="text-center space-y-3">
           <p className="text-text-secondary">Turnuva eşleşmeleri hazırlanıyor...</p>
+          {showFlowError ? <p className="text-sm text-danger">{flowError}</p> : null}
         </Card>
       </div>
     );
@@ -467,6 +599,11 @@ export default function TournamentPage() {
   return (
     <div className="min-h-screen p-4 pb-24">
       <div className="mx-auto max-w-xl space-y-4">
+        {showFlowError ? (
+          <Card padding="md" className="border-danger/30 bg-danger/10 text-center">
+            <p className="text-sm text-text-primary">{flowError}</p>
+          </Card>
+        ) : null}
         <Card padding="md">
           <div className="mb-3 flex items-center justify-between">
             <div>
@@ -475,7 +612,7 @@ export default function TournamentPage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-text-muted">Skor</p>
-              <p className="font-display text-lg font-bold text-primary-500">{formatNumber(score)}</p>
+              <p className="font-display text-lg font-bold text-primary-500">{formatNumber(totalScore)}</p>
             </div>
           </div>
           <TimerBar
