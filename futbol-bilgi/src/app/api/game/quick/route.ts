@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { QUICK_PLAY_CONFIG } from '@/lib/constants/game';
 import { calculateLevel, calculateQuickXP } from '@/lib/utils/game';
 import { getQuickModeQuestionsFromDb } from '@/lib/questions/server';
 
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       })
       .select('*')
       .single(),
-    getQuickModeQuestionsFromDb(leagueScope, 5),
+    getQuickModeQuestionsFromDb(leagueScope, QUICK_PLAY_CONFIG.total_questions),
   ]);
 
   if (error) {

@@ -185,6 +185,10 @@ export default function MillionairePage() {
     }
 
     const gameQuestions = (json.data.questions ?? []) as Question[];
+    if (gameQuestions.length < MILLIONAIRE_STEPS.length) {
+      setShowEnergyWarning(true);
+      return;
+    }
     setQuestions(gameQuestions);
 
     const sessionId = json.data.sessionId as string;

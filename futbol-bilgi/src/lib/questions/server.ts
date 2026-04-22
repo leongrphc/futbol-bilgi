@@ -105,58 +105,40 @@ async function getQuestionsByDifficultyPlan(leagueScope: LeagueScope, difficulty
   const selectedQuestions: Question[] = [];
   const usedIds = new Set<string>();
 
-  for (const difficulty of difficultyPlan) {
-    const { data, error } = await admin
-      .from('questions')
-      .select('*')
-      .eq('is_active', true)
-      .eq('league_scope', leagueScope)
-      .eq('difficulty', difficulty)
-      .limit(40);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    const pool = ((data ?? []) as QuestionRow[])
-      .map(mapQuestionRow)
-      .filter((question) => question.options.length === 4 && !usedIds.has(question.id));
-
-    if (pool.length === 0) {
-      continue;
-    }
-
-    const chosen = pool[Math.floor(Math.random() * pool.length)];
-    usedIds.add(chosen.id);
-    selectedQuestions.push(chosen);
-  }
-
-  if (selectedQuestions.length >= difficultyPlan.length) {
-    return selectedQuestions.slice(0, difficultyPlan.length);
-  }
-
-  const { data: fallbackData, error: fallbackError } = await admin
+  const { data: allScopeData, error: allScopeError } = await admin
     .from('questions')
     .select('*')
     .eq('is_active', true)
     .eq('league_scope', leagueScope)
-    .limit(100);
+    .limit(500);
 
-  if (fallbackError) {
-    throw new Error(fallbackError.message);
+  if (allScopeError) {
+    throw new Error(allScopeError.message);
   }
 
-  const fallbackPool = ((fallbackData ?? []) as QuestionRow[])
+  const allScopeQuestions = ((allScopeData ?? []) as QuestionRow[])
     .map(mapQuestionRow)
-    .filter((question) => question.options.length === 4 && !usedIds.has(question.id));
+    .filter((question) => question.options.length === 4);
 
-  for (const question of fallbackPool) {
-    if (selectedQuestions.length >= difficultyPlan.length) break;
-    usedIds.add(question.id);
-    selectedQuestions.push(question);
+  for (const difficulty of difficultyPlan) {
+    const exactPool = allScopeQuestions.filter((question) => question.difficulty === difficulty && !usedIds.has(question.id));
+    const nearbyPool = allScopeQuestions.filter((question) => Math.abs(question.difficulty - difficulty) <= 1 && !usedIds.has(question.id));
+    const fallbackPool = allScopeQuestions.filter((question) => !usedIds.has(question.id));
+    const chosen = exactPool[0] ?? nearbyPool[0] ?? fallbackPool[0];
+
+    if (!chosen) {
+      throw new Error(`${leagueScope} kapsamı için yeterli aktif soru yok. Beklenen ${difficultyPlan.length}, bulunan ${selectedQuestions.length}.`);
+    }
+
+    usedIds.add(chosen.id);
+    selectedQuestions.push(chosen);
   }
 
-  return selectedQuestions.slice(0, difficultyPlan.length);
+  if (selectedQuestions.length < difficultyPlan.length) {
+    throw new Error(`${leagueScope} kapsamı için yeterli aktif soru yok. Beklenen ${difficultyPlan.length}, bulunan ${selectedQuestions.length}.`);
+  }
+
+  return selectedQuestions;
 }
 
 export async function getQuickModeQuestionsFromDb(leagueScope: LeagueScope, totalQuestions: number) {

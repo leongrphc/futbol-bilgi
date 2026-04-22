@@ -193,6 +193,11 @@ export default function DailyPage() {
       }
 
       const gameQuestions = (json.data.questions ?? []) as Question[];
+      if (gameQuestions.length < DAILY_CHALLENGE_CONFIG.questions) {
+        setMessage('Bu mod için yeterli sayıda aktif soru bulunamadı.');
+        setPhase('result');
+        return;
+      }
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;

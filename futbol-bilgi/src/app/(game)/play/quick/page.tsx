@@ -160,10 +160,15 @@ export default function QuickPage() {
       const json = await response.json();
 
       if (!response.ok || !json.data) {
+        setPhase('result');
         return;
       }
 
       const gameQuestions = (json.data.questions ?? []) as Question[];
+      if (gameQuestions.length < QUICK_PLAY_CONFIG.total_questions) {
+        setPhase('result');
+        return;
+      }
       setQuestions(gameQuestions);
 
       const sessionId = json.data.sessionId as string;

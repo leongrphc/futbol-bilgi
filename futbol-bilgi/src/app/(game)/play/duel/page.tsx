@@ -143,7 +143,12 @@ export default function DuelPage() {
 
     if (isChallengeMode) {
       setChallengeInviteId((json.data.inviteId as string | null) ?? challengeInviteIdFromQuery);
-      setQuestions((json.data.questions ?? []) as Question[]);
+      const challengeQuestions = (json.data.questions ?? []) as Question[];
+      if (challengeQuestions.length < DUEL_CONFIG.total_questions) {
+        setShowEnergyWarning(true);
+        return;
+      }
+      setQuestions(challengeQuestions);
       const challengeOpponent = json.data.opponent as { id: string; username: string; elo: number } | undefined;
       setOpponent(challengeOpponent ? {
         id: challengeOpponent.id,
@@ -155,7 +160,12 @@ export default function DuelPage() {
       return;
     }
 
-    setQuestions((json.data.questions ?? []) as Question[]);
+    const duelQuestions = (json.data.questions ?? []) as Question[];
+    if (duelQuestions.length < DUEL_CONFIG.total_questions) {
+      setShowEnergyWarning(true);
+      return;
+    }
+    setQuestions(duelQuestions);
     setOpponent(createMockOpponent());
     setPhase('searching');
   }, [user, setUser, createMockOpponent, isChallengeMode, challengeInviteIdFromQuery]);

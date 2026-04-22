@@ -204,6 +204,11 @@ export default function TournamentPage() {
     }
 
     const roundQuestions = json.data.questions as Question[];
+    if (roundQuestions.length < TOURNAMENT_CONFIG.questions_per_round) {
+      setFlowError('Bu tur için yeterli sayıda aktif soru bulunamadı.');
+      setPhase('lobby');
+      return;
+    }
     setQuestions(roundQuestions);
     setRound(nextRound);
     resetGame();
