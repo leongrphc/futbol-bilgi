@@ -27,6 +27,14 @@ class MillionaireRepository {
 
     return response.data['data'] as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> useJoker(String jokerType) async {
+    final response = await apiClient.post('/api/me/jokers/use', data: {
+      'jokerType': jokerType,
+    });
+
+    return response.data['data'] as Map<String, dynamic>;
+  }
 }
 
 final millionaireRepository = MillionaireRepository();
