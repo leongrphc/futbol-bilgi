@@ -34,6 +34,10 @@ class ProfileScreen extends ConsumerWidget {
         final coins = _asInt(profile['coins']);
         final gems = _asInt(profile['gems']);
         final energy = _asInt(profile['energy']);
+        final elo = _asInt(profile['elo_rating']);
+        final streak = _asInt(profile['streak_days']);
+        final leagueTier = profile['league_tier']?.toString() ?? 'bronze';
+        final favoriteTeam = profile['favorite_team']?.toString() ?? 'Takım seçilmedi';
         final correctAnswers = _asInt(profile['total_correct_answers']);
         final totalAnswered = _asInt(profile['total_questions_answered']);
         final accuracy = totalAnswered == 0 ? 0 : ((correctAnswers / totalAnswered) * 100).round();
@@ -41,13 +45,15 @@ class ProfileScreen extends ConsumerWidget {
         return RefreshIndicator(
           onRefresh: () async => ref.refresh(profileProvider.future),
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             children: [
               _ProfileHeroCard(
                 username: username,
                 level: level,
                 xp: xp,
                 accuracy: accuracy,
+                favoriteTeam: favoriteTeam,
+                leagueTier: leagueTier,
               ),
               const SizedBox(height: 20),
               GridView.count(
@@ -55,35 +61,37 @@ class ProfileScreen extends ConsumerWidget {
                 crossAxisCount: 2,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
-                childAspectRatio: 1.35,
+                childAspectRatio: 1.15,
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   _StatCard(label: 'Enerji', value: '$energy/5', icon: Icons.bolt_rounded),
                   _StatCard(label: 'Coin', value: _formatCompact(coins), icon: Icons.monetization_on_rounded),
                   _StatCard(label: 'Gem', value: _formatCompact(gems), icon: Icons.diamond_rounded),
-                  _StatCard(label: 'Doğruluk', value: '%$accuracy', icon: Icons.track_changes_rounded),
+                  _StatCard(label: 'ELO', value: '$elo', icon: Icons.shield_rounded),
                 ],
               ),
               const SizedBox(height: 20),
               _SectionCard(
-                title: 'İlerleme',
+                title: 'Oyuncu Özeti',
                 child: Column(
                   children: [
                     _InfoRow(label: 'Seviye', value: '$level'),
                     _InfoRow(label: 'Toplam XP', value: _formatCompact(xp)),
                     _InfoRow(label: 'Doğru cevap', value: '$correctAnswers'),
                     _InfoRow(label: 'Toplam soru', value: '$totalAnswered'),
+                    _InfoRow(label: 'Doğruluk', value: '%$accuracy'),
+                    _InfoRow(label: 'Streak', value: '$streak gün'),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
               _SectionCard(
-                title: 'Mobil durum',
-                child: const Column(
+                title: 'Lig ve Kimlik',
+                child: Column(
                   children: [
-                    _InfoRow(label: 'Auth', value: 'Hazır'),
-                    _InfoRow(label: 'Profil senkronu', value: 'Aktif'),
-                    _InfoRow(label: 'Millionaire', value: 'Bağlanıyor'),
+                    _InfoRow(label: 'Lig', value: leagueTier),
+                    _InfoRow(label: 'Favori takım', value: favoriteTeam),
+                    _InfoRow(label: 'Premium', value: profile['is_premium'] == true ? 'Aktif' : 'Kapalı'),
                   ],
                 ),
               ),
@@ -120,12 +128,16 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.level,
     required this.xp,
     required this.accuracy,
+    required this.favoriteTeam,
+    required this.leagueTier,
   });
 
   final String username;
   final int level;
   final int xp;
   final int accuracy;
+  final String favoriteTeam;
+  final String leagueTier;
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +160,7 @@ class _ProfileHeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            radius: 28,
+            radius: 30,
             backgroundColor: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.12),
             child: Text(
               username.isEmpty ? 'O' : username.characters.first.toUpperCase(),
@@ -157,10 +169,39 @@ class _ProfileHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(username, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text('Level $level · $xp XP · %$accuracy doğruluk', style: theme.textTheme.bodyLarge),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _MetaChip(label: leagueTier),
+              _MetaChip(label: favoriteTeam),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.08),
+      ),
+      child: Text(label, style: theme.textTheme.labelLarge),
     );
   }
 }
