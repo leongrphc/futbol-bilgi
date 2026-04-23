@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAuthenticatedUser } from '@/lib/supabase/request-auth';
 import type { DuelInvite, Friendship, User } from '@/types';
 import type { SocialProfile } from '@/lib/stores/social-store';
 
@@ -55,8 +55,7 @@ async function getSocialSnapshot(userId: string): Promise<SocialSnapshot> {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthenticatedUser(request);
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -121,8 +120,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthenticatedUser(request);
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -195,8 +193,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user } = await getAuthenticatedUser(request);
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

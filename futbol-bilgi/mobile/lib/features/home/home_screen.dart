@@ -178,27 +178,34 @@ class _HomeOverview extends ConsumerWidget {
                 onTap: () => context.push('/daily'),
               ),
               const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  color: theme.colorScheme.surfaceContainerHighest,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Topluluk ve Rekabet', style: theme.textTheme.titleLarge),
-                    const SizedBox(height: 8),
-                    const Text('Leaderboard parity geldi. Sonraki dalga duel, league, achievements ve social yüzeyleri olacak.'),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => context.push('/leaderboard'),
-                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                      icon: const Icon(Icons.leaderboard_rounded),
-                      label: const Text('Leaderboard Aç'),
-                    ),
-                  ],
-                ),
+              Text('Topluluk ve Rekabet', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              _FeatureCard(
+                title: 'Leaderboard',
+                description: 'Genel, millionaire ve düello sıralamalarını görüntüle.',
+                icon: Icons.leaderboard_rounded,
+                onTap: () => context.push('/leaderboard'),
+              ),
+              const SizedBox(height: 12),
+              _FeatureCard(
+                title: 'League',
+                description: 'Aktif sezonu ve haftalık lig tablosunu takip et.',
+                icon: Icons.shield_rounded,
+                onTap: () => context.push('/league'),
+              ),
+              const SizedBox(height: 12),
+              _FeatureCard(
+                title: 'Achievements',
+                description: 'Başarım senkronu ve ödül özetini görüntüle.',
+                icon: Icons.workspace_premium_rounded,
+                onTap: () => context.push('/achievements'),
+              ),
+              const SizedBox(height: 12),
+              _FeatureCard(
+                title: 'Social',
+                description: 'Arkadaşlarını, istekleri ve düello girişlerini yönet.',
+                icon: Icons.groups_rounded,
+                onTap: () => context.push('/social'),
               ),
             ],
           ),
@@ -315,6 +322,57 @@ class _GameModeCard extends StatelessWidget {
             style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             icon: const Icon(Icons.play_arrow_rounded),
             label: Text('$title Aç'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureCard extends StatelessWidget {
+  const _FeatureCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            child: Icon(icon),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(description),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onTap,
+            icon: const Icon(Icons.arrow_forward_rounded),
           ),
         ],
       ),
