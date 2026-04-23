@@ -19,6 +19,7 @@ import '../features/millionaire/millionaire_screen.dart';
 import '../features/quick/quick_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/social/social_screen.dart';
+import '../features/tournament/tournament_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authChanges = AppConfig.isSupabaseConfigured ? ref.watch(authStateChangesProvider) : const Stream<Session?>.empty();
@@ -54,6 +55,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/shop',
         builder: (context, state) => const ShopScreen(),
+      ),
+      GoRoute(
+        path: '/tournament',
+        builder: (context, state) => const TournamentScreen(),
       ),
       GoRoute(
         path: '/leaderboard',
