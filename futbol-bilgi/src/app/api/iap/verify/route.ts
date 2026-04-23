@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAuthenticatedUser } from '@/lib/supabase/request-auth';
 import { applyIapGrant, IAP_PRODUCT_CONFIG, isIapProductId } from '@/lib/iap/products';
 import { isIapPlatform, verifyPurchase, type IapPlatform } from '@/lib/iap/verification';
 
@@ -13,10 +13,7 @@ interface VerifyRequestBody {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getAuthenticatedUser(request);
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
