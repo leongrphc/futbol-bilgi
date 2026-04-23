@@ -166,8 +166,26 @@ class _SocialScreenState extends State<SocialScreen> {
           return RefreshIndicator(
             onRefresh: () async => _reload(),
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      colors: [theme.colorScheme.primaryContainer, theme.colorScheme.tertiaryContainer],
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Sosyal Merkez', style: theme.textTheme.headlineSmall),
+                      const SizedBox(height: 8),
+                      Text('Arkadaş listeni büyüt, gelen istekleri yanıtla ve düelloları başlat.', style: theme.textTheme.bodyLarge),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -202,26 +220,13 @@ class _SocialScreenState extends State<SocialScreen> {
                     final requesterId = item['user_id']?.toString() ?? '';
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('İstek gönderen: $requesterId'),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(child: FilledButton(onPressed: () => _acceptRequest(requesterId), child: const Text('Kabul'))),
-                                const SizedBox(width: 12),
-                                Expanded(child: OutlinedButton(onPressed: () => _rejectRequest(requesterId), child: const Text('Reddet'))),
-                              ],
-                            ),
-                          ],
-                        ),
+                      child: _SocialCard(
+                        title: requesterId,
+                        subtitle: 'Arkadaş isteği gönderdi',
+                        primaryLabel: 'Kabul',
+                        secondaryLabel: 'Reddet',
+                        onPrimary: () => _acceptRequest(requesterId),
+                        onSecondary: () => _rejectRequest(requesterId),
                       ),
                     );
                   }),
@@ -233,32 +238,11 @@ class _SocialScreenState extends State<SocialScreen> {
                   final isFriend = acceptedFriendIds.contains(id);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(22),
-                        color: theme.colorScheme.surfaceContainerHighest,
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(child: Text((profile['username']?.toString() ?? 'O').characters.first.toUpperCase())),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(profile['username']?.toString() ?? 'Oyuncu', style: theme.textTheme.titleMedium),
-                                Text('${profile['league_tier'] ?? 'bronze'} · ${profile['score'] ?? 0} XP'),
-                              ],
-                            ),
-                          ),
-                          if (isFriend)
-                            FilledButton.tonal(
-                              onPressed: () => _sendDuelInvite(id),
-                              child: const Text('Düello'),
-                            ),
-                        ],
-                      ),
+                    child: _SocialCard(
+                      title: profile['username']?.toString() ?? 'Oyuncu',
+                      subtitle: '${profile['league_tier'] ?? 'bronze'} · ${profile['score'] ?? 0} XP',
+                      primaryLabel: isFriend ? 'Düello' : null,
+                      onPrimary: isFriend ? () => _sendDuelInvite(id) : null,
                     ),
                   );
                 }),
@@ -277,36 +261,17 @@ class _SocialScreenState extends State<SocialScreen> {
                     final isOutgoing = currentUserId != null && fromUserId == currentUserId;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('From: $fromUserId'),
-                            Text('To: $toUserId'),
-                            Text('Status: $status'),
-                            if (status == 'pending') ...[
-                              const SizedBox(height: 12),
-                              if (isIncoming)
-                                Row(
-                                  children: [
-                                    Expanded(child: FilledButton(onPressed: () => _acceptDuelInvite(inviteId), child: const Text('Kabul'))),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: OutlinedButton(onPressed: () => _rejectDuelInvite(inviteId), child: const Text('Reddet'))),
-                                  ],
-                                )
-                              else if (isOutgoing)
-                                FilledButton.tonal(
-                                  onPressed: () => _cancelDuelInvite(inviteId),
-                                  child: const Text('İptal Et'),
-                                ),
-                            ],
-                          ],
-                        ),
+                      child: _SocialCard(
+                        title: '$fromUserId → $toUserId',
+                        subtitle: 'Durum: $status',
+                        primaryLabel: status == 'pending' && isIncoming ? 'Kabul' : status == 'pending' && isOutgoing ? 'İptal' : null,
+                        secondaryLabel: status == 'pending' && isIncoming ? 'Reddet' : null,
+                        onPrimary: status == 'pending' && isIncoming
+                            ? () => _acceptDuelInvite(inviteId)
+                            : status == 'pending' && isOutgoing
+                                ? () => _cancelDuelInvite(inviteId)
+                                : null,
+                        onSecondary: status == 'pending' && isIncoming ? () => _rejectDuelInvite(inviteId) : null,
                       ),
                     );
                   }),
@@ -314,6 +279,57 @@ class _SocialScreenState extends State<SocialScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _SocialCard extends StatelessWidget {
+  const _SocialCard({
+    required this.title,
+    required this.subtitle,
+    this.primaryLabel,
+    this.secondaryLabel,
+    this.onPrimary,
+    this.onSecondary,
+  });
+
+  final String title;
+  final String subtitle;
+  final String? primaryLabel;
+  final String? secondaryLabel;
+  final VoidCallback? onPrimary;
+  final VoidCallback? onSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(subtitle),
+          if (primaryLabel != null || secondaryLabel != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (primaryLabel != null)
+                  Expanded(child: FilledButton(onPressed: onPrimary, child: Text(primaryLabel!))),
+                if (primaryLabel != null && secondaryLabel != null) const SizedBox(width: 12),
+                if (secondaryLabel != null)
+                  Expanded(child: OutlinedButton(onPressed: onSecondary, child: Text(secondaryLabel!))),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

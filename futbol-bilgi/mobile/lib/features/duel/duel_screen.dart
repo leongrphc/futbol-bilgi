@@ -284,7 +284,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 gradient: LinearGradient(
-                  colors: [theme.colorScheme.primaryContainer, theme.colorScheme.secondaryContainer],
+                  colors: [theme.colorScheme.primaryContainer, theme.colorScheme.tertiaryContainer],
                 ),
               ),
               child: Column(
@@ -302,7 +302,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
+              childAspectRatio: 1.15,
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 _ResultStat(label: 'Doğru', value: '${_result!.correctAnswers}/${_result!.totalAnswered}', icon: Icons.track_changes_rounded),
@@ -354,6 +354,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Sen', style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 4),
                         Text('$_playerScore', style: theme.textTheme.headlineSmall),
                       ],
                     ),
@@ -370,6 +371,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(_opponent!.username, style: theme.textTheme.labelLarge),
+                        const SizedBox(height: 4),
                         Text('$_opponentScore', style: theme.textTheme.headlineSmall),
                       ],
                     ),

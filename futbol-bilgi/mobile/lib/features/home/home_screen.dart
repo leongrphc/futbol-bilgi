@@ -110,20 +110,23 @@ class _HomeOverview extends ConsumerWidget {
         final coins = _asInt(profile?['coins']);
         final xp = _asInt(profile?['xp']);
         final gems = _asInt(profile?['gems']);
+        final correctAnswers = _asInt(profile?['total_correct_answers']);
+        final totalAnswered = _asInt(profile?['total_questions_answered']);
+        final accuracy = totalAnswered == 0 ? 0 : ((correctAnswers / totalAnswered) * 100).round();
 
         return RefreshIndicator(
           onRefresh: () async => ref.refresh(profileProvider.future),
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             children: [
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(32),
                   gradient: LinearGradient(
                     colors: [
                       theme.colorScheme.primaryContainer,
-                      theme.colorScheme.secondaryContainer,
+                      theme.colorScheme.tertiaryContainer,
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -132,20 +135,21 @@ class _HomeOverview extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Hoş geldin, $username', style: theme.textTheme.headlineSmall),
+                    Text('Merhaba, $username', style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(
-                      'Level $level · ${_formatCompact(xp)} XP · ${_formatCompact(coins)} coin · ${_formatCompact(gems)} gem',
+                      'Level $level · ${_formatCompact(xp)} XP · %$accuracy doğruluk',
                       style: theme.textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
                         _ChipStat(label: 'Enerji', value: '$energy/5', icon: Icons.bolt_rounded),
-                        _ChipStat(label: 'API', value: 'Bağlı', icon: Icons.cloud_done_rounded),
-                        _ChipStat(label: 'Auth', value: 'Aktif', icon: Icons.verified_user_rounded),
+                        _ChipStat(label: 'Coin', value: _formatCompact(coins), icon: Icons.monetization_on_rounded),
+                        _ChipStat(label: 'Gem', value: _formatCompact(gems), icon: Icons.diamond_rounded),
+                        _ChipStat(label: 'Doğru', value: '$correctAnswers/$totalAnswered', icon: Icons.track_changes_rounded),
                       ],
                     ),
                   ],
@@ -154,84 +158,51 @@ class _HomeOverview extends ConsumerWidget {
               const SizedBox(height: 20),
               Text('Oyun Modları', style: theme.textTheme.titleLarge),
               const SizedBox(height: 12),
-              _GameModeCard(
-                title: 'Millionaire',
-                description: '15 soruluk ana akış, jokerler ve güvenli noktalar.',
-                icon: Icons.emoji_events_rounded,
-                badge: '1 ⚡',
-                onTap: () => context.push('/millionaire'),
-              ),
-              const SizedBox(height: 12),
-              _GameModeCard(
-                title: 'Quick Play',
-                description: '10 soru, 120 saniye, süre bonusu ile hızlı maç.',
-                icon: Icons.flash_on_rounded,
-                badge: 'Ücretsiz',
-                onTap: () => context.push('/quick'),
-              ),
-              const SizedBox(height: 12),
-              _GameModeCard(
-                title: 'Daily Challenge',
-                description: 'Bugünün 5 sorusu ve sabit günlük ödül akışı.',
-                icon: Icons.calendar_today_rounded,
-                badge: 'Günlük',
-                onTap: () => context.push('/daily'),
-              ),
-              const SizedBox(height: 12),
-              _GameModeCard(
-                title: 'Düello',
-                description: '5 soruluk hız odaklı 1v1 rekabet akışı.',
-                icon: Icons.sports_martial_arts_rounded,
-                badge: '1 ⚡',
-                onTap: () => context.push('/duel'),
-              ),
-              const SizedBox(height: 12),
-              _GameModeCard(
-                title: 'Tournament',
-                description: '3 turlu eleme akışı ve canlı turnuva tablosu.',
-                icon: Icons.emoji_events_rounded,
-                badge: 'Canlı',
-                onTap: () => context.push('/tournament'),
+              GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.95,
+                physics: const NeverScrollableScrollPhysics(),
+                children: const [
+                  _ModeTile(title: 'Millionaire', description: 'Ana yarışma', badge: '1 ⚡', icon: Icons.emoji_events_rounded, route: '/millionaire'),
+                  _ModeTile(title: 'Quick', description: '10 soru / 120 sn', badge: 'Ücretsiz', icon: Icons.flash_on_rounded, route: '/quick'),
+                  _ModeTile(title: 'Daily', description: 'Bugünün 5 sorusu', badge: 'Günlük', icon: Icons.calendar_today_rounded, route: '/daily'),
+                  _ModeTile(title: 'Düello', description: '1v1 hız maçı', badge: '1 ⚡', icon: Icons.sports_martial_arts_rounded, route: '/duel'),
+                  _ModeTile(title: 'Tournament', description: '3 tur eleme', badge: 'Canlı', icon: Icons.military_tech_rounded, route: '/tournament'),
+                  _ModeTile(title: 'Mağaza', description: 'Tema / frame / joker', badge: 'Shop', icon: Icons.storefront_rounded, route: '/shop'),
+                ],
               ),
               const SizedBox(height: 20),
-              Text('Mağaza ve Koleksiyon', style: theme.textTheme.titleLarge),
+              Text('Rekabet ve Sosyal', style: theme.textTheme.titleLarge),
               const SizedBox(height: 12),
-              _FeatureCard(
-                title: 'Mağaza',
-                description: 'Tema, joker ve enerji satın alıp hesabını geliştir.',
-                icon: Icons.storefront_rounded,
-                onTap: () => context.push('/shop'),
-              ),
-              const SizedBox(height: 20),
-              Text('Topluluk ve Rekabet', style: theme.textTheme.titleLarge),
-
-              const SizedBox(height: 12),
-              _FeatureCard(
+              _FeatureStrip(
                 title: 'Leaderboard',
-                description: 'Genel, millionaire ve düello sıralamalarını görüntüle.',
+                description: 'Genel, millionaire ve düello sıralamalarını gör.',
                 icon: Icons.leaderboard_rounded,
-                onTap: () => context.push('/leaderboard'),
+                route: '/leaderboard',
               ),
               const SizedBox(height: 12),
-              _FeatureCard(
+              _FeatureStrip(
                 title: 'League',
-                description: 'Aktif sezonu ve haftalık lig tablosunu takip et.',
+                description: 'Aktif sezonu ve haftalık pozisyonunu takip et.',
                 icon: Icons.shield_rounded,
-                onTap: () => context.push('/league'),
+                route: '/league',
               ),
               const SizedBox(height: 12),
-              _FeatureCard(
+              _FeatureStrip(
                 title: 'Achievements',
-                description: 'Başarım senkronu ve ödül özetini görüntüle.',
+                description: 'Başarım ödüllerini ve açılan rozetleri gör.',
                 icon: Icons.workspace_premium_rounded,
-                onTap: () => context.push('/achievements'),
+                route: '/achievements',
               ),
               const SizedBox(height: 12),
-              _FeatureCard(
+              _FeatureStrip(
                 title: 'Social',
-                description: 'Arkadaşlarını, istekleri ve düello girişlerini yönet.',
+                description: 'Arkadaşlar, davetler ve düello girişleri.',
                 icon: Icons.groups_rounded,
-                onTap: () => context.push('/social'),
+                route: '/social',
               ),
             ],
           ),
@@ -241,9 +212,7 @@ class _HomeOverview extends ConsumerWidget {
   }
 
   int _asInt(Object? value) {
-    if (value is int) {
-      return value;
-    }
+    if (value is int) return value;
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
@@ -261,11 +230,7 @@ class _HomeOverview extends ConsumerWidget {
 }
 
 class _ChipStat extends StatelessWidget {
-  const _ChipStat({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+  const _ChipStat({required this.label, required this.value, required this.icon});
 
   final String label;
   final String value;
@@ -293,114 +258,109 @@ class _ChipStat extends StatelessWidget {
   }
 }
 
-class _GameModeCard extends StatelessWidget {
-  const _GameModeCard({
+class _ModeTile extends StatelessWidget {
+  const _ModeTile({
     required this.title,
     required this.description,
-    required this.icon,
     required this.badge,
-    required this.onTap,
+    required this.icon,
+    required this.route,
   });
 
   final String title;
   final String description;
-  final IconData icon;
   final String badge;
-  final VoidCallback onTap;
+  final IconData icon;
+  final String route;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                child: Icon(icon),
+    return InkWell(
+      onTap: () => context.push(route),
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: theme.colorScheme.surfaceContainerHighest,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: Icon(icon),
+            ),
+            const Spacer(),
+            Text(title, style: theme.textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: theme.colorScheme.primaryContainer,
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  color: theme.colorScheme.primaryContainer,
-                ),
-                child: Text(badge, style: theme.textTheme.labelMedium),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(description),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onTap,
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: Text('$title Aç'),
-          ),
-        ],
+              child: Text(badge, style: theme.textTheme.labelMedium),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _FeatureCard extends StatelessWidget {
-  const _FeatureCard({
+class _FeatureStrip extends StatelessWidget {
+  const _FeatureStrip({
     required this.title,
     required this.description,
     required this.icon,
-    required this.onTap,
+    required this.route,
   });
 
   final String title;
   final String description;
   final IconData icon;
-  final VoidCallback onTap;
+  final String route;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            child: Icon(icon),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(description),
-              ],
+    return InkWell(
+      onTap: () => context.push(route),
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: theme.colorScheme.surfaceContainerHighest,
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: theme.colorScheme.primaryContainer,
+              child: Icon(icon),
             ),
-          ),
-          IconButton(
-            onPressed: onTap,
-            icon: const Icon(Icons.arrow_forward_rounded),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(description),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_rounded),
+          ],
+        ),
       ),
     );
   }
