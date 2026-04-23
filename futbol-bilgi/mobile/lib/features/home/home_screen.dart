@@ -51,7 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _HomeOverview(
               email: user?.email,
               fallbackUsername: user?.userMetadata?['username']?.toString(),
-              onPlayMillionaire: () => context.push('/millionaire'),
             ),
             const ProfileScreen(),
           ],
@@ -81,12 +80,10 @@ class _HomeOverview extends ConsumerWidget {
   const _HomeOverview({
     required this.email,
     required this.fallbackUsername,
-    required this.onPlayMillionaire,
   });
 
   final String? email;
   final String? fallbackUsername;
-  final VoidCallback onPlayMillionaire;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,6 +109,7 @@ class _HomeOverview extends ConsumerWidget {
         final level = _asInt(profile?['level']);
         final coins = _asInt(profile?['coins']);
         final xp = _asInt(profile?['xp']);
+        final gems = _asInt(profile?['gems']);
 
         return RefreshIndicator(
           onRefresh: () async => ref.refresh(profileProvider.future),
@@ -137,7 +135,7 @@ class _HomeOverview extends ConsumerWidget {
                     Text('Hoş geldin, $username', style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(
-                      'Level $level · ${_formatCompact(xp)} XP · ${_formatCompact(coins)} coin',
+                      'Level $level · ${_formatCompact(xp)} XP · ${_formatCompact(coins)} coin · ${_formatCompact(gems)} gem',
                       style: theme.textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 16),
@@ -154,6 +152,32 @@ class _HomeOverview extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              Text('Oyun Modları', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 12),
+              _GameModeCard(
+                title: 'Millionaire',
+                description: '15 soruluk ana akış, jokerler ve güvenli noktalar.',
+                icon: Icons.emoji_events_rounded,
+                badge: '1 ⚡',
+                onTap: () => context.push('/millionaire'),
+              ),
+              const SizedBox(height: 12),
+              _GameModeCard(
+                title: 'Quick Play',
+                description: '10 soru, 120 saniye, süre bonusu ile hızlı maç.',
+                icon: Icons.flash_on_rounded,
+                badge: 'Ücretsiz',
+                onTap: () => context.push('/quick'),
+              ),
+              const SizedBox(height: 12),
+              _GameModeCard(
+                title: 'Daily Challenge',
+                description: 'Bugünün 5 sorusu ve sabit günlük ödül akışı.',
+                icon: Icons.calendar_today_rounded,
+                badge: 'Günlük',
+                onTap: () => context.push('/daily'),
+              ),
+              const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -163,15 +187,15 @@ class _HomeOverview extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Millionaire', style: theme.textTheme.titleLarge),
+                    Text('Topluluk ve Rekabet', style: theme.textTheme.titleLarge),
                     const SizedBox(height: 8),
-                    const Text('15 soruluk akış, güvenli noktalar ve oyun sonu ödül senkronu ile mobil için hazırlanıyor.'),
+                    const Text('Leaderboard parity geldi. Sonraki dalga duel, league, achievements ve social yüzeyleri olacak.'),
                     const SizedBox(height: 16),
                     FilledButton.icon(
-                      onPressed: onPlayMillionaire,
+                      onPressed: () => context.push('/leaderboard'),
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                      icon: const Icon(Icons.emoji_events_rounded),
-                      label: const Text('Millionaire Başlat'),
+                      icon: const Icon(Icons.leaderboard_rounded),
+                      label: const Text('Leaderboard Aç'),
                     ),
                   ],
                 ),
@@ -230,6 +254,68 @@ class _ChipStat extends StatelessWidget {
           Icon(icon, size: 18),
           const SizedBox(width: 8),
           Text('$label: $value', style: theme.textTheme.labelLarge),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameModeCard extends StatelessWidget {
+  const _GameModeCard({
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.badge,
+    required this.onTap,
+  });
+
+  final String title;
+  final String description;
+  final IconData icon;
+  final String badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                child: Icon(icon),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: theme.colorScheme.primaryContainer,
+                ),
+                child: Text(badge, style: theme.textTheme.labelMedium),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(description),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onTap,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text('$title Aç'),
+          ),
         ],
       ),
     );

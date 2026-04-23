@@ -9,8 +9,11 @@ import '../core/config/app_config.dart';
 import '../core/supabase/supabase_provider.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/auth_screen.dart';
+import '../features/daily/daily_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/leaderboard/leaderboard_screen.dart';
 import '../features/millionaire/millionaire_screen.dart';
+import '../features/quick/quick_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authChanges = AppConfig.isSupabaseConfigured ? ref.watch(authStateChangesProvider) : const Stream<Session?>.empty();
@@ -30,6 +33,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/millionaire',
         builder: (context, state) => const MillionaireScreen(),
+      ),
+      GoRoute(
+        path: '/quick',
+        builder: (context, state) => const QuickScreen(),
+      ),
+      GoRoute(
+        path: '/daily',
+        builder: (context, state) => const DailyScreen(),
+      ),
+      GoRoute(
+        path: '/leaderboard',
+        builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
         path: '/config',
