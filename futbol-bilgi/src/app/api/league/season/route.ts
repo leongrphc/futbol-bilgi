@@ -5,6 +5,8 @@ export async function GET() {
   try {
     const supabase = await createClient();
 
+    // Public season snapshot; no user-bound auth required here.
+
     const { data: season, error } = await supabase
       .rpc('get_current_season')
       .maybeSingle();
