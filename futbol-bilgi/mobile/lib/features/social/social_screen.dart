@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'social_repository.dart';
 
@@ -83,6 +84,36 @@ class _SocialScreenState extends State<SocialScreen> {
     }
   }
 
+  Future<void> _acceptDuelInvite(String inviteId) async {
+    try {
+      await socialRepository.acceptDuelInvite(inviteId);
+      setState(() => _message = 'Düello daveti kabul edildi.');
+      _reload();
+    } catch (error) {
+      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _rejectDuelInvite(String inviteId) async {
+    try {
+      await socialRepository.rejectDuelInvite(inviteId);
+      setState(() => _message = 'Düello daveti reddedildi.');
+      _reload();
+    } catch (error) {
+      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _cancelDuelInvite(String inviteId) async {
+    try {
+      await socialRepository.cancelDuelInvite(inviteId);
+      setState(() => _message = 'Düello daveti iptal edildi.');
+      _reload();
+    } catch (error) {
+      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -116,9 +147,21 @@ class _SocialScreenState extends State<SocialScreen> {
           final profiles = (payload['profiles'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
           final friendships = (payload['friendships'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
           final invites = (payload['duelInvites'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-          final acceptedFriendIds = friendships.where((item) => item['status'] == 'accepted').map((item) => item['friend_id']?.toString()).whereType<String>().toSet();
-          final pendingIncoming = friendships.where((item) => item['status'] == 'pending').toList();
+          final acceptedFriendIds = friendships
+              .where((item) => item['status'] == 'accepted')
+              .map((item) {
+                final userId = item['user_id']?.toString();
+                final friendId = item['friend_id']?.toString();
+                if (currentUserId != null && userId == currentUserId) {
+                  return friendId;
+                }
+                return userId;
+              })
+              .whereType<String>()
+              .toSet();
+          final pendingIncoming = friendships.where((item) => item['status'] == 'pending' && item['friend_id']?.toString() == currentUserId).toList();
 
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -225,24 +268,48 @@ class _SocialScreenState extends State<SocialScreen> {
                 if (invites.isEmpty)
                   const Text('Aktif düello daveti yok.')
                 else
-                  ...invites.map((invite) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            color: theme.colorScheme.surfaceContainerHighest,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('From: ${invite['from_user_id']}'),
-                              Text('To: ${invite['to_user_id']}'),
-                              Text('Status: ${invite['status']}'),
-                            ],
-                          ),
+                  ...invites.map((invite) {
+                    final inviteId = invite['id']?.toString() ?? '';
+                    final fromUserId = invite['from_user_id']?.toString() ?? '';
+                    final toUserId = invite['to_user_id']?.toString() ?? '';
+                    final status = invite['status']?.toString() ?? 'pending';
+                    final isIncoming = currentUserId != null && toUserId == currentUserId;
+                    final isOutgoing = currentUserId != null && fromUserId == currentUserId;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          color: theme.colorScheme.surfaceContainerHighest,
                         ),
-                      )),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('From: $fromUserId'),
+                            Text('To: $toUserId'),
+                            Text('Status: $status'),
+                            if (status == 'pending') ...[
+                              const SizedBox(height: 12),
+                              if (isIncoming)
+                                Row(
+                                  children: [
+                                    Expanded(child: FilledButton(onPressed: () => _acceptDuelInvite(inviteId), child: const Text('Kabul'))),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: OutlinedButton(onPressed: () => _rejectDuelInvite(inviteId), child: const Text('Reddet'))),
+                                  ],
+                                )
+                              else if (isOutgoing)
+                                FilledButton.tonal(
+                                  onPressed: () => _cancelDuelInvite(inviteId),
+                                  child: const Text('İptal Et'),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
               ],
             ),
           );

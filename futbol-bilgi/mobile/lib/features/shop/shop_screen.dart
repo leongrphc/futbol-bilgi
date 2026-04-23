@@ -33,7 +33,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   }
 
   Future<Map<String, dynamic>> _load() {
-    return shopRepository.fetchThemes();
+    return shopRepository.fetchShopBundle();
   }
 
   void _reload() {
@@ -57,6 +57,28 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
     try {
       await shopRepository.equipTheme(itemId);
       setState(() => _message = 'Tema kuşanıldı.');
+      ref.invalidate(profileProvider);
+      _reload();
+    } catch (error) {
+      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _buyFrame(String itemId) async {
+    try {
+      await shopRepository.buyFrame(itemId);
+      setState(() => _message = 'Frame satın alındı.');
+      ref.invalidate(profileProvider);
+      _reload();
+    } catch (error) {
+      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _equipFrame(String frameKey) async {
+    try {
+      await shopRepository.equipFrame(frameKey);
+      setState(() => _message = 'Frame kuşanıldı.');
       ref.invalidate(profileProvider);
       _reload();
     } catch (error) {
@@ -105,12 +127,13 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
           }
 
           final payload = snapshot.data ?? <String, dynamic>{};
-          final shopItems = (payload['shopItems'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-          final inventory = (payload['inventory'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-          final ownedItemIds = inventory.map((item) => item['item_id']?.toString()).whereType<String>().toSet();
-          final equippedItemIds = inventory.where((item) => item['is_equipped'] == true).map((item) => item['item_id']?.toString()).whereType<String>().toSet();
-
-          final themeItems = shopItems.where((item) => item['item_type'] == 'theme').toList();
+          final themeItems = (payload['themeShopItems'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final themeInventory = (payload['themeInventory'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final frameItems = (payload['frameShopItems'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final frameInventory = (payload['frameInventory'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final ownedThemeItemIds = themeInventory.map((item) => item['item_id']?.toString()).whereType<String>().toSet();
+          final equippedThemeItemIds = themeInventory.where((item) => item['is_equipped'] == true).map((item) => item['item_id']?.toString()).whereType<String>().toSet();
+          final ownedFrameItemIds = frameInventory.map((item) => item['item_id']?.toString()).whereType<String>().toSet();
 
           return ListView(
             padding: const EdgeInsets.all(24),
@@ -118,6 +141,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'themes', label: Text('Temalar')),
+                  ButtonSegment(value: 'frames', label: Text('Frame')),
                   ButtonSegment(value: 'utility', label: Text('Joker/Enerji')),
                 ],
                 selected: {_activeTab!},
@@ -133,8 +157,8 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 const SizedBox(height: 12),
                 ...themeItems.map((item) {
                   final id = item['id']?.toString() ?? '';
-                  final isOwned = ownedItemIds.contains(id) || id == 'theme-dark-default';
-                  final isEquipped = equippedItemIds.contains(id) || (item['theme_key']?.toString() == 'dark' && !equippedItemIds.isNotEmpty);
+                  final isOwned = ownedThemeItemIds.contains(id) || id == 'theme-dark-default';
+                  final isEquipped = equippedThemeItemIds.contains(id) || (item['theme_key']?.toString() == 'dark' && equippedThemeItemIds.isEmpty);
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Container(
@@ -161,6 +185,49 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                               else
                                 FilledButton(
                                   onPressed: () => _buyTheme(id),
+                                  child: const Text('Satın Al'),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ] else if (_activeTab == 'frames') ...[
+                Text('Frame', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 12),
+                ...frameItems.map((item) {
+                  final id = item['id']?.toString() ?? '';
+                  final frameKey = item['frame_key']?.toString() ?? 'default';
+                  final isOwned = ownedFrameItemIds.contains(id);
+                  final isEquipped = item['is_equipped'] == true || frameInventory.any((entry) => entry['item_id']?.toString() == id && entry['is_equipped'] == true);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        color: theme.colorScheme.surfaceContainerHighest,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item['name']?.toString() ?? 'Frame', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 4),
+                          Text(item['description']?.toString() ?? ''),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(child: Text('Coin: ${item['price_coins'] ?? 0} · Gem: ${item['price_gems'] ?? 0}')),
+                              if (isOwned)
+                                FilledButton.tonal(
+                                  onPressed: () => _equipFrame(frameKey),
+                                  child: Text(isEquipped ? 'Kuşanılı' : 'Kuşan'),
+                                )
+                              else
+                                FilledButton(
+                                  onPressed: () => _buyFrame(id),
                                   child: const Text('Satın Al'),
                                 ),
                             ],

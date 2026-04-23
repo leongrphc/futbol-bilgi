@@ -35,6 +35,30 @@ class SocialRepository {
     });
     return response.data['data'] as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> acceptDuelInvite(String inviteId) async {
+    final response = await apiClient.patch('/api/social/duel-invites', data: {
+      'inviteId': inviteId,
+      'action': 'accept',
+    });
+    return response.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> rejectDuelInvite(String inviteId) async {
+    final response = await apiClient.patch('/api/social/duel-invites', data: {
+      'inviteId': inviteId,
+      'action': 'reject',
+    });
+    return response.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> cancelDuelInvite(String inviteId) async {
+    final response = await apiClient.patch('/api/social/duel-invites', data: {
+      'inviteId': inviteId,
+      'action': 'cancel',
+    });
+    return response.data['data'] as Map<String, dynamic>;
+  }
 }
 
 final socialRepository = SocialRepository();
