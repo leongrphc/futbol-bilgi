@@ -11,11 +11,13 @@ import '../core/theme/app_theme.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/achievements/achievements_screen.dart';
 import '../features/daily/daily_screen.dart';
+import '../features/duel/duel_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/leaderboard/leaderboard_screen.dart';
 import '../features/league/league_screen.dart';
 import '../features/millionaire/millionaire_screen.dart';
 import '../features/quick/quick_screen.dart';
+import '../features/shop/shop_screen.dart';
 import '../features/social/social_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -42,8 +44,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const QuickScreen(),
       ),
       GoRoute(
+        path: '/duel',
+        builder: (context, state) => const DuelScreen(),
+      ),
+      GoRoute(
         path: '/daily',
         builder: (context, state) => const DailyScreen(),
+      ),
+      GoRoute(
+        path: '/shop',
+        builder: (context, state) => const ShopScreen(),
       ),
       GoRoute(
         path: '/leaderboard',

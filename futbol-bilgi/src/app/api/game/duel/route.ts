@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getAuthenticatedUser } from '@/lib/supabase/request-auth';
 import { DUEL_CONFIG, ENERGY_CONFIG } from '@/lib/constants/game';
 import { calculateDuelEloDelta, calculateDuelWinner, calculateLevel } from '@/lib/utils/game';
 import { getDuelChallengePayload, getDuelQuestionPayload } from '@/lib/questions/server';
@@ -640,8 +640,7 @@ function toPatchResponse(data: {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await getAuthenticatedUser(request);
 
     if (!user) {
       return toUnauthorizedResponse();
@@ -669,8 +668,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { user } = await getAuthenticatedUser(request);
 
     if (!user) {
       return toUnauthorizedResponse();
