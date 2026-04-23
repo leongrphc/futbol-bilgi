@@ -280,10 +280,26 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
       return Scaffold(
         appBar: AppBar(title: const Text('Tournament')),
         body: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           children: [
-            Text('Canlı Turnuvalar', style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  colors: [theme.colorScheme.primaryContainer, theme.colorScheme.tertiaryContainer],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Canlı Turnuvalar', style: theme.textTheme.headlineSmall),
+                  const SizedBox(height: 8),
+                  Text('Eleme tablosuna katıl, round round ilerle ve sezon ödülünü kap.', style: theme.textTheme.bodyLarge),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             if (_tournaments.isEmpty)
               const Text('Aktif turnuva bulunamadı.')
             else

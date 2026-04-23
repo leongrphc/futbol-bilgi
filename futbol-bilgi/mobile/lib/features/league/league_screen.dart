@@ -30,6 +30,13 @@ class _LeagueScreenState extends State<LeagueScreen> {
     });
   }
 
+  String _zoneLabel(int rank, int total) {
+    if (total <= 0) return 'Belirsiz';
+    if (rank <= (total / 4).ceil()) return 'Terfi Hattı';
+    if (rank > total - (total / 4).ceil()) return 'Düşme Hattı';
+    return 'Güvende';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -66,7 +73,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
           return RefreshIndicator(
             onRefresh: () async => _reload(),
             child: ListView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               children: [
                 Container(
                   padding: const EdgeInsets.all(24),
@@ -75,7 +82,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
                     gradient: LinearGradient(
                       colors: [
                         theme.colorScheme.primaryContainer,
-                        theme.colorScheme.secondaryContainer,
+                        theme.colorScheme.tertiaryContainer,
                       ],
                     ),
                   ),
@@ -84,7 +91,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
                     children: [
                       Text('Haftalık Lig', style: theme.textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      Text('Aktif sezon: ${season?['name'] ?? 'Bilinmiyor'}'),
+                      Text('Aktif sezon: ${season?['name'] ?? 'Bilinmiyor'}', style: theme.textTheme.bodyLarge),
                       if (season?['ends_at'] != null) ...[
                         const SizedBox(height: 4),
                         Text('Bitiş: ${season!['ends_at']}'),
@@ -93,7 +100,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text('Sıralama', style: theme.textTheme.titleLarge),
+                Text('Lig Tablosu', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
                 if (entries.isEmpty)
                   const Text('Bu sezon için henüz giriş yok.')
@@ -101,6 +108,8 @@ class _LeagueScreenState extends State<LeagueScreen> {
                   ...entries.take(20).toList().asMap().entries.map((entry) {
                     final index = entry.key;
                     final item = entry.value;
+                    final rank = index + 1;
+                    final zone = _zoneLabel(rank, entries.length);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Container(
@@ -111,10 +120,19 @@ class _LeagueScreenState extends State<LeagueScreen> {
                         ),
                         child: Row(
                           children: [
-                            CircleAvatar(radius: 20, child: Text('${index + 1}')),
+                            CircleAvatar(radius: 20, child: Text('$rank')),
                             const SizedBox(width: 12),
-                            Expanded(child: Text(item['user_id']?.toString() ?? '-')),
-                            Text('${item['season_score'] ?? 0}', style: theme.textTheme.titleMedium),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item['user_id']?.toString() ?? '-', style: theme.textTheme.titleMedium),
+                                  const SizedBox(height: 4),
+                                  Text(zone),
+                                ],
+                              ),
+                            ),
+                            Text('${item['season_score'] ?? 0}', style: theme.textTheme.titleLarge),
                           ],
                         ),
                       ),
