@@ -50,7 +50,7 @@
 - [ ] Gerçek cihazlarda iOS ve Android smoke test
 - [ ] Store submission için signing / keystore / certificates ayarları
 - [ ] App icon / splash / store metadata son haliyle finalize etmek
-- [ ] Web ile birebir görsel fark kalan ekranlarda micro-polish
+- [x] Web ile birebir görsel fark kalan ekranlarda micro-polish
 - [ ] Kullanıcı testlerinden çıkacak bugfix turu
 - [ ] Release / production build doğrulaması
 

@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/ads/ad_service.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/app_bottom_nav.dart';
+import '../../core/widgets/app_stat_chip.dart';
+import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 import '../profile/profile_repository.dart';
 import '../profile/profile_screen.dart';
@@ -61,9 +66,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: AppBottomNav(
         selectedIndex: selectedNavIndex,
-        onDestinationSelected: (value) {
+        onTap: (value) {
           switch (value) {
             case 0:
               setState(() => _index = 0);
@@ -77,31 +82,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               context.push('/shop');
           }
         },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.sports_soccer_outlined),
-            selectedIcon: Icon(Icons.sports_soccer),
-            label: 'Ana Sayfa',
+        items: const [
+          AppBottomNavItem(
+            icon: Icons.sports_soccer_outlined,
+            selectedIcon: Icons.sports_soccer,
+            label: 'Ana',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.sports_esports_outlined),
-            selectedIcon: Icon(Icons.sports_esports_rounded),
+          AppBottomNavItem(
+            icon: Icons.sports_esports_outlined,
+            selectedIcon: Icons.sports_esports_rounded,
             label: 'Oyna',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.emoji_events_outlined),
-            selectedIcon: Icon(Icons.emoji_events_rounded),
-            label: 'Sıralama',
+          AppBottomNavItem(
+            icon: Icons.emoji_events_outlined,
+            selectedIcon: Icons.emoji_events_rounded,
+            label: 'Lig',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
+          AppBottomNavItem(
+            icon: Icons.person_outline,
+            selectedIcon: Icons.person,
             label: 'Profil',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.palette_outlined),
-            selectedIcon: Icon(Icons.palette_rounded),
-            label: 'Mağaza',
+          AppBottomNavItem(
+            icon: Icons.palette_outlined,
+            selectedIcon: Icons.palette_rounded,
+            label: 'Shop',
           ),
         ],
       ),
@@ -240,64 +245,79 @@ class _HomeOverview extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Container(
+              GlassCard(
+                variant: GlassCardVariant.highlighted,
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(32),
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primaryContainer,
-                      theme.colorScheme.tertiaryContainer,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Merhaba, $username',
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Level $level · ${_formatCompact(xp)} XP · %$accuracy doğruluk',
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        _ChipStat(
-                          label: 'Enerji',
-                          value: '$energy/5',
-                          icon: Icons.bolt_rounded,
-                        ),
-                        _ChipStat(
-                          label: 'Coin',
-                          value: _formatCompact(coins),
-                          icon: Icons.monetization_on_rounded,
-                        ),
-                        _ChipStat(
-                          label: 'Gem',
-                          value: _formatCompact(gems),
-                          icon: Icons.diamond_rounded,
-                        ),
-                        _ChipStat(
-                          label: 'Doğru',
-                          value: '$correctAnswers/$totalAnswered',
-                          icon: Icons.track_changes_rounded,
-                        ),
-                        _ChipStat(
-                          label: 'Streak',
-                          value: '$streak gün',
-                          icon: Icons.local_fire_department_rounded,
-                        ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primaryBright.withValues(alpha: 0.18),
+                        AppColors.accent.withValues(alpha: 0.10),
                       ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppBadge(
+                        label: 'Stadium Night',
+                        icon: Icons.sports_soccer_rounded,
+                        tone: AppBadgeTone.primary,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Merhaba, $username',
+                        style: theme.textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Level $level · ${_formatCompact(xp)} XP · %$accuracy doğruluk',
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 18),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _ChipStat(
+                            label: 'Enerji',
+                            value: '$energy/5',
+                            icon: Icons.bolt_rounded,
+                            color: AppColors.gold,
+                          ),
+                          _ChipStat(
+                            label: 'Coin',
+                            value: _formatCompact(coins),
+                            icon: Icons.monetization_on_rounded,
+                            color: AppColors.goldSoft,
+                          ),
+                          _ChipStat(
+                            label: 'Gem',
+                            value: _formatCompact(gems),
+                            icon: Icons.diamond_rounded,
+                            color: AppColors.info,
+                          ),
+                          _ChipStat(
+                            label: 'Doğru',
+                            value: '$correctAnswers/$totalAnswered',
+                            icon: Icons.track_changes_rounded,
+                            color: AppColors.success,
+                          ),
+                          _ChipStat(
+                            label: 'Streak',
+                            value: '$streak gün',
+                            icon: Icons.local_fire_department_rounded,
+                            color: AppColors.accent,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -482,12 +502,9 @@ class _DailyRewardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.gold,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.secondaryContainer,
-      ),
       child: Row(
         children: [
           CircleAvatar(
@@ -530,12 +547,9 @@ class _RewardedAdCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -607,12 +621,9 @@ class _JokerInventoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -661,31 +672,17 @@ class _ChipStat extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
+    required this.color,
   });
 
   final String label;
   final String value;
   final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.08),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Text('$label: $value', style: theme.textTheme.labelLarge),
-        ],
-      ),
-    );
+    return AppStatChip(label: label, value: value, icon: icon, color: color);
   }
 }
 
@@ -708,38 +705,25 @@ class _ModeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
+    return GlassCard(
       onTap: () => context.push(route),
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: theme.colorScheme.surfaceContainerHighest,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: theme.colorScheme.primaryContainer,
-              child: Icon(icon),
-            ),
-            const Spacer(),
-            Text(title, style: theme.textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                color: theme.colorScheme.primaryContainer,
-              ),
-              child: Text(badge, style: theme.textTheme.labelMedium),
-            ),
-          ],
-        ),
+      variant: GlassCardVariant.elevated,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            child: Icon(icon),
+          ),
+          const Spacer(),
+          Text(title, style: theme.textTheme.titleLarge),
+          const SizedBox(height: 6),
+          Text(description, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 10),
+          AppBadge(label: badge, tone: AppBadgeTone.primary),
+        ],
       ),
     );
   }
@@ -762,36 +746,30 @@ class _FeatureStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
+    return GlassCard(
       onTap: () => context.push(route),
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: theme.colorScheme.surfaceContainerHighest,
-        ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: theme.colorScheme.primaryContainer,
-              child: Icon(icon),
+      variant: GlassCardVariant.elevated,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: theme.colorScheme.primaryContainer,
+            child: Icon(icon),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(description),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(description),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_rounded),
-          ],
-        ),
+          ),
+          const Icon(Icons.arrow_forward_rounded),
+        ],
       ),
     );
   }

@@ -6,6 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/app_state_panel.dart';
+import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 import 'quick_repository.dart';
 
@@ -266,27 +270,17 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: AppStatePanel.loading(message: 'Quick Play hazırlanıyor...'),
+      );
     }
 
     if (_error != null && _result == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Quick Play')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_error!, textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _initializeGame,
-                  child: const Text('Tekrar dene'),
-                ),
-              ],
-            ),
-          ),
+        body: AppStatePanel.error(
+          message: _error!,
+          onAction: _initializeGame,
         ),
       );
     }
@@ -297,17 +291,9 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
         body: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.highlighted,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.secondaryContainer,
-                  ],
-                ),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -315,6 +301,7 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Skor: ${_formatCompact(_result!.score)} · XP: +${_result!.xpEarned}',
+                    style: theme.textTheme.bodyLarge,
                   ),
                 ],
               ),
@@ -350,7 +337,7 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: _initializeGame,
               style: FilledButton.styleFrom(
@@ -389,7 +376,9 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
 
     final question = _currentQuestion;
     if (question == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: AppStatePanel.loading(message: 'Soru yükleniyor...'),
+      );
     }
 
     return Scaffold(
@@ -414,7 +403,7 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                     value: '$_timeRemaining sn',
                     icon: Icons.timer_outlined,
                     accent: _timeRemaining <= 10
-                        ? theme.colorScheme.error
+                        ? AppColors.danger
                         : null,
                   ),
                 ),
@@ -424,40 +413,38 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                     label: 'Skor',
                     value: _formatCompact(_score),
                     icon: Icons.bolt_rounded,
+                    accent: AppColors.gold,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
+            AppProgressBar(
               value: (_timeRemaining / _totalTime).clamp(0, 1),
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(999),
+              tone: _timeRemaining <= 10
+                  ? AppProgressTone.danger
+                  : _timeRemaining <= 30
+                      ? AppProgressTone.warning
+                      : AppProgressTone.primary,
+              height: 10,
             ),
             const SizedBox(height: 16),
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.elevated,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                color: theme.colorScheme.surfaceContainerHighest,
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Quick Play', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
+                  Text('Soru ${_questionIndex + 1}', style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 12),
                   Text(
                     question['question_text']?.toString() ?? '-',
                     style: theme.textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Her doğru cevap +100 puan, kalan süre bonus olarak eklenir.',
-                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             ..._options.map(
               (option) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -535,12 +522,9 @@ class _TopMetricCard extends StatelessWidget {
     final theme = Theme.of(context);
     final color = accent ?? theme.colorScheme.primary;
 
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: theme.colorScheme.surfaceContainer,
-      ),
+      variant: accent != null ? GlassCardVariant.highlighted : GlassCardVariant.elevated,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -575,48 +559,54 @@ class _AnswerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Color background = theme.colorScheme.surfaceContainerHighest;
     Color foreground = theme.colorScheme.onSurface;
+    var variant = GlassCardVariant.elevated;
+    Color? accent;
 
     if (isCorrect) {
-      background = theme.colorScheme.primaryContainer;
-      foreground = theme.colorScheme.onPrimaryContainer;
+      foreground = AppColors.success;
+      variant = GlassCardVariant.highlighted;
+      accent = AppColors.success;
     } else if (isWrong) {
-      background = theme.colorScheme.errorContainer;
-      foreground = theme.colorScheme.onErrorContainer;
+      foreground = AppColors.danger;
+      variant = GlassCardVariant.highlighted;
+      accent = AppColors.danger;
     } else if (isSelected) {
-      background = theme.colorScheme.secondaryContainer;
-      foreground = theme.colorScheme.onSecondaryContainer;
+      foreground = AppColors.gold;
+      variant = GlassCardVariant.gold;
     }
 
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: isDisabled ? null : onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          disabledBackgroundColor: background,
-          disabledForegroundColor: foreground,
-          minimumSize: const Size.fromHeight(58),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
+    return GlassCard(
+      variant: variant,
+      padding: EdgeInsets.zero,
+      onTap: isDisabled ? null : onTap,
+      child: Container(
+        decoration: accent != null
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
+                color: accent.withValues(alpha: 0.1),
+              )
+            : null,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: foreground.withValues(alpha: 0.12),
+              backgroundColor: foreground.withValues(alpha: 0.15),
+              foregroundColor: foreground,
               child: Text(
                 option.key,
-                style: Theme.of(context).textTheme.labelLarge,
+                style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(width: 14),
-            Expanded(child: Text(option.text)),
+            Expanded(
+              child: Text(
+                option.text,
+                style: theme.textTheme.bodyLarge?.copyWith(color: foreground),
+              ),
+            ),
           ],
         ),
       ),
@@ -639,12 +629,9 @@ class _ResultStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

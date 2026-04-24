@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/app_state_panel.dart';
+import '../../core/widgets/glass_card.dart';
 import 'league_repository.dart';
 
 class LeagueScreen extends StatefulWidget {
@@ -49,28 +54,13 @@ class _LeagueScreenState extends State<LeagueScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppStatePanel.loading(message: 'League verisi yükleniyor...');
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'League verisi alınamadı: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _reload,
-                      child: const Text('Tekrar dene'),
-                    ),
-                  ],
-                ),
-              ),
+            return AppStatePanel.error(
+              message: 'League verisi alınamadı: ${snapshot.error}',
+              onAction: _reload,
             );
           }
 
@@ -83,17 +73,9 @@ class _LeagueScreenState extends State<LeagueScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Container(
+                GlassCard(
+                  variant: GlassCardVariant.highlighted,
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primaryContainer,
-                        theme.colorScheme.tertiaryContainer,
-                      ],
-                    ),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -107,8 +89,16 @@ class _LeagueScreenState extends State<LeagueScreen> {
                         style: theme.textTheme.bodyLarge,
                       ),
                       if (season?['ends_at'] != null) ...[
-                        const SizedBox(height: 4),
-                        Text('Bitiş: ${season!['ends_at']}'),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            const Icon(Icons.timer_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Bitiş: ${season!['ends_at']}'),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const AppProgressBar(value: 0.75, tone: AppProgressTone.gold, height: 6),
                       ],
                     ],
                   ),
@@ -117,25 +107,38 @@ class _LeagueScreenState extends State<LeagueScreen> {
                 Text('Lig Tablosu', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
                 if (entries.isEmpty)
-                  const Text('Bu sezon için henüz giriş yok.')
+                  const AppStatePanel.empty(message: 'Bu sezon için henüz giriş yok.')
                 else
                   ...entries.take(20).toList().asMap().entries.map((entry) {
                     final index = entry.key;
                     final item = entry.value;
                     final rank = index + 1;
                     final zone = _zoneLabel(rank, entries.length);
+                    final isPromotion = zone == 'Terfi Hattı';
+                    final isRelegation = zone == 'Düşme Hattı';
+
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
+                      child: GlassCard(
+                        variant: GlassCardVariant.elevated,
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
                         child: Row(
                           children: [
-                            CircleAvatar(radius: 20, child: Text('$rank')),
-                            const SizedBox(width: 12),
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: isPromotion
+                                  ? AppColors.success.withValues(alpha: 0.2)
+                                  : isRelegation
+                                      ? AppColors.danger.withValues(alpha: 0.2)
+                                      : theme.colorScheme.surfaceContainerHighest,
+                              foregroundColor: isPromotion
+                                  ? AppColors.success
+                                  : isRelegation
+                                      ? AppColors.danger
+                                      : theme.colorScheme.onSurface,
+                              child: Text('$rank'),
+                            ),
+                            const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,13 +148,20 @@ class _LeagueScreenState extends State<LeagueScreen> {
                                     style: theme.textTheme.titleMedium,
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(zone),
+                                  AppBadge(
+                                    label: zone,
+                                    tone: isPromotion
+                                        ? AppBadgeTone.success
+                                        : isRelegation
+                                            ? AppBadgeTone.danger
+                                            : AppBadgeTone.neutral,
+                                  ),
                                 ],
                               ),
                             ),
                             Text(
                               '${item['season_score'] ?? 0}',
-                              style: theme.textTheme.titleLarge,
+                              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 
 class PlayScreen extends ConsumerWidget {
@@ -44,17 +46,9 @@ class PlayScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Container(
+                GlassCard(
+                  variant: GlassCardVariant.highlighted,
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primaryContainer,
-                        theme.colorScheme.secondaryContainer,
-                      ],
-                    ),
-                  ),
                   child: Row(
                     children: [
                       const CircleAvatar(
@@ -266,11 +260,9 @@ class _GameModeCard extends StatelessWidget {
     final hasEnergy = energy >= mode.energyCost;
     final canPlay = mode.energyCost == 0 || hasEnergy;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -351,15 +343,11 @@ class _GameModeCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        mode.energyCost == 0
+                      child: AppBadge(
+                        label: mode.energyCost == 0
                             ? 'Ücretsiz'
                             : '${mode.energyCost} enerji',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: canPlay
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.error,
-                        ),
+                        tone: canPlay ? AppBadgeTone.primary : AppBadgeTone.danger,
                       ),
                     ),
                     FilledButton(

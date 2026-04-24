@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/share/share_service.dart';
+import '../../core/widgets/glass_card.dart';
 import 'leaderboard_repository.dart';
 
 class LeaderboardScreen extends StatefulWidget {
@@ -112,19 +113,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Container(
+                GlassCard(
+                  variant: GlassCardVariant.highlighted,
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primaryContainer,
-                        theme.colorScheme.tertiaryContainer,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -231,12 +222,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     final player = entry.value;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
+                      child: GlassCard(
+                        variant: GlassCardVariant.elevated,
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          color: theme.colorScheme.surfaceContainerHighest,
-                        ),
                         child: Row(
                           children: [
                             CircleAvatar(radius: 22, child: Text('$index')),
@@ -320,33 +308,30 @@ class _PodiumCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return SizedBox(
       height: height,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: highlighted
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.surfaceContainerHighest,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          CircleAvatar(radius: 22, child: Text('$rank')),
-          const SizedBox(height: 12),
-          Text(
-            player['username']?.toString() ?? 'Oyuncu',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _formatCompact(_asInt(player['score'])),
-            style: theme.textTheme.titleLarge,
-          ),
-        ],
+      child: GlassCard(
+        variant: highlighted ? GlassCardVariant.gold : GlassCardVariant.elevated,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            CircleAvatar(radius: 22, child: Text('$rank')),
+            const SizedBox(height: 12),
+            Text(
+              player['username']?.toString() ?? 'Oyuncu',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatCompact(_asInt(player['score'])),
+              style: theme.textTheme.titleLarge,
+            ),
+          ],
+        ),
       ),
     );
   }

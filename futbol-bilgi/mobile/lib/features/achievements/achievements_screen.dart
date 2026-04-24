@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/glass_card.dart';
 import '../league/league_repository.dart';
 import '../profile/profile_provider.dart';
 import 'achievements_repository.dart';
@@ -107,17 +109,9 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
           return ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              Container(
+              GlassCard(
+                variant: GlassCardVariant.highlighted,
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primaryContainer,
-                      theme.colorScheme.tertiaryContainer,
-                    ],
-                  ),
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -366,12 +360,9 @@ class _RewardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -401,19 +392,9 @@ class _AchievementCard extends StatelessWidget {
       '+${definition.xp} XP',
     ];
 
-    return Container(
+    return GlassCard(
+      variant: item.completed ? GlassCardVariant.highlighted : GlassCardVariant.elevated,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: item.completed
-              ? theme.colorScheme.primary
-              : theme.colorScheme.outlineVariant,
-        ),
-        color: item.completed
-            ? theme.colorScheme.primaryContainer.withValues(alpha: 0.42)
-            : theme.colorScheme.surface,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -457,13 +438,10 @@ class _AchievementCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 8,
-              value: item.ratio,
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            ),
+          AppProgressBar(
+            value: item.ratio,
+            tone: item.completed ? AppProgressTone.success : AppProgressTone.gold,
+            height: 8,
           ),
           const SizedBox(height: 10),
           Row(

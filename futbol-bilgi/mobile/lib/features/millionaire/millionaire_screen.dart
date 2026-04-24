@@ -7,6 +7,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 import 'millionaire_repository.dart';
 
@@ -677,19 +681,9 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
         body: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.gold,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.tertiaryContainer,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -844,18 +838,19 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
+            AppProgressBar(
               value: (_timeRemaining / _currentStep.timeLimit).clamp(0, 1),
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(999),
+              tone: _timeRemaining <= 3
+                  ? AppProgressTone.danger
+                  : _timeRemaining <= 5
+                  ? AppProgressTone.warning
+                  : AppProgressTone.primary,
+              height: 10,
             ),
             const SizedBox(height: 16),
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.elevated,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                color: theme.colorScheme.surfaceContainerHighest,
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -873,10 +868,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
                     style: theme.textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 16),
-                  LinearProgressIndicator(
+                  AppProgressBar(
                     value: prizeProgress,
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(999),
+                    tone: AppProgressTone.gold,
+                    height: 8,
                   ),
                 ],
               ),
@@ -1015,12 +1010,8 @@ class _TopMetricCard extends StatelessWidget {
     final theme = Theme.of(context);
     final color = accent ?? theme.colorScheme.primary;
 
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: theme.colorScheme.surfaceContainer,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1056,53 +1047,41 @@ class _AnswerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    Color background = theme.colorScheme.surfaceContainerHighest;
-    Color foreground = theme.colorScheme.onSurface;
+    Color accent = Colors.white;
+    var variant = GlassCardVariant.elevated;
 
     if (isCorrect) {
-      background = theme.colorScheme.primaryContainer;
-      foreground = theme.colorScheme.onPrimaryContainer;
+      accent = AppColors.success;
+      variant = GlassCardVariant.highlighted;
     } else if (isWrong) {
-      background = theme.colorScheme.errorContainer;
-      foreground = theme.colorScheme.onErrorContainer;
+      accent = AppColors.danger;
+      variant = GlassCardVariant.highlighted;
     } else if (isSelected) {
-      background = theme.colorScheme.secondaryContainer;
-      foreground = theme.colorScheme.onSecondaryContainer;
+      accent = AppColors.gold;
+      variant = GlassCardVariant.gold;
     }
 
     return Opacity(
       opacity: isEliminated ? 0.38 : 1,
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: isDisabled ? null : onTap,
-          style: FilledButton.styleFrom(
-            backgroundColor: background,
-            foregroundColor: foreground,
-            disabledBackgroundColor: background,
-            disabledForegroundColor: foreground,
-            minimumSize: const Size.fromHeight(58),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            alignment: Alignment.centerLeft,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: foreground.withValues(alpha: 0.12),
-                child: Text(
-                  option.key,
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
+      child: GlassCard(
+        onTap: isDisabled ? null : onTap,
+        variant: variant,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 17,
+              backgroundColor: accent.withValues(alpha: 0.18),
+              child: Text(
+                option.key,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppColors.textPrimary),
               ),
-              const SizedBox(width: 14),
-              Expanded(child: Text(option.text)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Text(option.text)),
+            if (isCorrect) const Icon(Icons.check_circle_rounded, color: AppColors.success),
+            if (isWrong) const Icon(Icons.cancel_rounded, color: AppColors.danger),
+          ],
         ),
       ),
     );
@@ -1127,26 +1106,20 @@ class _JokerButton extends StatelessWidget {
     final theme = Theme.of(context);
     final enabled = stock > 0 && !isUsed;
 
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: 104,
+    return SizedBox(
+      width: 104,
+      child: GlassCard(
+        onTap: enabled ? onTap : null,
+        variant: enabled ? GlassCardVariant.highlighted : GlassCardVariant.elevated,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: enabled
-              ? theme.colorScheme.primaryContainer
-              : theme.colorScheme.surfaceContainerHighest,
-        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
-            Text(
-              isUsed ? 'Kullanıldı' : 'Stok: $stock',
-              style: theme.textTheme.bodySmall,
+            AppBadge(
+              label: isUsed ? 'Kullanıldı' : 'Stok: $stock',
+              tone: enabled ? AppBadgeTone.primary : AppBadgeTone.neutral,
             ),
           ],
         ),
@@ -1167,12 +1140,9 @@ class _AudienceCard extends StatelessWidget {
       (max, value) => value > max ? value : max,
     );
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1217,12 +1187,9 @@ class _PhoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

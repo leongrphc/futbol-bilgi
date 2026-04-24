@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/glass_card.dart';
 import 'profile_provider.dart';
 import 'profile_repository.dart';
 
@@ -346,19 +349,9 @@ class _ProfileHeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.highlighted,
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primaryContainer,
-            theme.colorScheme.tertiaryContainer,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -379,6 +372,8 @@ class _ProfileHeroCard extends StatelessWidget {
             'Level $level · $xp XP · %$accuracy doğruluk',
             style: theme.textTheme.bodyLarge,
           ),
+          const SizedBox(height: 12),
+          AppProgressBar(value: (xp % 1000) / 1000, tone: AppProgressTone.gold),
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -401,16 +396,7 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.08),
-      ),
-      child: Text(label, style: theme.textTheme.labelLarge),
-    );
+    return AppBadge(label: label, tone: AppBadgeTone.primary);
   }
 }
 
@@ -429,12 +415,9 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -459,12 +442,8 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainer,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -502,12 +481,8 @@ class _JokerInventoryPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainer,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -618,19 +593,22 @@ class _ProfileStateMessage extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(description, textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              FilledButton(onPressed: onPressed, child: Text(actionLabel)),
-            ],
+          child: GlassCard(
+            variant: GlassCardVariant.elevated,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(description, textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                FilledButton(onPressed: onPressed, child: Text(actionLabel)),
+              ],
+            ),
           ),
         ),
       ),

@@ -6,6 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/app_state_panel.dart';
+import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 import 'tournament_repository.dart';
 
@@ -296,48 +301,30 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: AppStatePanel.loading(message: 'Turnuvalar yükleniyor...'),
+      );
     }
 
     if (_error != null && _selectedTournament == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Tournament')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(_error!, textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _loadTournaments,
-                  child: const Text('Tekrar dene'),
-                ),
-              ],
-            ),
-          ),
+        appBar: AppBar(title: const Text('Turnuva')),
+        body: AppStatePanel.error(
+          message: _error!,
+          onAction: _loadTournaments,
         ),
       );
     }
 
     if (_selectedTournament == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Tournament')),
+        appBar: AppBar(title: const Text('Turnuva')),
         body: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.highlighted,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.tertiaryContainer,
-                  ],
-                ),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -355,7 +342,7 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
             ),
             const SizedBox(height: 20),
             if (_tournaments.isEmpty)
-              const Text('Aktif turnuva bulunamadı.')
+              const AppStatePanel.empty(message: 'Aktif turnuva bulunamadı.')
             else
               ..._tournaments.map((tournament) {
                 final title = tournament['title']?.toString() ?? 'Turnuva';
@@ -365,21 +352,30 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                 final maxPlayers = tournament['max_players'] ?? 0;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: Container(
+                  child: GlassCard(
+                    variant: GlassCardVariant.elevated,
                     padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      color: theme.colorScheme.surfaceContainerHighest,
-                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: theme.textTheme.titleLarge),
+                        Row(
+                          children: [
+                            Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
+                            if (status == 'live')
+                              const AppBadge(label: 'LIVE', tone: AppBadgeTone.danger)
+                            else
+                              const AppBadge(label: 'BEKLİYOR', tone: AppBadgeTone.warning),
+                          ],
+                        ),
                         const SizedBox(height: 6),
                         Text(description),
                         const SizedBox(height: 10),
-                        Text(
-                          'Durum: $status · Oyuncu: $currentPlayers/$maxPlayers',
+                        Row(
+                          children: [
+                            const Icon(Icons.people_alt_rounded, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Oyuncu: $currentPlayers/$maxPlayers'),
+                          ],
                         ),
                         const SizedBox(height: 14),
                         FilledButton(
@@ -406,21 +402,13 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
 
     if (_result != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Tournament Özeti')),
+        appBar: AppBar(title: const Text('Turnuva Özeti')),
         body: ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.gold,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.secondaryContainer,
-                  ],
-                ),
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -430,15 +418,16 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Skor: ${_result!.score} · Round: ${_result!.roundReached}/$_totalRounds · XP: +${_result!.xpEarned} · Coin: +${_result!.coinsEarned}',
+                    'Skor: ${_result!.score} · Round: ${_result!.roundReached}/$_totalRounds\nXP: +${_result!.xpEarned} · Coin: +${_result!.coinsEarned}',
+                    style: theme.textTheme.bodyLarge,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: () => shareService.shareGameResult(
-                mode: 'Tournament',
+                mode: 'Turnuva',
                 score: _result!.score,
                 correctAnswers: _result!.correctAnswers,
                 totalAnswered: _result!.totalAnswered,
@@ -465,21 +454,20 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
 
     final question = _currentQuestion;
     if (question == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: AppStatePanel.loading(message: 'Soru yükleniyor...'),
+      );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tournament')),
+      appBar: AppBar(title: const Text('Turnuva')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.elevated,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                color: theme.colorScheme.surfaceContainerHighest,
-              ),
               child: Row(
                 children: [
                   Expanded(
@@ -488,27 +476,33 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                       style: theme.textTheme.titleLarge,
                     ),
                   ),
-                  Text('Skor: ${_accumulatedScore + _roundScore}'),
+                  const AppBadge(label: 'Skor:', tone: AppBadgeTone.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${_accumulatedScore + _roundScore}',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
+            AppProgressBar(
               value: (_timeRemaining / _timePerQuestion).clamp(0, 1),
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(999),
+              tone: _timeRemaining <= 5
+                  ? AppProgressTone.danger
+                  : _timeRemaining <= 10
+                      ? AppProgressTone.warning
+                      : AppProgressTone.primary,
+              height: 10,
             ),
             const SizedBox(height: 16),
-            Container(
+            GlassCard(
+              variant: GlassCardVariant.highlighted,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                color: theme.colorScheme.surfaceContainerHighest,
-              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Turnuva Sorusu', style: theme.textTheme.titleMedium),
+                  Text('Soru ${_questionIndex + 1}/$_questionsPerRound', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
                     question['question_text']?.toString() ?? '-',
@@ -550,18 +544,20 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                   : 'Oyuncu';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Container(
+                child: GlassCard(
+                  variant: index < 3 ? GlassCardVariant.highlighted : GlassCardVariant.elevated,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    color: theme.colorScheme.surfaceContainerHighest,
-                  ),
                   child: Row(
                     children: [
-                      CircleAvatar(radius: 18, child: Text('${index + 1}')),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: index == 0 ? AppColors.gold.withValues(alpha: 0.2) : theme.colorScheme.surfaceContainerHighest,
+                        foregroundColor: index == 0 ? AppColors.gold : theme.colorScheme.onSurface,
+                        child: Text('${index + 1}'),
+                      ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(username)),
-                      Text('${item['score'] ?? 0}'),
+                      Expanded(child: Text(username, style: theme.textTheme.titleMedium)),
+                      Text('${item['score'] ?? 0}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -623,48 +619,54 @@ class _AnswerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Color background = theme.colorScheme.surfaceContainerHighest;
     Color foreground = theme.colorScheme.onSurface;
+    var variant = GlassCardVariant.elevated;
+    Color? accent;
 
     if (isCorrect) {
-      background = theme.colorScheme.primaryContainer;
-      foreground = theme.colorScheme.onPrimaryContainer;
+      foreground = AppColors.success;
+      variant = GlassCardVariant.highlighted;
+      accent = AppColors.success;
     } else if (isWrong) {
-      background = theme.colorScheme.errorContainer;
-      foreground = theme.colorScheme.onErrorContainer;
+      foreground = AppColors.danger;
+      variant = GlassCardVariant.highlighted;
+      accent = AppColors.danger;
     } else if (isSelected) {
-      background = theme.colorScheme.secondaryContainer;
-      foreground = theme.colorScheme.onSecondaryContainer;
+      foreground = AppColors.gold;
+      variant = GlassCardVariant.gold;
     }
 
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: isDisabled ? null : onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          disabledBackgroundColor: background,
-          disabledForegroundColor: foreground,
-          minimumSize: const Size.fromHeight(58),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
+    return GlassCard(
+      variant: variant,
+      padding: EdgeInsets.zero,
+      onTap: isDisabled ? null : onTap,
+      child: Container(
+        decoration: accent != null
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.5),
+                color: accent.withValues(alpha: 0.1),
+              )
+            : null,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: foreground.withValues(alpha: 0.12),
+              backgroundColor: foreground.withValues(alpha: 0.15),
+              foregroundColor: foreground,
               child: Text(
                 option.key,
-                style: Theme.of(context).textTheme.labelLarge,
+                style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(width: 14),
-            Expanded(child: Text(option.text)),
+            Expanded(
+              child: Text(
+                option.text,
+                style: theme.textTheme.bodyLarge?.copyWith(color: foreground),
+              ),
+            ),
           ],
         ),
       ),

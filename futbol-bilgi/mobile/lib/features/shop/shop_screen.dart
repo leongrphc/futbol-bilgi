@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../core/iap/iap_service.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_stat_chip.dart';
+import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 import 'shop_repository.dart';
 
@@ -366,17 +369,9 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
           return ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Container(
+              GlassCard(
+                variant: GlassCardVariant.gold,
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primaryContainer,
-                      theme.colorScheme.tertiaryContainer,
-                    ],
-                  ),
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -764,12 +759,9 @@ class _ShopCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -817,12 +809,9 @@ class _InfoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Row(
         children: [
           CircleAvatar(
@@ -860,22 +849,11 @@ class _BalanceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.08),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Text('$label: $value', style: theme.textTheme.labelLarge),
-        ],
-      ),
+    return AppStatChip(
+      label: label,
+      value: value,
+      icon: icon,
+      color: label == 'Gem' ? AppColors.info : label == 'Premium' ? AppColors.expert : AppColors.gold,
     );
   }
 }

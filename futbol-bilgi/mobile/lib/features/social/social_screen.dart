@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/app_state_panel.dart';
+import '../../core/widgets/glass_card.dart';
 import 'social_repository.dart';
 
 class SocialScreen extends StatefulWidget {
@@ -138,28 +142,13 @@ class _SocialScreenState extends State<SocialScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppStatePanel.loading(message: 'Sosyal veriler yükleniyor...');
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Sosyal veriler alınamadı: ${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: _reload,
-                      child: const Text('Tekrar dene'),
-                    ),
-                  ],
-                ),
-              ),
+            return AppStatePanel.error(
+              message: 'Sosyal veriler alınamadı: ${snapshot.error}',
+              onAction: _reload,
             );
           }
 
@@ -205,17 +194,9 @@ class _SocialScreenState extends State<SocialScreen> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                Container(
+                GlassCard(
+                  variant: GlassCardVariant.highlighted,
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primaryContainer,
-                        theme.colorScheme.tertiaryContainer,
-                      ],
-                    ),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -232,12 +213,9 @@ class _SocialScreenState extends State<SocialScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Container(
+                GlassCard(
+                  variant: GlassCardVariant.elevated,
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    color: theme.colorScheme.surfaceContainerHighest,
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -256,7 +234,7 @@ class _SocialScreenState extends State<SocialScreen> {
                       ),
                       if (_message != null) ...[
                         const SizedBox(height: 12),
-                        Text(_message!),
+                        Text(_message!, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.primaryBright)),
                       ],
                     ],
                   ),
@@ -265,7 +243,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 Text('Bekleyen istekler', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
                 if (pendingIncoming.isEmpty)
-                  const Text('Bekleyen arkadaş isteği yok.')
+                  const AppStatePanel.empty(message: 'Bekleyen arkadaş isteği yok.')
                 else
                   ...pendingIncoming.map((item) {
                     final requesterId = item['user_id']?.toString() ?? '';
@@ -292,14 +270,57 @@ class _SocialScreenState extends State<SocialScreen> {
                   final id = profile['id']?.toString() ?? '';
                   final isFriend = acceptedFriendIds.contains(id);
                   final xp = profile['xp'] ?? profile['score'] ?? 0;
+                  final leagueTier = profile['league_tier'] ?? 'bronze';
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _SocialCard(
-                      title: profile['username']?.toString() ?? 'Oyuncu',
-                      subtitle:
-                          '${profile['league_tier'] ?? 'bronze'} · $xp XP',
-                      primaryLabel: isFriend ? 'Düello' : null,
-                      onPrimary: isFriend ? () => _sendDuelInvite(id) : null,
+                    child: GlassCard(
+                      variant: GlassCardVariant.elevated,
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            child: Text(
+                              profile['username']?.toString().substring(0, 1).toUpperCase() ?? 'O',
+                              style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.onPrimaryContainer),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        profile['username']?.toString() ?? 'Oyuncu',
+                                        style: theme.textTheme.titleMedium,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isFriend)
+                                      const AppBadge(label: 'Arkadaş', tone: AppBadgeTone.success),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text('$leagueTier · $xp XP', style: theme.textTheme.bodyMedium),
+                              ],
+                            ),
+                          ),
+                          if (isFriend) ...[
+                            const SizedBox(width: 12),
+                            IconButton.filledTonal(
+                              onPressed: () => _sendDuelInvite(id),
+                              icon: const Icon(Icons.sports_martial_arts_rounded),
+                              tooltip: 'Düello daveti gönder',
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   );
                 }),
@@ -307,7 +328,7 @@ class _SocialScreenState extends State<SocialScreen> {
                 Text('Düello davetleri', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 12),
                 if (invites.isEmpty)
-                  const Text('Aktif düello daveti yok.')
+                  const AppStatePanel.empty(message: 'Aktif düello daveti yok.')
                 else
                   ...invites.map((invite) {
                     final inviteId = invite['id']?.toString() ?? '';
@@ -391,12 +412,9 @@ class _SocialCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: theme.colorScheme.surfaceContainerHighest,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
