@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
+import '../../core/share/share_service.dart';
 import '../profile/profile_provider.dart';
 import 'millionaire_repository.dart';
 
@@ -42,21 +44,111 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
   _GameSummary? _result;
 
   static const List<_MillionaireStep> _steps = [
-    _MillionaireStep(questionNumber: 1, points: 100, difficulty: 1, isSafePoint: false, timeLimit: 30),
-    _MillionaireStep(questionNumber: 2, points: 200, difficulty: 1, isSafePoint: false, timeLimit: 30),
-    _MillionaireStep(questionNumber: 3, points: 500, difficulty: 1, isSafePoint: false, timeLimit: 30),
-    _MillionaireStep(questionNumber: 4, points: 1000, difficulty: 2, isSafePoint: false, timeLimit: 25),
-    _MillionaireStep(questionNumber: 5, points: 2000, difficulty: 2, isSafePoint: true, timeLimit: 25),
-    _MillionaireStep(questionNumber: 6, points: 4000, difficulty: 3, isSafePoint: false, timeLimit: 25),
-    _MillionaireStep(questionNumber: 7, points: 8000, difficulty: 3, isSafePoint: false, timeLimit: 25),
-    _MillionaireStep(questionNumber: 8, points: 16000, difficulty: 4, isSafePoint: false, timeLimit: 20),
-    _MillionaireStep(questionNumber: 9, points: 32000, difficulty: 4, isSafePoint: false, timeLimit: 20),
-    _MillionaireStep(questionNumber: 10, points: 64000, difficulty: 4, isSafePoint: true, timeLimit: 20),
-    _MillionaireStep(questionNumber: 11, points: 125000, difficulty: 4, isSafePoint: false, timeLimit: 20),
-    _MillionaireStep(questionNumber: 12, points: 250000, difficulty: 4, isSafePoint: false, timeLimit: 20),
-    _MillionaireStep(questionNumber: 13, points: 500000, difficulty: 5, isSafePoint: false, timeLimit: 15),
-    _MillionaireStep(questionNumber: 14, points: 750000, difficulty: 5, isSafePoint: false, timeLimit: 15),
-    _MillionaireStep(questionNumber: 15, points: 1000000, difficulty: 5, isSafePoint: false, timeLimit: 15),
+    _MillionaireStep(
+      questionNumber: 1,
+      points: 100,
+      difficulty: 1,
+      isSafePoint: false,
+      timeLimit: 30,
+    ),
+    _MillionaireStep(
+      questionNumber: 2,
+      points: 200,
+      difficulty: 1,
+      isSafePoint: false,
+      timeLimit: 30,
+    ),
+    _MillionaireStep(
+      questionNumber: 3,
+      points: 500,
+      difficulty: 1,
+      isSafePoint: false,
+      timeLimit: 30,
+    ),
+    _MillionaireStep(
+      questionNumber: 4,
+      points: 1000,
+      difficulty: 2,
+      isSafePoint: false,
+      timeLimit: 25,
+    ),
+    _MillionaireStep(
+      questionNumber: 5,
+      points: 2000,
+      difficulty: 2,
+      isSafePoint: true,
+      timeLimit: 25,
+    ),
+    _MillionaireStep(
+      questionNumber: 6,
+      points: 4000,
+      difficulty: 3,
+      isSafePoint: false,
+      timeLimit: 25,
+    ),
+    _MillionaireStep(
+      questionNumber: 7,
+      points: 8000,
+      difficulty: 3,
+      isSafePoint: false,
+      timeLimit: 25,
+    ),
+    _MillionaireStep(
+      questionNumber: 8,
+      points: 16000,
+      difficulty: 4,
+      isSafePoint: false,
+      timeLimit: 20,
+    ),
+    _MillionaireStep(
+      questionNumber: 9,
+      points: 32000,
+      difficulty: 4,
+      isSafePoint: false,
+      timeLimit: 20,
+    ),
+    _MillionaireStep(
+      questionNumber: 10,
+      points: 64000,
+      difficulty: 4,
+      isSafePoint: true,
+      timeLimit: 20,
+    ),
+    _MillionaireStep(
+      questionNumber: 11,
+      points: 125000,
+      difficulty: 4,
+      isSafePoint: false,
+      timeLimit: 20,
+    ),
+    _MillionaireStep(
+      questionNumber: 12,
+      points: 250000,
+      difficulty: 4,
+      isSafePoint: false,
+      timeLimit: 20,
+    ),
+    _MillionaireStep(
+      questionNumber: 13,
+      points: 500000,
+      difficulty: 5,
+      isSafePoint: false,
+      timeLimit: 15,
+    ),
+    _MillionaireStep(
+      questionNumber: 14,
+      points: 750000,
+      difficulty: 5,
+      isSafePoint: false,
+      timeLimit: 15,
+    ),
+    _MillionaireStep(
+      questionNumber: 15,
+      points: 1000000,
+      difficulty: 5,
+      isSafePoint: false,
+      timeLimit: 15,
+    ),
   ];
 
   static const List<String> _jokerOrder = [
@@ -120,10 +212,14 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
       final questions = (data['questions'] as List<dynamic>? ?? [])
           .map((question) => Map<String, dynamic>.from(question as Map))
           .toList();
-      final profile = Map<String, dynamic>.from(data['profile'] as Map? ?? <String, dynamic>{});
+      final profile = Map<String, dynamic>.from(
+        data['profile'] as Map? ?? <String, dynamic>{},
+      );
       final sessionId = data['sessionId']?.toString();
 
-      if (questions.length < _steps.length || sessionId == null || sessionId.isEmpty) {
+      if (questions.length < _steps.length ||
+          sessionId == null ||
+          sessionId.isEmpty) {
         throw Exception('Millionaire akışı için yeterli veri gelmedi.');
       }
 
@@ -141,6 +237,7 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
       });
 
       ref.invalidate(profileProvider);
+      analyticsService.track('game_started', {'mode': 'millionaire'});
       _startTimer();
     } catch (error) {
       setState(() {
@@ -153,7 +250,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _isFinalizing || _result != null || _selectedAnswer != null) {
+      if (!mounted ||
+          _isFinalizing ||
+          _result != null ||
+          _selectedAnswer != null) {
         return;
       }
 
@@ -172,7 +272,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
   }
 
   Future<void> _handleAnswerTap(String key) async {
-    if (_selectedAnswer != null || _isFinalizing || _result != null || _eliminatedOptions.contains(key)) {
+    if (_selectedAnswer != null ||
+        _isFinalizing ||
+        _result != null ||
+        _eliminatedOptions.contains(key)) {
       return;
     }
 
@@ -183,13 +286,17 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
 
     final correctAnswer = question['correct_answer']?.toString();
 
-    if (_doubleAnswerActive && _firstWrongAnswer == null && key != correctAnswer) {
+    if (_doubleAnswerActive &&
+        _firstWrongAnswer == null &&
+        key != correctAnswer) {
       setState(() {
         _firstWrongAnswer = key;
         _eliminatedOptions.add(key);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Çift cevap jokeri aktif. Bir tahmin hakkın daha var.')),
+        const SnackBar(
+          content: Text('Çift cevap jokeri aktif. Bir tahmin hakkın daha var.'),
+        ),
       );
       return;
     }
@@ -206,7 +313,9 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
     final nextAnswered = _totalAnswered + 1;
     final nextCorrect = _correctAnswers + (isCorrect ? 1 : 0);
     final nextPrize = isCorrect ? _currentStep.points : _currentPrize;
-    final nextSafePoint = isCorrect && _currentStep.isSafePoint ? _currentStep.points : _safePointReached;
+    final nextSafePoint = isCorrect && _currentStep.isSafePoint
+        ? _currentStep.points
+        : _safePointReached;
 
     setState(() {
       _revealedAnswer = correctAnswer;
@@ -267,7 +376,9 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
 
     try {
       final data = await millionaireRepository.useJoker(jokerType);
-      final profile = Map<String, dynamic>.from(data['profile'] as Map? ?? <String, dynamic>{});
+      final profile = Map<String, dynamic>.from(
+        data['profile'] as Map? ?? <String, dynamic>{},
+      );
 
       setState(() {
         _jokerStock = _readJokerStock(profile);
@@ -278,11 +389,16 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
       switch (jokerType) {
         case 'fifty_fifty':
           final correct = question['correct_answer']?.toString();
-          final wrongOptions = _options
-              .where((option) => option.key != correct && !_eliminatedOptions.contains(option.key))
-              .map((option) => option.key)
-              .toList()
-            ..shuffle(_random);
+          final wrongOptions =
+              _options
+                  .where(
+                    (option) =>
+                        option.key != correct &&
+                        !_eliminatedOptions.contains(option.key),
+                  )
+                  .map((option) => option.key)
+                  .toList()
+                ..shuffle(_random);
           setState(() {
             _eliminatedOptions.addAll(wrongOptions.take(2));
           });
@@ -291,7 +407,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
           final correct = question['correct_answer']?.toString() ?? 'A';
           final correctPercent = 40 + _random.nextInt(31);
           final remaining = 100 - correctPercent;
-          final others = _options.map((item) => item.key).where((key) => key != correct).toList();
+          final others = _options
+              .map((item) => item.key)
+              .where((key) => key != correct)
+              .toList();
           final r1 = _random.nextInt(remaining + 1);
           final r2 = _random.nextInt(remaining - r1 + 1);
           final r3 = remaining - r1 - r2;
@@ -309,7 +428,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
           final confidence = 60 + _random.nextInt(31);
           final suggestion = _random.nextDouble() < 0.8
               ? correct
-              : _options.map((item) => item.key).where((key) => key != correct).toList()[_random.nextInt(3)];
+              : _options
+                    .map((item) => item.key)
+                    .where((key) => key != correct)
+                    .toList()[_random.nextInt(3)];
           setState(() {
             _phoneResult = (suggestion: suggestion, confidence: confidence);
           });
@@ -337,13 +459,16 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_humanizeError(error))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_humanizeError(error))));
     }
   }
 
-  Future<void> _finalizeGame({required String result, required int score}) async {
+  Future<void> _finalizeGame({
+    required String result,
+    required int score,
+  }) async {
     if (_isFinalizing || _sessionId == null) {
       return;
     }
@@ -364,8 +489,19 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
         safePointReached: _safePointReached,
         jokersUsed: _usedJokers.toList(),
       );
-      final profile = Map<String, dynamic>.from(data['profile'] as Map? ?? <String, dynamic>{});
-      final rewards = Map<String, dynamic>.from(data['rewards'] as Map? ?? <String, dynamic>{});
+      final profile = Map<String, dynamic>.from(
+        data['profile'] as Map? ?? <String, dynamic>{},
+      );
+      final rewards = Map<String, dynamic>.from(
+        data['rewards'] as Map? ?? <String, dynamic>{},
+      );
+      analyticsService.track('game_completed', {
+        'mode': 'millionaire',
+        'result': result,
+        'score': score,
+        'correct_answers': _correctAnswers,
+        'total_answered': _totalAnswered,
+      });
 
       setState(() {
         _result = _GameSummary(
@@ -401,10 +537,12 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
     final raw = (_currentQuestion?['options'] as List<dynamic>? ?? []);
     return raw
         .map((option) => Map<String, dynamic>.from(option as Map))
-        .map((option) => _OptionItem(
-              key: option['key']?.toString() ?? '-',
-              text: option['text']?.toString() ?? '-',
-            ))
+        .map(
+          (option) => _OptionItem(
+            key: option['key']?.toString() ?? '-',
+            text: option['text']?.toString() ?? '-',
+          ),
+        )
         .toList();
   }
 
@@ -419,9 +557,7 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
       return {for (final joker in _jokerOrder) joker: 0};
     }
 
-    return {
-      for (final joker in _jokerOrder) joker: _asInt(jokers[joker]),
-    };
+    return {for (final joker in _jokerOrder) joker: _asInt(jokers[joker])};
   }
 
   int _asInt(Object? value) {
@@ -445,11 +581,15 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
   String _formatCompact(int value) {
     if (value >= 1000000) {
       final compact = value / 1000000;
-      return compact % 1 == 0 ? '${compact.toInt()}M' : '${compact.toStringAsFixed(1)}M';
+      return compact % 1 == 0
+          ? '${compact.toInt()}M'
+          : '${compact.toStringAsFixed(1)}M';
     }
     if (value >= 1000) {
       final compact = value / 1000;
-      return compact % 1 == 0 ? '${compact.toInt()}K' : '${compact.toStringAsFixed(1)}K';
+      return compact % 1 == 0
+          ? '${compact.toInt()}K'
+          : '${compact.toStringAsFixed(1)}K';
     }
     return '$value';
   }
@@ -462,7 +602,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
-            Text('Ödül Basamakları', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              'Ödül Basamakları',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 16),
             for (final step in _steps.reversed)
               Container(
@@ -480,9 +623,15 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
                     if (step.isSafePoint)
                       Padding(
                         padding: const EdgeInsets.only(right: 12),
-                        child: Text('Güvenli', style: Theme.of(context).textTheme.labelMedium),
+                        child: Text(
+                          'Güvenli',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
                       ),
-                    Text(_formatCompact(step.points), style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      _formatCompact(step.points),
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ],
                 ),
               ),
@@ -497,9 +646,7 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
     final theme = Theme.of(context);
 
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_error != null && _result == null) {
@@ -513,7 +660,10 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
               children: [
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _initializeGame, child: const Text('Tekrar dene')),
+                FilledButton(
+                  onPressed: _initializeGame,
+                  child: const Text('Tekrar dene'),
+                ),
               ],
             ),
           ),
@@ -545,7 +695,9 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
                 children: [
                   Text(_result!.headline, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 8),
-                  Text('Skor: ${_formatCompact(_result!.score)} · Güvenli nokta: ${_formatCompact(_result!.safePointReached)}'),
+                  Text(
+                    'Skor: ${_formatCompact(_result!.score)} · Güvenli nokta: ${_formatCompact(_result!.safePointReached)}',
+                  ),
                 ],
               ),
             ),
@@ -558,10 +710,26 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
               childAspectRatio: 1.25,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                _ResultStat(label: 'Doğru', value: '${_result!.correctAnswers}/${_result!.totalAnswered}', icon: Icons.track_changes_rounded),
-                _ResultStat(label: 'Ulaşılan soru', value: '${_result!.questionReached}/15', icon: Icons.flag_rounded),
-                _ResultStat(label: 'XP', value: '+${_result!.xpEarned}', icon: Icons.auto_awesome_rounded),
-                _ResultStat(label: 'Coin', value: '+${_result!.coinsEarned}', icon: Icons.monetization_on_rounded),
+                _ResultStat(
+                  label: 'Doğru',
+                  value: '${_result!.correctAnswers}/${_result!.totalAnswered}',
+                  icon: Icons.track_changes_rounded,
+                ),
+                _ResultStat(
+                  label: 'Ulaşılan soru',
+                  value: '${_result!.questionReached}/15',
+                  icon: Icons.flag_rounded,
+                ),
+                _ResultStat(
+                  label: 'XP',
+                  value: '+${_result!.xpEarned}',
+                  icon: Icons.auto_awesome_rounded,
+                ),
+                _ResultStat(
+                  label: 'Coin',
+                  value: '+${_result!.coinsEarned}',
+                  icon: Icons.monetization_on_rounded,
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -578,7 +746,9 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
                   const SizedBox(height: 12),
                   Text('Level: ${_asInt(_result!.profile['level'])}'),
                   Text('XP: ${_formatCompact(_asInt(_result!.profile['xp']))}'),
-                  Text('Coin: ${_formatCompact(_asInt(_result!.profile['coins']))}'),
+                  Text(
+                    'Coin: ${_formatCompact(_asInt(_result!.profile['coins']))}',
+                  ),
                   Text('Enerji: ${_asInt(_result!.profile['energy'])}/5'),
                 ],
               ),
@@ -586,14 +756,32 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _initializeGame,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.replay_rounded),
               label: const Text('Tekrar Oyna'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
+              onPressed: () => shareService.shareGameResult(
+                mode: 'Millionaire',
+                score: _result!.score,
+                correctAnswers: _result!.correctAnswers,
+                totalAnswered: _result!.totalAnswered,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('Sonucu Paylaş'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: () => context.go('/'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.home_rounded),
               label: const Text('Ana Sayfaya Dön'),
             ),
@@ -640,7 +828,9 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
                     label: 'Süre',
                     value: '$_timeRemaining sn',
                     icon: Icons.timer_outlined,
-                    accent: _timeRemaining <= 5 ? theme.colorScheme.error : null,
+                    accent: _timeRemaining <= 5
+                        ? theme.colorScheme.error
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -669,9 +859,14 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Ödül: ${_formatCompact(_currentStep.points)}', style: theme.textTheme.titleMedium),
+                  Text(
+                    'Ödül: ${_formatCompact(_currentStep.points)}',
+                    style: theme.textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 6),
-                  Text('Kategori: ${question['category'] ?? '-'} · Zorluk ${_currentStep.difficulty}/5'),
+                  Text(
+                    'Kategori: ${question['category'] ?? '-'} · Zorluk ${_currentStep.difficulty}/5',
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     question['question_text']?.toString() ?? '-',
@@ -700,10 +895,18 @@ class _MillionaireScreenState extends ConsumerState<MillionaireScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _AnswerButton(
                   option: option,
-                  isDisabled: _isFinalizing || _selectedAnswer != null || _eliminatedOptions.contains(option.key),
+                  isDisabled:
+                      _isFinalizing ||
+                      _selectedAnswer != null ||
+                      _eliminatedOptions.contains(option.key),
                   isSelected: _selectedAnswer == option.key,
-                  isCorrect: _revealedAnswer == option.key && question['correct_answer']?.toString() == option.key,
-                  isWrong: _revealedAnswer != null && _selectedAnswer == option.key && question['correct_answer']?.toString() != option.key,
+                  isCorrect:
+                      _revealedAnswer == option.key &&
+                      question['correct_answer']?.toString() == option.key,
+                  isWrong:
+                      _revealedAnswer != null &&
+                      _selectedAnswer == option.key &&
+                      question['correct_answer']?.toString() != option.key,
                   isEliminated: _eliminatedOptions.contains(option.key),
                   onTap: () => _handleAnswerTap(option.key),
                 ),
@@ -882,14 +1085,19 @@ class _AnswerButton extends StatelessWidget {
             minimumSize: const Size.fromHeight(58),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             alignment: Alignment.centerLeft,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 16,
                 backgroundColor: foreground.withValues(alpha: 0.12),
-                child: Text(option.key, style: Theme.of(context).textTheme.labelLarge),
+                child: Text(
+                  option.key,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(child: Text(option.text)),
@@ -927,14 +1135,19 @@ class _JokerButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: enabled ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceContainerHighest,
+          color: enabled
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surfaceContainerHighest,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
-            Text(isUsed ? 'Kullanıldı' : 'Stok: $stock', style: theme.textTheme.bodySmall),
+            Text(
+              isUsed ? 'Kullanıldı' : 'Stok: $stock',
+              style: theme.textTheme.bodySmall,
+            ),
           ],
         ),
       ),
@@ -949,7 +1162,10 @@ class _AudienceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxValue = result.values.fold<int>(1, (max, value) => value > max ? value : max);
+    final maxValue = result.values.fold<int>(
+      1,
+      (max, value) => value > max ? value : max,
+    );
 
     return Container(
       padding: const EdgeInsets.all(20),

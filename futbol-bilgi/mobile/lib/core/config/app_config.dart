@@ -26,17 +26,47 @@ class AppConfig {
   }
 
   static bool get isSupabaseConfigured {
-    return !supabaseUrl.contains('YOUR_SUPABASE_URL') && !supabaseAnonKey.contains('YOUR_SUPABASE_ANON_KEY');
+    return !supabaseUrl.contains('YOUR_SUPABASE_URL') &&
+        !supabaseAnonKey.contains('YOUR_SUPABASE_ANON_KEY');
   }
 
   static List<String> get missingConfiguration {
     return [
       if (supabaseUrl.contains('YOUR_SUPABASE_URL')) 'SUPABASE_URL',
-      if (supabaseAnonKey.contains('YOUR_SUPABASE_ANON_KEY')) 'SUPABASE_ANON_KEY',
+      if (supabaseAnonKey.contains('YOUR_SUPABASE_ANON_KEY'))
+        'SUPABASE_ANON_KEY',
     ];
   }
 
   static bool get isLocalApiBaseUrl {
-    return apiBaseUrl.contains('localhost') || apiBaseUrl.contains('127.0.0.1') || apiBaseUrl.contains('10.0.2.2');
+    return apiBaseUrl.contains('localhost') ||
+        apiBaseUrl.contains('127.0.0.1') ||
+        apiBaseUrl.contains('10.0.2.2');
+  }
+
+  static const admobAndroidAppId = String.fromEnvironment(
+    'ADMOB_ANDROID_APP_ID',
+    defaultValue: 'ca-app-pub-3940256099942544~3347511713',
+  );
+
+  static const admobIosAppId = String.fromEnvironment(
+    'ADMOB_IOS_APP_ID',
+    defaultValue: 'ca-app-pub-3940256099942544~1458002511',
+  );
+
+  static String get rewardedAdUnitId {
+    const configured = String.fromEnvironment('ADMOB_REWARDED_AD_UNIT_ID');
+    if (configured.isNotEmpty) {
+      return configured;
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return 'ca-app-pub-3940256099942544/1712485313';
+      case TargetPlatform.android:
+        return 'ca-app-pub-3940256099942544/5224354917';
+      default:
+        return 'ca-app-pub-3940256099942544/5224354917';
+    }
   }
 }

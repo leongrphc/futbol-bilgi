@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/share/share_service.dart';
 import 'leaderboard_repository.dart';
 
 class LeaderboardScreen extends StatefulWidget {
@@ -46,11 +47,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   String _formatCompact(int value) {
     if (value >= 1000000) {
       final compact = value / 1000000;
-      return compact % 1 == 0 ? '${compact.toInt()}M' : '${compact.toStringAsFixed(1)}M';
+      return compact % 1 == 0
+          ? '${compact.toInt()}M'
+          : '${compact.toStringAsFixed(1)}M';
     }
     if (value >= 1000) {
       final compact = value / 1000;
-      return compact % 1 == 0 ? '${compact.toInt()}K' : '${compact.toStringAsFixed(1)}K';
+      return compact % 1 == 0
+          ? '${compact.toInt()}K'
+          : '${compact.toStringAsFixed(1)}K';
     }
     return '$value';
   }
@@ -80,9 +85,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Leaderboard yüklenemedi: ${snapshot.error}', textAlign: TextAlign.center),
+                    Text(
+                      'Leaderboard yüklenemedi: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 16),
-                    FilledButton(onPressed: _reload, child: const Text('Tekrar dene')),
+                    FilledButton(
+                      onPressed: _reload,
+                      child: const Text('Tekrar dene'),
+                    ),
                   ],
                 ),
               ),
@@ -91,7 +102,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
           final players = snapshot.data ?? const [];
           final topThree = players.take(3).toList();
-          final rest = players.length > 3 ? players.sublist(3) : const <Map<String, dynamic>>[];
+          final rest = players.length > 3
+              ? players.sublist(3)
+              : const <Map<String, dynamic>>[];
+          final leader = players.isNotEmpty ? players.first : null;
 
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -116,7 +130,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     children: [
                       Text('Sıralama', style: theme.textTheme.headlineSmall),
                       const SizedBox(height: 8),
-                      Text('En iyi oyuncuları filtreleyip kendi sıralamanı takip et.', style: theme.textTheme.bodyLarge),
+                      Text(
+                        'En iyi oyuncuları filtreleyip kendi sıralamanı takip et.',
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      if (leader != null) ...[
+                        const SizedBox(height: 16),
+                        FilledButton.tonalIcon(
+                          onPressed: () => shareService.shareText(
+                            subject: 'Futbol Bilgi sıralaması',
+                            text:
+                                'Futbol Bilgi ${_labelFor(_modeOptions, _mode)} ${_labelFor(_periodOptions, _period)} lideri: ${leader['username'] ?? 'Oyuncu'} (${_formatCompact(_asInt(leader['score']))} puan).',
+                          ),
+                          icon: const Icon(Icons.share_rounded),
+                          label: const Text('Sıralamayı Paylaş'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -165,11 +194,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (topThree.length > 1) Expanded(child: _PodiumCard(rank: 2, player: topThree[1], height: 144)),
+                      if (topThree.length > 1)
+                        Expanded(
+                          child: _PodiumCard(
+                            rank: 2,
+                            player: topThree[1],
+                            height: 144,
+                          ),
+                        ),
                       if (topThree.length > 1) const SizedBox(width: 12),
-                      if (topThree.isNotEmpty) Expanded(child: _PodiumCard(rank: 1, player: topThree[0], height: 176, highlighted: true)),
+                      if (topThree.isNotEmpty)
+                        Expanded(
+                          child: _PodiumCard(
+                            rank: 1,
+                            player: topThree[0],
+                            height: 176,
+                            highlighted: true,
+                          ),
+                        ),
                       if (topThree.length > 2) const SizedBox(width: 12),
-                      if (topThree.length > 2) Expanded(child: _PodiumCard(rank: 3, player: topThree[2], height: 132)),
+                      if (topThree.length > 2)
+                        Expanded(
+                          child: _PodiumCard(
+                            rank: 3,
+                            player: topThree[2],
+                            height: 132,
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -194,13 +245,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(player['username']?.toString() ?? 'Oyuncu', style: theme.textTheme.titleMedium),
+                                  Text(
+                                    player['username']?.toString() ?? 'Oyuncu',
+                                    style: theme.textTheme.titleMedium,
+                                  ),
                                   const SizedBox(height: 4),
-                                  Text(player['league_tier']?.toString() ?? 'bronze'),
+                                  Text(
+                                    player['league_tier']?.toString() ??
+                                        'bronze',
+                                  ),
                                 ],
                               ),
                             ),
-                            Text(_formatCompact(_asInt(player['score'])), style: theme.textTheme.titleLarge),
+                            Text(
+                              _formatCompact(_asInt(player['score'])),
+                              style: theme.textTheme.titleLarge,
+                            ),
                           ],
                         ),
                       ),
@@ -213,6 +273,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         },
       ),
     );
+  }
+
+  String _labelFor(List<(String, String)> options, String key) {
+    return options
+        .firstWhere((item) => item.$1 == key, orElse: () => (key, key))
+        .$2;
   }
 }
 
@@ -232,11 +298,15 @@ class _PodiumCard extends StatelessWidget {
   String _formatCompact(int value) {
     if (value >= 1000000) {
       final compact = value / 1000000;
-      return compact % 1 == 0 ? '${compact.toInt()}M' : '${compact.toStringAsFixed(1)}M';
+      return compact % 1 == 0
+          ? '${compact.toInt()}M'
+          : '${compact.toStringAsFixed(1)}M';
     }
     if (value >= 1000) {
       final compact = value / 1000;
-      return compact % 1 == 0 ? '${compact.toInt()}K' : '${compact.toStringAsFixed(1)}K';
+      return compact % 1 == 0
+          ? '${compact.toInt()}K'
+          : '${compact.toStringAsFixed(1)}K';
     }
     return '$value';
   }
@@ -255,7 +325,9 @@ class _PodiumCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: highlighted ? theme.colorScheme.primaryContainer : theme.colorScheme.surfaceContainerHighest,
+        color: highlighted
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.surfaceContainerHighest,
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -270,7 +342,10 @@ class _PodiumCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
-          Text(_formatCompact(_asInt(player['score'])), style: theme.textTheme.titleLarge),
+          Text(
+            _formatCompact(_asInt(player['score'])),
+            style: theme.textTheme.titleLarge,
+          ),
         ],
       ),
     );

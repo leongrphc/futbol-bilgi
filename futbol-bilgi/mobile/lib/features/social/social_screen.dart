@@ -50,7 +50,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Arkadaş isteği gönderildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -60,7 +62,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Arkadaş isteği kabul edildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -70,7 +74,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Arkadaş isteği reddedildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -80,7 +86,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Düello daveti gönderildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -90,7 +98,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Düello daveti kabul edildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -100,7 +110,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Düello daveti reddedildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -110,7 +122,9 @@ class _SocialScreenState extends State<SocialScreen> {
       setState(() => _message = 'Düello daveti iptal edildi.');
       _reload();
     } catch (error) {
-      setState(() => _message = error.toString().replaceFirst('Exception: ', ''));
+      setState(
+        () => _message = error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -134,9 +148,15 @@ class _SocialScreenState extends State<SocialScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Sosyal veriler alınamadı: ${snapshot.error}', textAlign: TextAlign.center),
+                    Text(
+                      'Sosyal veriler alınamadı: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 16),
-                    FilledButton(onPressed: _reload, child: const Text('Tekrar dene')),
+                    FilledButton(
+                      onPressed: _reload,
+                      child: const Text('Tekrar dene'),
+                    ),
                   ],
                 ),
               ),
@@ -144,10 +164,21 @@ class _SocialScreenState extends State<SocialScreen> {
           }
 
           final payload = snapshot.data ?? <String, dynamic>{};
-          final profiles = (payload['profiles'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-          final friendships = (payload['friendships'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-          final invites = (payload['duelInvites'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final profiles = (payload['profiles'] as List<dynamic>? ?? const [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          final friendships =
+              (payload['friendships'] as List<dynamic>? ?? const [])
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList();
+          final invites = (payload['duelInvites'] as List<dynamic>? ?? const [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
           final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+          final profileById = {
+            for (final profile in profiles)
+              profile['id']?.toString() ?? '': profile,
+          };
 
           final acceptedFriendIds = friendships
               .where((item) => item['status'] == 'accepted')
@@ -161,7 +192,13 @@ class _SocialScreenState extends State<SocialScreen> {
               })
               .whereType<String>()
               .toSet();
-          final pendingIncoming = friendships.where((item) => item['status'] == 'pending' && item['friend_id']?.toString() == currentUserId).toList();
+          final pendingIncoming = friendships
+              .where(
+                (item) =>
+                    item['status'] == 'pending' &&
+                    item['friend_id']?.toString() == currentUserId,
+              )
+              .toList();
 
           return RefreshIndicator(
             onRefresh: () async => _reload(),
@@ -173,15 +210,24 @@ class _SocialScreenState extends State<SocialScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(28),
                     gradient: LinearGradient(
-                      colors: [theme.colorScheme.primaryContainer, theme.colorScheme.tertiaryContainer],
+                      colors: [
+                        theme.colorScheme.primaryContainer,
+                        theme.colorScheme.tertiaryContainer,
+                      ],
                     ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Sosyal Merkez', style: theme.textTheme.headlineSmall),
+                      Text(
+                        'Sosyal Merkez',
+                        style: theme.textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 8),
-                      Text('Arkadaş listeni büyüt, gelen istekleri yanıtla ve düelloları başlat.', style: theme.textTheme.bodyLarge),
+                      Text(
+                        'Arkadaş listeni büyüt, gelen istekleri yanıtla ve düelloları başlat.',
+                        style: theme.textTheme.bodyLarge,
+                      ),
                     ],
                   ),
                 ),
@@ -199,10 +245,15 @@ class _SocialScreenState extends State<SocialScreen> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: _usernameController,
-                        decoration: const InputDecoration(labelText: 'Kullanıcı adı'),
+                        decoration: const InputDecoration(
+                          labelText: 'Kullanıcı adı',
+                        ),
                       ),
                       const SizedBox(height: 12),
-                      FilledButton(onPressed: _sendFriendRequest, child: const Text('İstek Gönder')),
+                      FilledButton(
+                        onPressed: _sendFriendRequest,
+                        child: const Text('İstek Gönder'),
+                      ),
                       if (_message != null) ...[
                         const SizedBox(height: 12),
                         Text(_message!),
@@ -218,10 +269,14 @@ class _SocialScreenState extends State<SocialScreen> {
                 else
                   ...pendingIncoming.map((item) {
                     final requesterId = item['user_id']?.toString() ?? '';
+                    final requesterName = _displayName(
+                      profileById[requesterId],
+                      requesterId,
+                    );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _SocialCard(
-                        title: requesterId,
+                        title: requesterName,
                         subtitle: 'Arkadaş isteği gönderdi',
                         primaryLabel: 'Kabul',
                         secondaryLabel: 'Reddet',
@@ -236,11 +291,13 @@ class _SocialScreenState extends State<SocialScreen> {
                 ...profiles.map((profile) {
                   final id = profile['id']?.toString() ?? '';
                   final isFriend = acceptedFriendIds.contains(id);
+                  final xp = profile['xp'] ?? profile['score'] ?? 0;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SocialCard(
                       title: profile['username']?.toString() ?? 'Oyuncu',
-                      subtitle: '${profile['league_tier'] ?? 'bronze'} · ${profile['score'] ?? 0} XP',
+                      subtitle:
+                          '${profile['league_tier'] ?? 'bronze'} · $xp XP',
                       primaryLabel: isFriend ? 'Düello' : null,
                       onPrimary: isFriend ? () => _sendDuelInvite(id) : null,
                     ),
@@ -257,21 +314,39 @@ class _SocialScreenState extends State<SocialScreen> {
                     final fromUserId = invite['from_user_id']?.toString() ?? '';
                     final toUserId = invite['to_user_id']?.toString() ?? '';
                     final status = invite['status']?.toString() ?? 'pending';
-                    final isIncoming = currentUserId != null && toUserId == currentUserId;
-                    final isOutgoing = currentUserId != null && fromUserId == currentUserId;
+                    final isIncoming =
+                        currentUserId != null && toUserId == currentUserId;
+                    final isOutgoing =
+                        currentUserId != null && fromUserId == currentUserId;
+                    final fromName = _displayName(
+                      profileById[fromUserId],
+                      fromUserId,
+                    );
+                    final toName = _displayName(
+                      profileById[toUserId],
+                      toUserId,
+                    );
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _SocialCard(
-                        title: '$fromUserId → $toUserId',
+                        title: '$fromName → $toName',
                         subtitle: 'Durum: $status',
-                        primaryLabel: status == 'pending' && isIncoming ? 'Kabul' : status == 'pending' && isOutgoing ? 'İptal' : null,
-                        secondaryLabel: status == 'pending' && isIncoming ? 'Reddet' : null,
+                        primaryLabel: status == 'pending' && isIncoming
+                            ? 'Kabul'
+                            : status == 'pending' && isOutgoing
+                            ? 'İptal'
+                            : null,
+                        secondaryLabel: status == 'pending' && isIncoming
+                            ? 'Reddet'
+                            : null,
                         onPrimary: status == 'pending' && isIncoming
                             ? () => _acceptDuelInvite(inviteId)
                             : status == 'pending' && isOutgoing
-                                ? () => _cancelDuelInvite(inviteId)
-                                : null,
-                        onSecondary: status == 'pending' && isIncoming ? () => _rejectDuelInvite(inviteId) : null,
+                            ? () => _cancelDuelInvite(inviteId)
+                            : null,
+                        onSecondary: status == 'pending' && isIncoming
+                            ? () => _rejectDuelInvite(inviteId)
+                            : null,
                       ),
                     );
                   }),
@@ -282,6 +357,17 @@ class _SocialScreenState extends State<SocialScreen> {
       ),
     );
   }
+}
+
+String _displayName(Map<String, dynamic>? profile, String fallbackId) {
+  final username = profile?['username']?.toString();
+  if (username != null && username.isNotEmpty) {
+    return username;
+  }
+  if (fallbackId.length > 8) {
+    return 'Oyuncu ${fallbackId.substring(0, 8)}';
+  }
+  return fallbackId.isEmpty ? 'Oyuncu' : 'Oyuncu $fallbackId';
 }
 
 class _SocialCard extends StatelessWidget {
@@ -322,10 +408,21 @@ class _SocialCard extends StatelessWidget {
             Row(
               children: [
                 if (primaryLabel != null)
-                  Expanded(child: FilledButton(onPressed: onPrimary, child: Text(primaryLabel!))),
-                if (primaryLabel != null && secondaryLabel != null) const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: onPrimary,
+                      child: Text(primaryLabel!),
+                    ),
+                  ),
+                if (primaryLabel != null && secondaryLabel != null)
+                  const SizedBox(width: 12),
                 if (secondaryLabel != null)
-                  Expanded(child: OutlinedButton(onPressed: onSecondary, child: Text(secondaryLabel!))),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: onSecondary,
+                      child: Text(secondaryLabel!),
+                    ),
+                  ),
               ],
             ),
           ],

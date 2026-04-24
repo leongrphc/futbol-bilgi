@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
+import '../../core/share/share_service.dart';
 import '../profile/profile_provider.dart';
 import 'duel_repository.dart';
 
@@ -49,10 +51,12 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
     final raw = (_currentQuestion?['options'] as List<dynamic>? ?? []);
     return raw
         .map((option) => Map<String, dynamic>.from(option as Map))
-        .map((option) => _OptionItem(
-              key: option['key']?.toString() ?? '-',
-              text: option['text']?.toString() ?? '-',
-            ))
+        .map(
+          (option) => _OptionItem(
+            key: option['key']?.toString() ?? '-',
+            text: option['text']?.toString() ?? '-',
+          ),
+        )
         .toList();
   }
 
@@ -96,7 +100,9 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
           .toList();
       final sessionId = data['sessionId']?.toString();
 
-      if (questions.length < _totalQuestions || sessionId == null || sessionId.isEmpty) {
+      if (questions.length < _totalQuestions ||
+          sessionId == null ||
+          sessionId.isEmpty) {
         throw Exception('Düello için yeterli veri gelmedi.');
       }
 
@@ -109,6 +115,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
         );
         _isLoading = false;
       });
+      analyticsService.track('game_started', {'mode': 'duel'});
 
       _startTimer();
     } catch (error) {
@@ -122,7 +129,10 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _isFinalizing || _selectedAnswer != null || _result != null) {
+      if (!mounted ||
+          _isFinalizing ||
+          _selectedAnswer != null ||
+          _result != null) {
         return;
       }
 
@@ -194,8 +204,8 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
     final result = _playerScore > _opponentScore
         ? 'win'
         : _playerScore < _opponentScore
-            ? 'loss'
-            : 'draw';
+        ? 'loss'
+        : 'draw';
 
     setState(() => _isFinalizing = true);
 
@@ -210,7 +220,16 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
         answerTimeMs: _totalAnswerTimeMs,
       );
 
-      final rewards = Map<String, dynamic>.from(data['rewards'] as Map? ?? <String, dynamic>{});
+      final rewards = Map<String, dynamic>.from(
+        data['rewards'] as Map? ?? <String, dynamic>{},
+      );
+      analyticsService.track('game_completed', {
+        'mode': 'duel',
+        'result': result,
+        'score': _playerScore,
+        'correct_answers': _correctAnswers,
+        'total_answered': _totalAnswered,
+      });
       setState(() {
         _result = _DuelResult(
           result: (data['duelResult']?.toString() ?? result),
@@ -221,7 +240,9 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
           xpEarned: _asInt(rewards['xp']),
           coinsEarned: _asInt(rewards['coins']),
           eloDelta: _asInt(rewards['eloDelta']),
-          profile: Map<String, dynamic>.from(data['profile'] as Map? ?? <String, dynamic>{}),
+          profile: Map<String, dynamic>.from(
+            data['profile'] as Map? ?? <String, dynamic>{},
+          ),
         );
       });
       ref.invalidate(profileProvider);
@@ -241,8 +262,12 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
 
   String _humanizeError(Object error) {
     final text = error.toString();
-    if (text.contains('Insufficient energy')) return 'Düello için yeterli enerji yok.';
-    if (text.contains('Unauthorized')) return 'Oturum geçersiz. Lütfen tekrar giriş yap.';
+    if (text.contains('Insufficient energy')) {
+      return 'Düello için yeterli enerji yok.';
+    }
+    if (text.contains('Unauthorized')) {
+      return 'Oturum geçersiz. Lütfen tekrar giriş yap.';
+    }
     return text.replaceFirst('Exception: ', '');
   }
 
@@ -265,7 +290,10 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               children: [
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _initializeGame, child: const Text('Tekrar dene')),
+                FilledButton(
+                  onPressed: _initializeGame,
+                  child: const Text('Tekrar dene'),
+                ),
               ],
             ),
           ),
@@ -284,7 +312,10 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 gradient: LinearGradient(
-                  colors: [theme.colorScheme.primaryContainer, theme.colorScheme.tertiaryContainer],
+                  colors: [
+                    theme.colorScheme.primaryContainer,
+                    theme.colorScheme.tertiaryContainer,
+                  ],
                 ),
               ),
               child: Column(
@@ -292,7 +323,9 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                 children: [
                   Text(_result!.headline, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 8),
-                  Text('Sen ${_result!.playerScore} · Rakip ${_result!.opponentScore} · ELO ${_result!.eloDelta >= 0 ? '+' : ''}${_result!.eloDelta}'),
+                  Text(
+                    'Sen ${_result!.playerScore} · Rakip ${_result!.opponentScore} · ELO ${_result!.eloDelta >= 0 ? '+' : ''}${_result!.eloDelta}',
+                  ),
                 ],
               ),
             ),
@@ -305,23 +338,57 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               childAspectRatio: 1.15,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                _ResultStat(label: 'Doğru', value: '${_result!.correctAnswers}/${_result!.totalAnswered}', icon: Icons.track_changes_rounded),
-                _ResultStat(label: 'XP', value: '+${_result!.xpEarned}', icon: Icons.auto_awesome_rounded),
-                _ResultStat(label: 'Coin', value: '+${_result!.coinsEarned}', icon: Icons.monetization_on_rounded),
-                _ResultStat(label: 'Level', value: '${_asInt(_result!.profile['level'])}', icon: Icons.military_tech_rounded),
+                _ResultStat(
+                  label: 'Doğru',
+                  value: '${_result!.correctAnswers}/${_result!.totalAnswered}',
+                  icon: Icons.track_changes_rounded,
+                ),
+                _ResultStat(
+                  label: 'XP',
+                  value: '+${_result!.xpEarned}',
+                  icon: Icons.auto_awesome_rounded,
+                ),
+                _ResultStat(
+                  label: 'Coin',
+                  value: '+${_result!.coinsEarned}',
+                  icon: Icons.monetization_on_rounded,
+                ),
+                _ResultStat(
+                  label: 'Level',
+                  value: '${_asInt(_result!.profile['level'])}',
+                  icon: Icons.military_tech_rounded,
+                ),
               ],
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _initializeGame,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.replay_rounded),
               label: const Text('Tekrar Oyna'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
+              onPressed: () => shareService.shareGameResult(
+                mode: 'Düello',
+                score: _result!.playerScore,
+                correctAnswers: _result!.correctAnswers,
+                totalAnswered: _result!.totalAnswered,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('Sonucu Paylaş'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: () => context.go('/'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.home_rounded),
               label: const Text('Ana Sayfaya Dön'),
             ),
@@ -355,7 +422,10 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                       children: [
                         Text('Sen', style: theme.textTheme.labelLarge),
                         const SizedBox(height: 4),
-                        Text('$_playerScore', style: theme.textTheme.headlineSmall),
+                        Text(
+                          '$_playerScore',
+                          style: theme.textTheme.headlineSmall,
+                        ),
                       ],
                     ),
                   ),
@@ -370,9 +440,15 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(_opponent!.username, style: theme.textTheme.labelLarge),
+                        Text(
+                          _opponent!.username,
+                          style: theme.textTheme.labelLarge,
+                        ),
                         const SizedBox(height: 4),
-                        Text('$_opponentScore', style: theme.textTheme.headlineSmall),
+                        Text(
+                          '$_opponentScore',
+                          style: theme.textTheme.headlineSmall,
+                        ),
                       ],
                     ),
                   ),
@@ -397,22 +473,32 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                 children: [
                   Text('Düello Sorusu', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Text(question['question_text']?.toString() ?? '-', style: theme.textTheme.headlineSmall),
+                  Text(
+                    question['question_text']?.toString() ?? '-',
+                    style: theme.textTheme.headlineSmall,
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            ..._options.map((option) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _AnswerButton(
-                    option: option,
-                    isDisabled: _selectedAnswer != null || _isFinalizing,
-                    isSelected: _selectedAnswer == option.key,
-                    isCorrect: _revealedAnswer == option.key && question['correct_answer']?.toString() == option.key,
-                    isWrong: _revealedAnswer != null && _selectedAnswer == option.key && question['correct_answer']?.toString() != option.key,
-                    onTap: () => _answer(option.key),
-                  ),
-                )),
+            ..._options.map(
+              (option) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _AnswerButton(
+                  option: option,
+                  isDisabled: _selectedAnswer != null || _isFinalizing,
+                  isSelected: _selectedAnswer == option.key,
+                  isCorrect:
+                      _revealedAnswer == option.key &&
+                      question['correct_answer']?.toString() == option.key,
+                  isWrong:
+                      _revealedAnswer != null &&
+                      _selectedAnswer == option.key &&
+                      question['correct_answer']?.toString() != option.key,
+                  onTap: () => _answer(option.key),
+                ),
+              ),
+            ),
             if (_isFinalizing) ...[
               const SizedBox(height: 20),
               const Center(child: CircularProgressIndicator()),
@@ -519,14 +605,19 @@ class _AnswerButton extends StatelessWidget {
           minimumSize: const Size.fromHeight(58),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
               backgroundColor: foreground.withValues(alpha: 0.12),
-              child: Text(option.key, style: Theme.of(context).textTheme.labelLarge),
+              child: Text(
+                option.key,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(option.text)),
@@ -538,7 +629,11 @@ class _AnswerButton extends StatelessWidget {
 }
 
 class _ResultStat extends StatelessWidget {
-  const _ResultStat({required this.label, required this.value, required this.icon});
+  const _ResultStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   final String label;
   final String value;

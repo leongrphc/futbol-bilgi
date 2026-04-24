@@ -20,7 +20,9 @@ class _LeagueScreenState extends State<LeagueScreen> {
 
   Future<_LeaguePayload> _load() async {
     final season = await leagueRepository.fetchCurrentSeason();
-    final entries = await leagueRepository.fetchEntries(seasonId: season?['id']?.toString());
+    final entries = await leagueRepository.fetchEntries(
+      seasonId: season?['id']?.toString(),
+    );
     return _LeaguePayload(season: season, entries: entries);
   }
 
@@ -57,9 +59,15 @@ class _LeagueScreenState extends State<LeagueScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('League verisi alınamadı: ${snapshot.error}', textAlign: TextAlign.center),
+                    Text(
+                      'League verisi alınamadı: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 16),
-                    FilledButton(onPressed: _reload, child: const Text('Tekrar dene')),
+                    FilledButton(
+                      onPressed: _reload,
+                      child: const Text('Tekrar dene'),
+                    ),
                   ],
                 ),
               ),
@@ -89,9 +97,15 @@ class _LeagueScreenState extends State<LeagueScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Haftalık Lig', style: theme.textTheme.headlineSmall),
+                      Text(
+                        'Haftalık Lig',
+                        style: theme.textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 8),
-                      Text('Aktif sezon: ${season?['name'] ?? 'Bilinmiyor'}', style: theme.textTheme.bodyLarge),
+                      Text(
+                        'Aktif sezon: ${season?['name'] ?? 'Bilinmiyor'}',
+                        style: theme.textTheme.bodyLarge,
+                      ),
                       if (season?['ends_at'] != null) ...[
                         const SizedBox(height: 4),
                         Text('Bitiş: ${season!['ends_at']}'),
@@ -126,13 +140,19 @@ class _LeagueScreenState extends State<LeagueScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(item['user_id']?.toString() ?? '-', style: theme.textTheme.titleMedium),
+                                  Text(
+                                    _displayName(item),
+                                    style: theme.textTheme.titleMedium,
+                                  ),
                                   const SizedBox(height: 4),
                                   Text(zone),
                                 ],
                               ),
                             ),
-                            Text('${item['season_score'] ?? 0}', style: theme.textTheme.titleLarge),
+                            Text(
+                              '${item['season_score'] ?? 0}',
+                              style: theme.textTheme.titleLarge,
+                            ),
                           ],
                         ),
                       ),
@@ -145,6 +165,19 @@ class _LeagueScreenState extends State<LeagueScreen> {
       ),
     );
   }
+}
+
+String _displayName(Map<String, dynamic> item) {
+  final profile = item['profiles'];
+  if (profile is Map && profile['username'] != null) {
+    return profile['username'].toString();
+  }
+
+  final userId = item['user_id']?.toString() ?? '';
+  if (userId.length > 8) {
+    return 'Oyuncu ${userId.substring(0, 8)}';
+  }
+  return userId.isEmpty ? 'Oyuncu' : 'Oyuncu $userId';
 }
 
 class _LeaguePayload {

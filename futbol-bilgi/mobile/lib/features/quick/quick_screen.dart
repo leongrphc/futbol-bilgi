@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
+import '../../core/share/share_service.dart';
 import '../profile/profile_provider.dart';
 import 'quick_repository.dart';
 
@@ -46,10 +48,12 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
     final raw = (_currentQuestion?['options'] as List<dynamic>? ?? []);
     return raw
         .map((option) => Map<String, dynamic>.from(option as Map))
-        .map((option) => _OptionItem(
-              key: option['key']?.toString() ?? '-',
-              text: option['text']?.toString() ?? '-',
-            ))
+        .map(
+          (option) => _OptionItem(
+            key: option['key']?.toString() ?? '-',
+            text: option['text']?.toString() ?? '-',
+          ),
+        )
         .toList();
   }
 
@@ -90,7 +94,9 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
           .toList();
       final sessionId = data['sessionId']?.toString();
 
-      if (questions.length < _totalQuestions || sessionId == null || sessionId.isEmpty) {
+      if (questions.length < _totalQuestions ||
+          sessionId == null ||
+          sessionId.isEmpty) {
         throw Exception('Quick Play için yeterli veri gelmedi.');
       }
 
@@ -99,6 +105,7 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
         _sessionId = sessionId;
         _isLoading = false;
       });
+      analyticsService.track('game_started', {'mode': 'quick'});
 
       _startTimer();
     } catch (error) {
@@ -112,7 +119,10 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _isFinalizing || _result != null || _selectedAnswer != null) {
+      if (!mounted ||
+          _isFinalizing ||
+          _result != null ||
+          _selectedAnswer != null) {
         return;
       }
 
@@ -189,7 +199,16 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
         totalAnswered: _totalAnswered,
       );
 
-      final rewards = Map<String, dynamic>.from(data['rewards'] as Map? ?? <String, dynamic>{});
+      final rewards = Map<String, dynamic>.from(
+        data['rewards'] as Map? ?? <String, dynamic>{},
+      );
+      analyticsService.track('game_completed', {
+        'mode': 'quick',
+        'result': result,
+        'score': finalScore,
+        'correct_answers': _correctAnswers,
+        'total_answered': _totalAnswered,
+      });
       setState(() {
         _result = _QuickResult(
           result: result,
@@ -198,7 +217,9 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
           totalAnswered: _totalAnswered,
           questionReached: _questionIndex + 1,
           xpEarned: _asInt(rewards['xp']),
-          profile: Map<String, dynamic>.from(data['profile'] as Map? ?? <String, dynamic>{}),
+          profile: Map<String, dynamic>.from(
+            data['profile'] as Map? ?? <String, dynamic>{},
+          ),
         );
       });
       ref.invalidate(profileProvider);
@@ -218,18 +239,24 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
 
   String _humanizeError(Object error) {
     final text = error.toString();
-    if (text.contains('Unauthorized')) return 'Oturum geçersiz. Lütfen tekrar giriş yap.';
+    if (text.contains('Unauthorized')) {
+      return 'Oturum geçersiz. Lütfen tekrar giriş yap.';
+    }
     return text.replaceFirst('Exception: ', '');
   }
 
   String _formatCompact(int value) {
     if (value >= 1000000) {
       final compact = value / 1000000;
-      return compact % 1 == 0 ? '${compact.toInt()}M' : '${compact.toStringAsFixed(1)}M';
+      return compact % 1 == 0
+          ? '${compact.toInt()}M'
+          : '${compact.toStringAsFixed(1)}M';
     }
     if (value >= 1000) {
       final compact = value / 1000;
-      return compact % 1 == 0 ? '${compact.toInt()}K' : '${compact.toStringAsFixed(1)}K';
+      return compact % 1 == 0
+          ? '${compact.toInt()}K'
+          : '${compact.toStringAsFixed(1)}K';
     }
     return '$value';
   }
@@ -253,7 +280,10 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
               children: [
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _initializeGame, child: const Text('Tekrar dene')),
+                FilledButton(
+                  onPressed: _initializeGame,
+                  child: const Text('Tekrar dene'),
+                ),
               ],
             ),
           ),
@@ -283,7 +313,9 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                 children: [
                   Text(_result!.headline, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 8),
-                  Text('Skor: ${_formatCompact(_result!.score)} · XP: +${_result!.xpEarned}'),
+                  Text(
+                    'Skor: ${_formatCompact(_result!.score)} · XP: +${_result!.xpEarned}',
+                  ),
                 ],
               ),
             ),
@@ -296,23 +328,57 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
               childAspectRatio: 1.25,
               physics: const NeverScrollableScrollPhysics(),
               children: [
-                _ResultStat(label: 'Doğru', value: '${_result!.correctAnswers}/${_result!.totalAnswered}', icon: Icons.track_changes_rounded),
-                _ResultStat(label: 'Soru', value: '${_result!.questionReached}/$_totalQuestions', icon: Icons.flag_rounded),
-                _ResultStat(label: 'XP', value: '+${_result!.xpEarned}', icon: Icons.auto_awesome_rounded),
-                _ResultStat(label: 'Level', value: '${_asInt(_result!.profile['level'])}', icon: Icons.military_tech_rounded),
+                _ResultStat(
+                  label: 'Doğru',
+                  value: '${_result!.correctAnswers}/${_result!.totalAnswered}',
+                  icon: Icons.track_changes_rounded,
+                ),
+                _ResultStat(
+                  label: 'Soru',
+                  value: '${_result!.questionReached}/$_totalQuestions',
+                  icon: Icons.flag_rounded,
+                ),
+                _ResultStat(
+                  label: 'XP',
+                  value: '+${_result!.xpEarned}',
+                  icon: Icons.auto_awesome_rounded,
+                ),
+                _ResultStat(
+                  label: 'Level',
+                  value: '${_asInt(_result!.profile['level'])}',
+                  icon: Icons.military_tech_rounded,
+                ),
               ],
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _initializeGame,
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.replay_rounded),
               label: const Text('Tekrar Oyna'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
+              onPressed: () => shareService.shareGameResult(
+                mode: 'Quick Play',
+                score: _result!.score,
+                correctAnswers: _result!.correctAnswers,
+                totalAnswered: _result!.totalAnswered,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('Sonucu Paylaş'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
               onPressed: () => context.go('/'),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.home_rounded),
               label: const Text('Ana Sayfaya Dön'),
             ),
@@ -334,11 +400,32 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
           children: [
             Row(
               children: [
-                Expanded(child: _TopMetricCard(label: 'Soru', value: '${_questionIndex + 1}/$_totalQuestions', icon: Icons.help_outline_rounded)),
+                Expanded(
+                  child: _TopMetricCard(
+                    label: 'Soru',
+                    value: '${_questionIndex + 1}/$_totalQuestions',
+                    icon: Icons.help_outline_rounded,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _TopMetricCard(label: 'Süre', value: '$_timeRemaining sn', icon: Icons.timer_outlined, accent: _timeRemaining <= 10 ? theme.colorScheme.error : null)),
+                Expanded(
+                  child: _TopMetricCard(
+                    label: 'Süre',
+                    value: '$_timeRemaining sn',
+                    icon: Icons.timer_outlined,
+                    accent: _timeRemaining <= 10
+                        ? theme.colorScheme.error
+                        : null,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _TopMetricCard(label: 'Skor', value: _formatCompact(_score), icon: Icons.bolt_rounded)),
+                Expanded(
+                  child: _TopMetricCard(
+                    label: 'Skor',
+                    value: _formatCompact(_score),
+                    icon: Icons.bolt_rounded,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -359,9 +446,14 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                 children: [
                   Text('Quick Play', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Text(question['question_text']?.toString() ?? '-', style: theme.textTheme.headlineSmall),
+                  Text(
+                    question['question_text']?.toString() ?? '-',
+                    style: theme.textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 8),
-                  Text('Her doğru cevap +100 puan, kalan süre bonus olarak eklenir.'),
+                  Text(
+                    'Her doğru cevap +100 puan, kalan süre bonus olarak eklenir.',
+                  ),
                 ],
               ),
             ),
@@ -373,8 +465,13 @@ class _QuickScreenState extends ConsumerState<QuickScreen> {
                   option: option,
                   isDisabled: _selectedAnswer != null || _isFinalizing,
                   isSelected: _selectedAnswer == option.key,
-                  isCorrect: _revealedAnswer == option.key && question['correct_answer']?.toString() == option.key,
-                  isWrong: _revealedAnswer != null && _selectedAnswer == option.key && question['correct_answer']?.toString() != option.key,
+                  isCorrect:
+                      _revealedAnswer == option.key &&
+                      question['correct_answer']?.toString() == option.key,
+                  isWrong:
+                      _revealedAnswer != null &&
+                      _selectedAnswer == option.key &&
+                      question['correct_answer']?.toString() != option.key,
                   onTap: () => _handleAnswerTap(option.key),
                 ),
               ),
@@ -416,11 +513,17 @@ class _QuickResult {
   final int xpEarned;
   final Map<String, dynamic> profile;
 
-  String get headline => result == 'timeout' ? 'Süre doldu.' : 'Quick Play tamamlandı.';
+  String get headline =>
+      result == 'timeout' ? 'Süre doldu.' : 'Quick Play tamamlandı.';
 }
 
 class _TopMetricCard extends StatelessWidget {
-  const _TopMetricCard({required this.label, required this.value, required this.icon, this.accent});
+  const _TopMetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.accent,
+  });
 
   final String label;
   final String value;
@@ -498,14 +601,19 @@ class _AnswerButton extends StatelessWidget {
           minimumSize: const Size.fromHeight(58),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
               backgroundColor: foreground.withValues(alpha: 0.12),
-              child: Text(option.key, style: Theme.of(context).textTheme.labelLarge),
+              child: Text(
+                option.key,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(option.text)),
@@ -517,7 +625,11 @@ class _AnswerButton extends StatelessWidget {
 }
 
 class _ResultStat extends StatelessWidget {
-  const _ResultStat({required this.label, required this.value, required this.icon});
+  const _ResultStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   final String label;
   final String value;

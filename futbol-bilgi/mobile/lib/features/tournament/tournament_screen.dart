@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics/analytics_service.dart';
+import '../../core/share/share_service.dart';
 import '../profile/profile_provider.dart';
 import 'tournament_repository.dart';
 
@@ -35,6 +37,8 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
   int _questionIndex = 0;
   int _roundScore = 0;
   int _accumulatedScore = 0;
+  int _correctAnswers = 0;
+  int _totalAnswered = 0;
   int _timeRemaining = _timePerQuestion;
   String? _selectedAnswer;
   String? _revealedAnswer;
@@ -51,10 +55,12 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
     final raw = (_currentQuestion?['options'] as List<dynamic>? ?? []);
     return raw
         .map((option) => Map<String, dynamic>.from(option as Map))
-        .map((option) => _OptionItem(
-              key: option['key']?.toString() ?? '-',
-              text: option['text']?.toString() ?? '-',
-            ))
+        .map(
+          (option) => _OptionItem(
+            key: option['key']?.toString() ?? '-',
+            text: option['text']?.toString() ?? '-',
+          ),
+        )
         .toList();
   }
 
@@ -102,20 +108,32 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
       _selectedTournament = tournament;
       _result = null;
       _accumulatedScore = 0;
+      _correctAnswers = 0;
+      _totalAnswered = 0;
       _round = 1;
     });
 
     try {
       await tournamentRepository.joinTournament(tournamentId);
-      final details = await tournamentRepository.fetchTournamentDetails(tournamentId);
-      final questions = await tournamentRepository.fetchQuestions(tournamentId, 1);
+      final details = await tournamentRepository.fetchTournamentDetails(
+        tournamentId,
+      );
+      final questions = await tournamentRepository.fetchQuestions(
+        tournamentId,
+        1,
+      );
 
       setState(() {
-        _leaderboard = (details['leaderboard'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _leaderboard = (details['leaderboard'] as List<dynamic>? ?? const [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _questions = questions;
         _questionIndex = 0;
         _roundScore = 0;
         _timeRemaining = _timePerQuestion;
+      });
+      analyticsService.track('tournament_run_started', {
+        'tournament_id': tournamentId,
       });
 
       _startTimer();
@@ -134,7 +152,10 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted || _isFinalizing || _selectedAnswer != null || _result != null) {
+      if (!mounted ||
+          _isFinalizing ||
+          _selectedAnswer != null ||
+          _result != null) {
         return;
       }
 
@@ -165,7 +186,9 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
     setState(() {
       _selectedAnswer = answer ?? 'TIMEOUT';
       _revealedAnswer = correct;
+      _totalAnswered += 1;
       if (isCorrect) {
+        _correctAnswers += 1;
         _roundScore += _pointsPerCorrect;
       }
     });
@@ -212,23 +235,42 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
       );
 
       if (_round >= _totalRounds) {
-        final details = await tournamentRepository.fetchTournamentDetails(tournamentId);
+        final details = await tournamentRepository.fetchTournamentDetails(
+          tournamentId,
+        );
         setState(() {
-          _leaderboard = (details['leaderboard'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _leaderboard = (details['leaderboard'] as List<dynamic>? ?? const [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
           _result = _TournamentResult(
             score: totalScore,
             roundReached: _round,
+            correctAnswers: _correctAnswers,
+            totalAnswered: _totalAnswered,
             xpEarned: _completionXp,
             coinsEarned: _completionCoins,
           );
         });
+        analyticsService.track('tournament_run_completed', {
+          'tournament_id': tournamentId,
+          'score': totalScore,
+          'correct_answers': _correctAnswers,
+          'total_answered': _totalAnswered,
+        });
         ref.invalidate(profileProvider);
       } else {
         final nextRound = _round + 1;
-        final details = await tournamentRepository.fetchTournamentDetails(tournamentId);
-        final questions = await tournamentRepository.fetchQuestions(tournamentId, nextRound);
+        final details = await tournamentRepository.fetchTournamentDetails(
+          tournamentId,
+        );
+        final questions = await tournamentRepository.fetchQuestions(
+          tournamentId,
+          nextRound,
+        );
         setState(() {
-          _leaderboard = (details['leaderboard'] as List<dynamic>? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _leaderboard = (details['leaderboard'] as List<dynamic>? ?? const [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
           _accumulatedScore = totalScore;
           _round = nextRound;
           _questions = questions;
@@ -268,7 +310,10 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
               children: [
                 Text(_error!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
-                FilledButton(onPressed: _loadTournaments, child: const Text('Tekrar dene')),
+                FilledButton(
+                  onPressed: _loadTournaments,
+                  child: const Text('Tekrar dene'),
+                ),
               ],
             ),
           ),
@@ -287,15 +332,24 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 gradient: LinearGradient(
-                  colors: [theme.colorScheme.primaryContainer, theme.colorScheme.tertiaryContainer],
+                  colors: [
+                    theme.colorScheme.primaryContainer,
+                    theme.colorScheme.tertiaryContainer,
+                  ],
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Canlı Turnuvalar', style: theme.textTheme.headlineSmall),
+                  Text(
+                    'Canlı Turnuvalar',
+                    style: theme.textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 8),
-                  Text('Eleme tablosuna katıl, round round ilerle ve sezon ödülünü kap.', style: theme.textTheme.bodyLarge),
+                  Text(
+                    'Eleme tablosuna katıl, round round ilerle ve sezon ödülünü kap.',
+                    style: theme.textTheme.bodyLarge,
+                  ),
                 ],
               ),
             ),
@@ -324,11 +378,21 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                         const SizedBox(height: 6),
                         Text(description),
                         const SizedBox(height: 10),
-                        Text('Durum: $status · Oyuncu: $currentPlayers/$maxPlayers'),
+                        Text(
+                          'Durum: $status · Oyuncu: $currentPlayers/$maxPlayers',
+                        ),
                         const SizedBox(height: 14),
                         FilledButton(
-                          onPressed: status == 'live' && !_isJoining ? () => _joinTournament(tournament) : null,
-                          child: Text(_isJoining ? 'Katılıyor...' : status == 'live' ? 'Katıl ve Oyna' : 'Henüz Başlamadı'),
+                          onPressed: status == 'live' && !_isJoining
+                              ? () => _joinTournament(tournament)
+                              : null,
+                          child: Text(
+                            _isJoining
+                                ? 'Katılıyor...'
+                                : status == 'live'
+                                ? 'Katıl ve Oyna'
+                                : 'Henüz Başlamadı',
+                          ),
                         ),
                       ],
                     ),
@@ -351,22 +415,46 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(28),
                 gradient: LinearGradient(
-                  colors: [theme.colorScheme.primaryContainer, theme.colorScheme.secondaryContainer],
+                  colors: [
+                    theme.colorScheme.primaryContainer,
+                    theme.colorScheme.secondaryContainer,
+                  ],
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Turnuva tamamlandı', style: theme.textTheme.headlineSmall),
+                  Text(
+                    'Turnuva tamamlandı',
+                    style: theme.textTheme.headlineSmall,
+                  ),
                   const SizedBox(height: 8),
-                  Text('Skor: ${_result!.score} · Round: ${_result!.roundReached}/$_totalRounds · XP: +${_result!.xpEarned} · Coin: +${_result!.coinsEarned}'),
+                  Text(
+                    'Skor: ${_result!.score} · Round: ${_result!.roundReached}/$_totalRounds · XP: +${_result!.xpEarned} · Coin: +${_result!.coinsEarned}',
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () => shareService.shareGameResult(
+                mode: 'Tournament',
+                score: _result!.score,
+                correctAnswers: _result!.correctAnswers,
+                totalAnswered: _result!.totalAnswered,
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('Sonucu Paylaş'),
+            ),
+            const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => context.go('/'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(54),
+              ),
               icon: const Icon(Icons.home_rounded),
               label: const Text('Ana Sayfaya Dön'),
             ),
@@ -394,7 +482,12 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
               ),
               child: Row(
                 children: [
-                  Expanded(child: Text('Tur $_round/$_totalRounds', style: theme.textTheme.titleLarge)),
+                  Expanded(
+                    child: Text(
+                      'Tur $_round/$_totalRounds',
+                      style: theme.textTheme.titleLarge,
+                    ),
+                  ),
                   Text('Skor: ${_accumulatedScore + _roundScore}'),
                 ],
               ),
@@ -417,22 +510,32 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
                 children: [
                   Text('Turnuva Sorusu', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  Text(question['question_text']?.toString() ?? '-', style: theme.textTheme.headlineSmall),
+                  Text(
+                    question['question_text']?.toString() ?? '-',
+                    style: theme.textTheme.headlineSmall,
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            ..._options.map((option) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _AnswerButton(
-                    option: option,
-                    isDisabled: _selectedAnswer != null || _isFinalizing,
-                    isSelected: _selectedAnswer == option.key,
-                    isCorrect: _revealedAnswer == option.key && question['correct_answer']?.toString() == option.key,
-                    isWrong: _revealedAnswer != null && _selectedAnswer == option.key && question['correct_answer']?.toString() != option.key,
-                    onTap: () => _handleAnswer(option.key),
-                  ),
-                )),
+            ..._options.map(
+              (option) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _AnswerButton(
+                  option: option,
+                  isDisabled: _selectedAnswer != null || _isFinalizing,
+                  isSelected: _selectedAnswer == option.key,
+                  isCorrect:
+                      _revealedAnswer == option.key &&
+                      question['correct_answer']?.toString() == option.key,
+                  isWrong:
+                      _revealedAnswer != null &&
+                      _selectedAnswer == option.key &&
+                      question['correct_answer']?.toString() != option.key,
+                  onTap: () => _handleAnswer(option.key),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             Text('Leaderboard', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
@@ -443,8 +546,8 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
               final username = profile is List && profile.isNotEmpty
                   ? (profile.first['username']?.toString() ?? 'Oyuncu')
                   : profile is Map
-                      ? (profile['username']?.toString() ?? 'Oyuncu')
-                      : 'Oyuncu';
+                  ? (profile['username']?.toString() ?? 'Oyuncu')
+                  : 'Oyuncu';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Container(
@@ -486,12 +589,16 @@ class _TournamentResult {
   const _TournamentResult({
     required this.score,
     required this.roundReached,
+    required this.correctAnswers,
+    required this.totalAnswered,
     required this.xpEarned,
     required this.coinsEarned,
   });
 
   final int score;
   final int roundReached;
+  final int correctAnswers;
+  final int totalAnswered;
   final int xpEarned;
   final int coinsEarned;
 }
@@ -542,14 +649,19 @@ class _AnswerButton extends StatelessWidget {
           minimumSize: const Size.fromHeight(58),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           alignment: Alignment.centerLeft,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
         child: Row(
           children: [
             CircleAvatar(
               radius: 16,
               backgroundColor: foreground.withValues(alpha: 0.12),
-              child: Text(option.key, style: Theme.of(context).textTheme.labelLarge),
+              child: Text(
+                option.key,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(child: Text(option.text)),

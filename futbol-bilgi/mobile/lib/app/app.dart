@@ -16,46 +16,38 @@ import '../features/home/home_screen.dart';
 import '../features/leaderboard/leaderboard_screen.dart';
 import '../features/league/league_screen.dart';
 import '../features/millionaire/millionaire_screen.dart';
+import '../features/play/play_screen.dart';
+import '../features/profile/profile_screen.dart';
 import '../features/quick/quick_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/social/social_screen.dart';
 import '../features/tournament/tournament_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authChanges = AppConfig.isSupabaseConfigured ? ref.watch(authStateChangesProvider) : const Stream<Session?>.empty();
+  final authChanges = AppConfig.isSupabaseConfigured
+      ? ref.watch(authStateChangesProvider)
+      : const Stream<Session?>.empty();
 
   return GoRouter(
     initialLocation: '/',
     refreshListenable: GoRouterRefreshStream(authChanges),
     routes: [
+      GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
+      GoRoute(path: '/play', builder: (context, state) => const PlayScreen()),
       GoRoute(
-        path: '/',
-        builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: '/auth',
-        builder: (context, state) => const AuthScreen(),
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: '/millionaire',
         builder: (context, state) => const MillionaireScreen(),
       ),
-      GoRoute(
-        path: '/quick',
-        builder: (context, state) => const QuickScreen(),
-      ),
-      GoRoute(
-        path: '/duel',
-        builder: (context, state) => const DuelScreen(),
-      ),
-      GoRoute(
-        path: '/daily',
-        builder: (context, state) => const DailyScreen(),
-      ),
-      GoRoute(
-        path: '/shop',
-        builder: (context, state) => const ShopScreen(),
-      ),
+      GoRoute(path: '/quick', builder: (context, state) => const QuickScreen()),
+      GoRoute(path: '/duel', builder: (context, state) => const DuelScreen()),
+      GoRoute(path: '/daily', builder: (context, state) => const DailyScreen()),
+      GoRoute(path: '/shop', builder: (context, state) => const ShopScreen()),
+      GoRoute(path: '/themes', builder: (context, state) => const ShopScreen()),
       GoRoute(
         path: '/tournament',
         builder: (context, state) => const TournamentScreen(),
@@ -156,14 +148,22 @@ class _ConfigurationScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Yapılandırma eksik', style: theme.textTheme.headlineSmall),
+                      Text(
+                        'Yapılandırma eksik',
+                        style: theme.textTheme.headlineSmall,
+                      ),
                       const SizedBox(height: 12),
-                      const Text('Uygulamanın açılması için aşağıdaki dart-define değerlerini vermen gerekiyor:'),
+                      const Text(
+                        'Uygulamanın açılması için aşağıdaki dart-define değerlerini vermen gerekiyor:',
+                      ),
                       const SizedBox(height: 16),
                       for (final key in AppConfig.missingConfiguration)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: Text('• $key', style: theme.textTheme.titleMedium),
+                          child: Text(
+                            '• $key',
+                            style: theme.textTheme.titleMedium,
+                          ),
                         ),
                       const SizedBox(height: 16),
                       Text(
