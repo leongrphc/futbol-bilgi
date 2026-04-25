@@ -5,6 +5,7 @@ import '../../core/analytics/analytics_service.dart';
 import '../../core/share/share_service.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_progress_bar.dart';
+import '../../core/widgets/avatar_with_frame.dart';
 import '../../core/widgets/glass_card.dart';
 import 'profile_provider.dart';
 import 'profile_repository.dart';
@@ -105,7 +106,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final vibrationEnabled = settings['vibration_enabled'] != false;
         final notificationsEnabled = settings['notifications_enabled'] != false;
         final activeTheme = _activeThemeLabel(settings);
-        final avatarFrame = profile['avatar_frame']?.toString();
+        final avatarFrame = _activeAvatarFrameKey(profile, settings);
 
         return RefreshIndicator(
           onRefresh: () async => ref.refresh(profileProvider.future),
@@ -119,6 +120,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 accuracy: accuracy,
                 favoriteTeam: favoriteTeam,
                 leagueTier: leagueTier,
+                avatarFrame: avatarFrame,
               ),
               const SizedBox(height: 20),
               const _ProfileSectionLabel(
@@ -319,6 +321,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return 'Koyu tema';
   }
 
+  String? _activeAvatarFrameKey(
+    Map<String, dynamic> profile,
+    Map<String, dynamic> settings,
+  ) {
+    final directFrame = profile['avatar_frame']?.toString().trim();
+    if (directFrame != null && directFrame.isNotEmpty) {
+      return directFrame;
+    }
+
+    final settingsFrame = settings['avatar_frame']?.toString().trim();
+    if (settingsFrame != null && settingsFrame.isNotEmpty) {
+      return settingsFrame;
+    }
+
+    final cosmetic = settings['cosmetics'];
+    if (cosmetic is Map) {
+      final cosmeticFrame = cosmetic['avatar_frame']?.toString().trim();
+      if (cosmeticFrame != null && cosmeticFrame.isNotEmpty) {
+        return cosmeticFrame;
+      }
+      final nestedFrame = cosmetic['frame']?.toString().trim();
+      if (nestedFrame != null && nestedFrame.isNotEmpty) {
+        return nestedFrame;
+      }
+      final frameKey = cosmetic['frameKey']?.toString().trim();
+      if (frameKey != null && frameKey.isNotEmpty) {
+        return frameKey;
+      }
+    }
+
+    final frame = settings['frame']?.toString().trim();
+    if (frame != null && frame.isNotEmpty) {
+      return frame;
+    }
+
+    final frameKey = settings['frameKey']?.toString().trim();
+    if (frameKey != null && frameKey.isNotEmpty) {
+      return frameKey;
+    }
+
+    return null;
+  }
+
   Future<void> _shareProfile({
     required String username,
     required int level,
@@ -346,6 +391,7 @@ class _ProfileHeroCard extends StatelessWidget {
     required this.accuracy,
     required this.favoriteTeam,
     required this.leagueTier,
+    required this.avatarFrame,
   });
 
   final String username;
@@ -354,6 +400,7 @@ class _ProfileHeroCard extends StatelessWidget {
   final int accuracy;
   final String favoriteTeam;
   final String leagueTier;
+  final String? avatarFrame;
 
   @override
   Widget build(BuildContext context) {
@@ -365,14 +412,18 @@ class _ProfileHeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: theme.colorScheme.onPrimaryContainer.withValues(
-              alpha: 0.12,
-            ),
-            child: Text(
-              username.isEmpty ? 'O' : username.characters.first.toUpperCase(),
-              style: theme.textTheme.headlineSmall,
+          AvatarWithFrame(
+            frameKey: avatarFrame,
+            padding: const EdgeInsets.all(4),
+            child: CircleAvatar(
+              radius: 30,
+              backgroundColor: theme.colorScheme.onPrimaryContainer.withValues(
+                alpha: 0.12,
+              ),
+              child: Text(
+                username.isEmpty ? 'O' : username.characters.first.toUpperCase(),
+                style: theme.textTheme.headlineSmall,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -530,11 +581,11 @@ class _JokerInventoryPanel extends StatelessWidget {
             crossAxisCount: 3,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 1.08,
+            childAspectRatio: 0.92,
             physics: const NeverScrollableScrollPhysics(),
             children: _items.map((item) {
               return Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
                   color: theme.colorScheme.surfaceContainerHighest,
@@ -542,13 +593,13 @@ class _JokerInventoryPanel extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(item.$3, size: 20),
-                    const SizedBox(height: 8),
+                    Icon(item.$3, size: 18),
+                    const SizedBox(height: 6),
                     Text(item.$2, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       '${_asInt(jokers[item.$1])}',
-                      style: theme.textTheme.titleLarge,
+                      style: theme.textTheme.titleMedium,
                     ),
                   ],
                 ),

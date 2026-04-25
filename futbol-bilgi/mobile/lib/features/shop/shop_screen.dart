@@ -8,6 +8,7 @@ import '../../core/iap/iap_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_stat_chip.dart';
+import '../../core/widgets/avatar_with_frame.dart';
 import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 import 'shop_repository.dart';
@@ -151,10 +152,12 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   Future<void> _equipTheme(String itemId) async {
     try {
       await shopRepository.equipTheme(itemId);
+      final _ = await ref.refresh(profileProvider.future);
+      if (!mounted) return;
       setState(() => _message = 'Tema kuşanıldı.');
-      ref.invalidate(profileProvider);
       _reload();
     } catch (error) {
+      if (!mounted) return;
       setState(
         () => _message = error.toString().replaceFirst('Exception: ', ''),
       );
@@ -164,10 +167,12 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   Future<void> _buyFrame(String itemId) async {
     try {
       await shopRepository.buyFrame(itemId);
+      final _ = await ref.refresh(profileProvider.future);
+      if (!mounted) return;
       setState(() => _message = 'Frame satın alındı.');
-      ref.invalidate(profileProvider);
       _reload();
     } catch (error) {
+      if (!mounted) return;
       setState(
         () => _message = error.toString().replaceFirst('Exception: ', ''),
       );
@@ -177,10 +182,12 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
   Future<void> _equipFrame(String frameKey) async {
     try {
       await shopRepository.equipFrame(frameKey);
+      final _ = await ref.refresh(profileProvider.future);
+      if (!mounted) return;
       setState(() => _message = 'Frame kuşanıldı.');
-      ref.invalidate(profileProvider);
       _reload();
     } catch (error) {
+      if (!mounted) return;
       setState(
         () => _message = error.toString().replaceFirst('Exception: ', ''),
       );
@@ -538,10 +545,13 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   final isOwned =
                       ownedThemeItemIds.contains(id) ||
                       id == 'theme-dark-default';
+                  final metadata = item['metadata'];
+                  final themeKey = metadata is Map
+                      ? metadata['themeKey']?.toString()
+                      : null;
                   final isEquipped =
                       equippedThemeItemIds.contains(id) ||
-                      (item['theme_key']?.toString() == 'dark' &&
-                          equippedThemeItemIds.isEmpty);
+                      (themeKey == 'dark' && equippedThemeItemIds.isEmpty);
                   final priceCoins = _asInt(item['price_coins']);
                   final priceGems = _asInt(item['price_gems']);
                   final requiresPremium = _isPremiumItem(item) && !isPremium;
@@ -586,7 +596,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 const SizedBox(height: 12),
                 ...frameItems.map((item) {
                   final id = item['id']?.toString() ?? '';
-                  final frameKey = item['frame_key']?.toString() ?? 'default';
+                  final metadata = item['metadata'];
+                  final frameKey = metadata is Map
+                      ? metadata['frameKey']?.toString() ?? 'default'
+                      : 'default';
                   final isOwned = ownedFrameItemIds.contains(id);
                   final isEquipped = frameInventory.any(
                     (entry) =>
@@ -615,6 +628,18 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                           ? 'Satın Al'
                           : 'Yetersiz Bakiye',
                       icon: Icons.account_circle_rounded,
+                      leading: AvatarWithFrame(
+                        frameKey: frameKey,
+                        padding: const EdgeInsets.all(3),
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundColor: theme.colorScheme.primaryContainer,
+                          child: Text(
+                            'FB',
+                            style: theme.textTheme.labelMedium,
+                          ),
+                        ),
+                      ),
                       onPressed: isOwned
                           ? isEquipped
                                 ? null
@@ -720,7 +745,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                     final itemId = entry['item_id']?.toString() ?? '';
                     final item = frameItemById[itemId] ?? entry;
                     final isEquipped = equippedFrameItemIds.contains(itemId);
-                    final frameKey = item['frame_key']?.toString() ?? 'default';
+                    final metadata = item['metadata'];
+                    final frameKey = metadata is Map
+                        ? metadata['frameKey']?.toString() ?? 'default'
+                        : 'default';
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _ShopCard(
@@ -731,6 +759,18 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                         priceLabel: isEquipped ? 'Aktif frame' : 'Sahip Olundu',
                         actionLabel: isEquipped ? 'Kuşanılı' : 'Kuşan',
                         icon: Icons.account_circle_rounded,
+                        leading: AvatarWithFrame(
+                          frameKey: frameKey,
+                          padding: const EdgeInsets.all(3),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundColor: theme.colorScheme.primaryContainer,
+                            child: Text(
+                              'FB',
+                              style: theme.textTheme.labelMedium,
+                            ),
+                          ),
+                        ),
                         onPressed: isEquipped
                             ? null
                             : () => _equipFrame(frameKey),
@@ -782,6 +822,7 @@ class _ShopCard extends StatelessWidget {
     required this.actionLabel,
     required this.icon,
     required this.onPressed,
+    this.leading,
   });
 
   final String title;
@@ -790,6 +831,7 @@ class _ShopCard extends StatelessWidget {
   final String actionLabel;
   final IconData icon;
   final VoidCallback? onPressed;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -803,11 +845,12 @@ class _ShopCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                child: Icon(icon, size: 20),
-              ),
+              leading ??
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    child: Icon(icon, size: 20),
+                  ),
               const SizedBox(width: 12),
               Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
             ],

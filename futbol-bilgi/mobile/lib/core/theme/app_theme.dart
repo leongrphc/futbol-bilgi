@@ -123,16 +123,39 @@ class AppColors {
 
   static AppThemePalette paletteFor(String? themeKey) {
     switch (_normalizeThemeKey(themeKey)) {
+      case 'green-grass':
+      case 'green_grass':
       case 'ocean':
       case 'ocean_pulse':
       case 'blue':
       case 'ice':
+      case 'emerald-flare':
+      case 'emerald_flare':
+      case 'zümrüt alev':
+      case 'zumrut alev':
+      case 'yeşil çim':
+      case 'yesil cim':
         return oceanPulse;
+      case 'golden-cup':
+      case 'golden_cup':
+      case 'champion-night':
+      case 'champion_night':
+      case 'retro-pitch':
+      case 'retro_pitch':
+      case 'midnight-gold':
+      case 'midnight_gold':
       case 'sunset':
       case 'sunset_flare':
       case 'pink':
       case 'rose':
       case 'lava':
+      case 'şampiyonlar gecesi':
+      case 'sampiyonlar gecesi':
+      case 'gece altını':
+      case 'gece altini':
+      case 'altın kupa':
+      case 'altin kupa':
+      case 'retro saha':
         return sunsetFlare;
       default:
         return stadiumNight;

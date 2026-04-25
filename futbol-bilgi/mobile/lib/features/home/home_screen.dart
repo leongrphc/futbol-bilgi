@@ -670,11 +670,11 @@ class _JokerInventoryCard extends StatelessWidget {
             crossAxisCount: 3,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 1.15,
+            childAspectRatio: 0.92,
             physics: const NeverScrollableScrollPhysics(),
             children: _items.map((item) {
               return Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
                   color: theme.colorScheme.surfaceContainer,
@@ -682,13 +682,13 @@ class _JokerInventoryCard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(item.$3, size: 20),
-                    const SizedBox(height: 8),
+                    Icon(item.$3, size: 18),
+                    const SizedBox(height: 6),
                     Text(item.$2, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       '${_asInt(jokers[item.$1])}',
-                      style: theme.textTheme.titleLarge,
+                      style: theme.textTheme.titleMedium,
                     ),
                   ],
                 ),

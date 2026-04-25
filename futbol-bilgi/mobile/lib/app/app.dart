@@ -131,6 +131,10 @@ class FutbolBilgiMobileApp extends ConsumerWidget {
     if (displayTheme != null && displayTheme.isNotEmpty) {
       return displayTheme;
     }
+    final themeKey = settings['theme_key']?.toString().trim();
+    if (themeKey != null && themeKey.isNotEmpty) {
+      return themeKey;
+    }
     return null;
   }
 }
