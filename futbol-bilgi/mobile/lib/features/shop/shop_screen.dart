@@ -6,6 +6,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../../core/iap/iap_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_stat_chip.dart';
 import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
@@ -375,11 +376,22 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const AppBadge(
+                      label: 'Koleksiyon ve güçlendirme',
+                      icon: Icons.auto_awesome_rounded,
+                      tone: AppBadgeTone.gold,
+                    ),
+                    const SizedBox(height: 14),
                     Text('Mağaza', style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(
                       'Tema, frame, joker ve enerji ile hesabını zenginleştir.',
                       style: theme.textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Bakiyen ve premium durumun aşağıda her sekmede görünür kalır.',
+                      style: theme.textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
                     Wrap(
@@ -414,9 +426,18 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               ),
               if (_message != null) ...[
                 const SizedBox(height: 16),
-                Text(_message!),
+                _InfoPanel(
+                  icon: Icons.info_outline_rounded,
+                  title: 'Mağaza bildirimi',
+                  description: _message!,
+                ),
               ],
               const SizedBox(height: 20),
+              _SectionLabel(
+                title: 'Kategoriler',
+                subtitle: 'İhtiyacına göre sekme seç ve hızlıca işlem yap.',
+              ),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -456,7 +477,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               ),
               const SizedBox(height: 20),
               if (_activeTab == 'jokers') ...[
-                Text('Jokerler', style: theme.textTheme.titleLarge),
+                const _SectionLabel(
+                  title: 'Jokerler',
+                  subtitle: 'Oyun sırasında avantaj sağlayan tek kullanımlık araçlar.',
+                ),
                 const SizedBox(height: 12),
                 ..._utilityItems.where((item) => item.$5 != null).map((item) {
                   final stock = _asInt(jokers[item.$5]);
@@ -477,7 +501,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   );
                 }),
               ] else if (_activeTab == 'energy') ...[
-                Text('Enerji', style: theme.textTheme.titleLarge),
+                const _SectionLabel(
+                  title: 'Enerji',
+                  subtitle: 'Hemen oyuna dönmek için enerji dolumlarını kullan.',
+                ),
                 const SizedBox(height: 12),
                 ..._utilityItems
                     .where((item) => item.$5 == null)
@@ -501,7 +528,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                       ),
                     ),
               ] else if (_activeTab == 'themes') ...[
-                Text('Temalar', style: theme.textTheme.titleLarge),
+                const _SectionLabel(
+                  title: 'Temalar',
+                  subtitle: 'Aktif görünümünü değiştir ve uygulamanın havasını yenile.',
+                ),
                 const SizedBox(height: 12),
                 ...themeItems.map((item) {
                   final id = item['id']?.toString() ?? '';
@@ -549,7 +579,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   );
                 }),
               ] else if (_activeTab == 'frames') ...[
-                Text('Frame', style: theme.textTheme.titleLarge),
+                const _SectionLabel(
+                  title: 'Frame',
+                  subtitle: 'Profil kimliğini öne çıkaran çerçeveleri yönet.',
+                ),
                 const SizedBox(height: 12),
                 ...frameItems.map((item) {
                   final id = item['id']?.toString() ?? '';
@@ -593,9 +626,9 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   );
                 }),
               ] else if (_activeTab == 'iap') ...[
-                Text(
-                  'Premium ve Gem Paketleri',
-                  style: theme.textTheme.titleLarge,
+                const _SectionLabel(
+                  title: 'Premium ve Gem Paketleri',
+                  subtitle: 'Store ürünleri ve premium avantajlarını buradan yönet.',
                 ),
                 const SizedBox(height: 12),
                 if (_isLoadingIap)
@@ -655,7 +688,10 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                   }),
                 ],
               ] else ...[
-                Text('Koleksiyonum', style: theme.textTheme.titleLarge),
+                const _SectionLabel(
+                  title: 'Koleksiyonum',
+                  subtitle: 'Sahip olduğun tema ve frameleri buradan kuşan.',
+                ),
                 const SizedBox(height: 12),
                 if (themeInventory.isEmpty && frameInventory.isEmpty)
                   const Text('Henüz koleksiyon öğen yok.')
@@ -776,20 +812,41 @@ class _ShopCard extends StatelessWidget {
               Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
           Text(description),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: Text(priceLabel)),
-              FilledButton.tonal(
-                onPressed: onPressed,
-                child: Text(actionLabel),
-              ),
-            ],
+          const SizedBox(height: 14),
+          AppBadge(label: priceLabel, tone: AppBadgeTone.primary),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonal(
+              onPressed: onPressed,
+              child: Text(actionLabel),
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(subtitle, style: theme.textTheme.bodyMedium),
+      ],
     );
   }
 }
@@ -849,11 +906,17 @@ class _BalanceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.of(context);
+
     return AppStatChip(
       label: label,
       value: value,
       icon: icon,
-      color: label == 'Gem' ? AppColors.info : label == 'Premium' ? AppColors.expert : AppColors.gold,
+      color: label == 'Gem'
+          ? palette.info
+          : label == 'Premium'
+          ? palette.expert
+          : palette.gold,
     );
   }
 }

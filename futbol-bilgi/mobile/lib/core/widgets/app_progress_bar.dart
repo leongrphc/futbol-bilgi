@@ -18,13 +18,14 @@ class AppProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.of(context);
     final color = switch (tone) {
-      AppProgressTone.gold => AppColors.gold,
-      AppProgressTone.success => AppColors.success,
-      AppProgressTone.danger => AppColors.danger,
-      AppProgressTone.warning => AppColors.warning,
-      AppProgressTone.info => AppColors.info,
-      AppProgressTone.primary => AppColors.primaryBright,
+      AppProgressTone.gold => palette.gold,
+      AppProgressTone.success => palette.success,
+      AppProgressTone.danger => palette.danger,
+      AppProgressTone.warning => palette.warning,
+      AppProgressTone.info => palette.info,
+      AppProgressTone.primary => palette.primaryBright,
     };
     final clamped = value.clamp(0.0, 1.0);
 

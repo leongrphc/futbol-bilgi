@@ -240,6 +240,8 @@ class _HomeOverview extends ConsumerWidget {
         );
         final dailyRewardCoins = 25 + (nextStreak.clamp(0, 30).toInt() * 5);
 
+        final palette = AppTheme.of(context);
+
         return RefreshIndicator(
           onRefresh: () async => ref.refresh(profileProvider.future),
           child: ListView(
@@ -253,8 +255,8 @@ class _HomeOverview extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(24),
                     gradient: LinearGradient(
                       colors: [
-                        AppColors.primaryBright.withValues(alpha: 0.18),
-                        AppColors.accent.withValues(alpha: 0.10),
+                        palette.primaryBright.withValues(alpha: 0.18),
+                        palette.accent.withValues(alpha: 0.10),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -265,8 +267,8 @@ class _HomeOverview extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AppBadge(
-                        label: 'Stadium Night',
-                        icon: Icons.sports_soccer_rounded,
+                        label: 'Aktif tema · ${_themeLabel(settings)}',
+                        icon: Icons.palette_rounded,
                         tone: AppBadgeTone.primary,
                       ),
                       const SizedBox(height: 14),
@@ -274,7 +276,12 @@ class _HomeOverview extends ConsumerWidget {
                         'Merhaba, $username',
                         style: theme.textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Bugün oyuna geri dönmeye hazırsın.',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 10),
                       Text(
                         'Level $level · ${_formatCompact(xp)} XP · %$accuracy doğruluk',
                         style: theme.textTheme.bodyLarge,
@@ -288,31 +295,31 @@ class _HomeOverview extends ConsumerWidget {
                             label: 'Enerji',
                             value: '$energy/5',
                             icon: Icons.bolt_rounded,
-                            color: AppColors.gold,
+                            color: palette.gold,
                           ),
                           _ChipStat(
                             label: 'Coin',
                             value: _formatCompact(coins),
                             icon: Icons.monetization_on_rounded,
-                            color: AppColors.goldSoft,
+                            color: palette.goldSoft,
                           ),
                           _ChipStat(
                             label: 'Gem',
                             value: _formatCompact(gems),
                             icon: Icons.diamond_rounded,
-                            color: AppColors.info,
+                            color: palette.info,
                           ),
                           _ChipStat(
                             label: 'Doğru',
                             value: '$correctAnswers/$totalAnswered',
                             icon: Icons.track_changes_rounded,
-                            color: AppColors.success,
+                            color: palette.success,
                           ),
                           _ChipStat(
                             label: 'Streak',
                             value: '$streak gün',
                             icon: Icons.local_fire_department_rounded,
-                            color: AppColors.accent,
+                            color: palette.accent,
                           ),
                         ],
                       ),
@@ -338,7 +345,10 @@ class _HomeOverview extends ConsumerWidget {
                 ),
                 const SizedBox(height: 20),
               ],
-              Text('Oyun Modları', style: theme.textTheme.titleLarge),
+              _SectionHeader(
+                title: 'Oyun Modları',
+                subtitle: 'Hızlı giriş için en çok oynanan modlar.',
+              ),
               const SizedBox(height: 12),
               GridView.count(
                 shrinkWrap: true,
@@ -392,8 +402,11 @@ class _HomeOverview extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              Text('Rekabet ve Sosyal', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 24),
+              _SectionHeader(
+                title: 'Rekabet ve Sosyal',
+                subtitle: 'Sıralama, sezon ve arkadaş akışını takip et.',
+              ),
               const SizedBox(height: 12),
               _FeatureStrip(
                 title: 'Leaderboard',
@@ -427,6 +440,18 @@ class _HomeOverview extends ConsumerWidget {
         );
       },
     );
+  }
+
+  String _themeLabel(Map<String, dynamic> settings) {
+    final value = settings['theme']?.toString().trim();
+    if (value != null && value.isNotEmpty) {
+      return value;
+    }
+    final displayValue = settings['display_theme']?.toString().trim();
+    if (displayValue != null && displayValue.isNotEmpty) {
+      return displayValue;
+    }
+    return 'Stadium Night';
   }
 
   int _asInt(Object? value) {
@@ -505,32 +530,41 @@ class _DailyRewardCard extends StatelessWidget {
     return GlassCard(
       variant: GlassCardVariant.gold,
       padding: const EdgeInsets.all(18),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: theme.colorScheme.onSecondaryContainer.withValues(
-              alpha: 0.10,
-            ),
-            child: const Icon(Icons.card_giftcard_rounded),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  canClaim ? 'Günlük Ödülünü Al' : 'Günlük ödül alındı',
-                  style: theme.textTheme.titleMedium,
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: theme.colorScheme.onSecondaryContainer.withValues(
+                  alpha: 0.10,
                 ),
-                const SizedBox(height: 4),
-                Text('Bugün: +$xp XP, +$coins coin · Streak $nextStreak'),
-              ],
-            ),
+                child: const Icon(Icons.card_giftcard_rounded),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      canClaim ? 'Günlük Ödülünü Al' : 'Günlük ödül alındı',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Bugün: +$xp XP, +$coins coin · Streak $nextStreak'),
+                  ],
+                ),
+              ),
+            ],
           ),
-          FilledButton.tonal(
-            onPressed: canClaim ? onClaim : null,
-            child: Text(canClaim ? 'Al' : 'Tamam'),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonal(
+              onPressed: canClaim ? onClaim : null,
+              child: Text(canClaim ? 'Ödülü Al' : 'Bugün Alındı'),
+            ),
           ),
         ],
       ),
@@ -712,10 +746,16 @@ class _ModeTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            child: Icon(icon),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: theme.colorScheme.primaryContainer,
+                child: Icon(icon),
+              ),
+              const Spacer(),
+              const Icon(Icons.arrow_outward_rounded, size: 18),
+            ],
           ),
           const Spacer(),
           Text(title, style: theme.textTheme.titleLarge),
@@ -725,6 +765,27 @@ class _ModeTile extends StatelessWidget {
           AppBadge(label: badge, tone: AppBadgeTone.primary),
         ],
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(subtitle, style: theme.textTheme.bodyMedium),
+      ],
     );
   }
 }

@@ -115,7 +115,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       _isRegisterMode ? 'Mobil hesabını oluştur ve hemen oyuna başla.' : 'Hesabına giriş yapıp mobile devam et.',
                       style: theme.textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
+                    Text(
+                      _isRegisterMode
+                          ? 'Kısa form, hızlı kayıt ve ardından aynı akıştan giriş.'
+                          : 'Web hesabınla aynı oturumu kullanarak kaldığın yerden devam et.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 24),
                     SegmentedButton<bool>(
                       segments: const [
                         ButtonSegment<bool>(value: false, label: Text('Giriş Yap')),
@@ -171,11 +178,27 @@ class _AuthScreenState extends State<AuthScreen> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.18),
+                          ),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text(_message!),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                _isRegisterMode
+                                    ? Icons.info_outline_rounded
+                                    : Icons.verified_user_rounded,
+                                size: 18,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(_message!)),
+                            ],
+                          ),
                         ),
                       ),
                     ],

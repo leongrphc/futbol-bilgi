@@ -417,7 +417,7 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
                   ),
                   Column(
                     children: [
-                      const Icon(Icons.sports_martial_arts_rounded, color: AppColors.accent),
+                      Icon(Icons.sports_martial_arts_rounded, color: AppColors.accent),
                       const SizedBox(height: 6),
                       Text('${_questionIndex + 1}/$_totalQuestions', style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/app_config.dart';
 import '../core/supabase/supabase_provider.dart';
 import '../core/theme/app_theme.dart';
+import '../features/profile/profile_provider.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/achievements/achievements_screen.dart';
 import '../features/daily/daily_screen.dart';
@@ -102,13 +103,35 @@ class FutbolBilgiMobileApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final settings = profile?['settings'] is Map
+        ? Map<String, dynamic>.from(profile!['settings'] as Map)
+        : <String, dynamic>{};
+    final themeKey = _activeThemeKey(settings);
 
-    return MaterialApp.router(
-      title: 'Futbol Bilgi Mobile',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
-      routerConfig: router,
+    return AnimatedTheme(
+      data: AppTheme.dark(themeKey: themeKey),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: MaterialApp.router(
+        title: 'Futbol Bilgi Mobile',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark(themeKey: themeKey),
+        routerConfig: router,
+      ),
     );
+  }
+
+  String? _activeThemeKey(Map<String, dynamic> settings) {
+    final theme = settings['theme']?.toString().trim();
+    if (theme != null && theme.isNotEmpty) {
+      return theme;
+    }
+    final displayTheme = settings['display_theme']?.toString().trim();
+    if (displayTheme != null && displayTheme.isNotEmpty) {
+      return displayTheme;
+    }
+    return null;
   }
 }
 

@@ -22,16 +22,17 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.of(context);
     final accent = switch (variant) {
-      GlassCardVariant.highlighted => AppColors.primaryBright,
-      GlassCardVariant.gold => AppColors.gold,
+      GlassCardVariant.highlighted => palette.primaryBright,
+      GlassCardVariant.gold => palette.gold,
       _ => Colors.white,
     };
     final background = switch (variant) {
-      GlassCardVariant.elevated => AppColors.elevated,
-      GlassCardVariant.highlighted => AppColors.card,
-      GlassCardVariant.gold => const Color(0xFF342B13),
-      GlassCardVariant.normal => AppColors.card,
+      GlassCardVariant.elevated => palette.elevated,
+      GlassCardVariant.highlighted => palette.card,
+      GlassCardVariant.gold => Color.lerp(palette.gold, palette.background, 0.82)!,
+      GlassCardVariant.normal => palette.card,
     };
 
     final content = AnimatedContainer(

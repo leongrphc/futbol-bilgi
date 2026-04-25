@@ -121,6 +121,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 leagueTier: leagueTier,
               ),
               const SizedBox(height: 20),
+              const _ProfileSectionLabel(
+                title: 'Hızlı Bakış',
+                subtitle: 'Hesabının temel kaynaklarını ve ilerlemesini tek bakışta gör.',
+              ),
+              const SizedBox(height: 12),
               GridView.count(
                 shrinkWrap: true,
                 crossAxisCount: 2,
@@ -151,7 +156,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
+              const _ProfileSectionLabel(
+                title: 'Oyuncu Detayları',
+                subtitle: 'Performans, kimlik ve kozmetik bilgilerini düzenli biçimde takip et.',
+              ),
+              const SizedBox(height: 12),
               _SectionCard(
                 title: 'Oyuncu Özeti',
                 child: Column(
@@ -365,6 +375,12 @@ class _ProfileHeroCard extends StatelessWidget {
               style: theme.textTheme.headlineSmall,
             ),
           ),
+          const SizedBox(height: 12),
+          const AppBadge(
+            label: 'Oyuncu profili',
+            icon: Icons.verified_user_rounded,
+            tone: AppBadgeTone.primary,
+          ),
           const SizedBox(height: 16),
           Text(username, style: theme.textTheme.headlineSmall),
           const SizedBox(height: 6),
@@ -385,6 +401,27 @@ class _ProfileHeroCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProfileSectionLabel extends StatelessWidget {
+  const _ProfileSectionLabel({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(subtitle, style: theme.textTheme.bodyMedium),
+      ],
     );
   }
 }

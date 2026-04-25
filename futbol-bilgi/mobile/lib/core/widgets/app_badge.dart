@@ -18,15 +18,16 @@ class AppBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.of(context);
     final color = switch (tone) {
-      AppBadgeTone.primary => AppColors.primaryBright,
-      AppBadgeTone.gold => AppColors.gold,
-      AppBadgeTone.success => AppColors.success,
-      AppBadgeTone.danger => AppColors.danger,
-      AppBadgeTone.warning => AppColors.warning,
-      AppBadgeTone.info => AppColors.info,
-      AppBadgeTone.premium => AppColors.expert,
-      AppBadgeTone.neutral => AppColors.textSecondary,
+      AppBadgeTone.primary => palette.primaryBright,
+      AppBadgeTone.gold => palette.gold,
+      AppBadgeTone.success => palette.success,
+      AppBadgeTone.danger => palette.danger,
+      AppBadgeTone.warning => palette.warning,
+      AppBadgeTone.info => palette.info,
+      AppBadgeTone.premium => palette.expert,
+      AppBadgeTone.neutral => palette.textSecondary,
     };
 
     return Container(

@@ -28,6 +28,8 @@ class AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.of(context);
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -36,11 +38,11 @@ class AppBottomNav extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            color: AppColors.card.withValues(alpha: 0.94),
+            color: palette.card.withValues(alpha: 0.94),
             border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primaryBright.withValues(alpha: 0.10),
+                color: palette.primaryBright.withValues(alpha: 0.10),
                 blurRadius: 28,
                 offset: const Offset(0, 14),
               ),
@@ -73,7 +75,8 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.primaryBright : AppColors.textSecondary;
+    final palette = AppTheme.of(context);
+    final color = selected ? palette.primaryBright : palette.textSecondary;
 
     return InkWell(
       onTap: onTap,
@@ -84,7 +87,7 @@ class _NavButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
-          color: selected ? AppColors.primaryBright.withValues(alpha: 0.14) : Colors.transparent,
+          color: selected ? palette.primaryBright.withValues(alpha: 0.14) : Colors.transparent,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
