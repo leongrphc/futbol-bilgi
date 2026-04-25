@@ -6,12 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/ads/ad_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_badge.dart';
-import '../../core/widgets/app_bottom_nav.dart';
+import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/app_stat_chip.dart';
 import '../../core/widgets/glass_card.dart';
+import '../league/league_repository.dart';
 import '../profile/profile_provider.dart';
 import '../profile/profile_repository.dart';
-import '../profile/profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,8 +21,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _index = 0;
-
   Future<void> _signOut() async {
     try {
       await Supabase.instance.client.auth.signOut();
@@ -40,12 +38,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final session = Supabase.instance.client.auth.currentSession;
     final user = session?.user;
-    final titles = ['Ana Sayfa', 'Profil'];
-    final selectedNavIndex = _index == 0 ? 0 : 3;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[_index]),
+        title: const Text('Ana Sayfa'),
         actions: [
           IconButton(
             onPressed: _signOut,
@@ -55,59 +51,221 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: IndexedStack(
-          index: _index,
-          children: [
-            _HomeOverview(
-              email: user?.email,
-              fallbackUsername: user?.userMetadata?['username']?.toString(),
-            ),
-            const ProfileScreen(),
-          ],
+        child: _HomeOverview(
+          email: user?.email,
+          fallbackUsername: user?.userMetadata?['username']?.toString(),
         ),
       ),
-      bottomNavigationBar: AppBottomNav(
-        selectedIndex: selectedNavIndex,
-        onTap: (value) {
-          switch (value) {
-            case 0:
-              setState(() => _index = 0);
-            case 1:
-              context.push('/play');
-            case 2:
-              context.push('/leaderboard');
-            case 3:
-              setState(() => _index = 1);
-            case 4:
-              context.push('/shop');
-          }
-        },
-        items: const [
-          AppBottomNavItem(
-            icon: Icons.sports_soccer_outlined,
-            selectedIcon: Icons.sports_soccer,
-            label: 'Ana',
+    );
+  }
+}
+
+final _homeSeasonProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  return leagueRepository.fetchCurrentSeason();
+});
+
+class _HomeOverviewData {
+  const _HomeOverviewData({required this.profile, required this.season});
+
+  final Map<String, dynamic>? profile;
+  final Map<String, dynamic>? season;
+}
+
+final _homeOverviewProvider = FutureProvider<_HomeOverviewData>((ref) async {
+  final profile = await ref.watch(profileProvider.future);
+  final season = await ref.watch(_homeSeasonProvider.future);
+  return _HomeOverviewData(profile: profile, season: season);
+});
+
+class _LevelProgress {
+  const _LevelProgress({
+    required this.level,
+    required this.currentXp,
+    required this.nextLevelXp,
+    required this.progress,
+  });
+
+  final int level;
+  final int currentXp;
+  final int nextLevelXp;
+  final double progress;
+}
+
+_LevelProgress _calculateLevelProgress(int xp) {
+  var level = 1;
+  var requiredXp = 100;
+  var remainingXp = xp;
+
+  while (remainingXp >= requiredXp) {
+    remainingXp -= requiredXp;
+    level += 1;
+    requiredXp += 50;
+  }
+
+  final progress = requiredXp == 0 ? 0.0 : remainingXp / requiredXp;
+  return _LevelProgress(
+    level: level,
+    currentXp: remainingXp,
+    nextLevelXp: requiredXp,
+    progress: progress.clamp(0.0, 1.0),
+  );
+}
+
+class _SpecialEventContent {
+  const _SpecialEventContent({
+    required this.label,
+    required this.title,
+    required this.description,
+    required this.route,
+    required this.cta,
+    required this.icon,
+  });
+
+  final String label;
+  final String title;
+  final String description;
+  final String route;
+  final String cta;
+  final IconData icon;
+}
+
+const _specialEvent = _SpecialEventContent(
+  label: 'Özel Etkinlik',
+  title: 'Dünya Kupası Efsaneleri',
+  description:
+      'Dünya Kupası tarihinin unutulmaz anları, rekorları ve Türkiye’nin 2002 yolculuğu üzerine özel 5 soruluk etkinlik.',
+  route: '/daily',
+  cta: 'Etkinliği Oyna',
+  icon: Icons.public_rounded,
+);
+
+class _NoActiveSeasonCard extends StatelessWidget {
+  const _NoActiveSeasonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Şu anda aktif lig sezonu yok',
+            style: theme.textTheme.titleLarge,
           ),
-          AppBottomNavItem(
-            icon: Icons.sports_esports_outlined,
-            selectedIcon: Icons.sports_esports_rounded,
-            label: 'Oyna',
+          const SizedBox(height: 8),
+          Text(
+            'Yeni sezon başladığında sıralama ve sezon özeti burada görünecek.',
+            style: theme.textTheme.bodyMedium,
           ),
-          AppBottomNavItem(
-            icon: Icons.emoji_events_outlined,
-            selectedIcon: Icons.emoji_events_rounded,
-            label: 'Lig',
+        ],
+      ),
+    );
+  }
+}
+
+class _SpecialEventCard extends StatelessWidget {
+  const _SpecialEventCard({required this.event});
+
+  final _SpecialEventContent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = AppTheme.of(context);
+
+    return GlassCard(
+      variant: GlassCardVariant.highlighted,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: palette.accent,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(event.title, style: theme.textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(event.description, style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () => context.push(event.route),
+                  icon: Icon(event.icon),
+                  label: Text(event.cta),
+                ),
+              ],
+            ),
           ),
-          AppBottomNavItem(
-            icon: Icons.person_outline,
-            selectedIcon: Icons.person,
-            label: 'Profil',
+          const SizedBox(width: 16),
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: palette.accent.withValues(alpha: 0.18),
+            child: Icon(event.icon, color: palette.accent),
           ),
-          AppBottomNavItem(
-            icon: Icons.palette_outlined,
-            selectedIcon: Icons.palette_rounded,
-            label: 'Shop',
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelProgressCard extends StatelessWidget {
+  const _LevelProgressCard({required this.progress});
+
+  final _LevelProgress progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.primaryContainer,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${progress.level}',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Seviye ${progress.level}', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${progress.currentXp}/${progress.nextLevelXp} XP',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 14),
+          AppProgressBar(value: progress.progress, height: 8),
         ],
       ),
     );
@@ -127,6 +285,7 @@ class _HomeOverview extends ConsumerWidget {
         payload['reward'] as Map? ?? <String, dynamic>{},
       );
       ref.invalidate(profileProvider);
+      ref.invalidate(_homeOverviewProvider);
       if (!context.mounted) {
         return;
       }
@@ -171,6 +330,7 @@ class _HomeOverview extends ConsumerWidget {
     try {
       await adService.claimReward(rewardType);
       ref.invalidate(profileProvider);
+      ref.invalidate(_homeOverviewProvider);
       if (!context.mounted) {
         return;
       }
@@ -192,29 +352,34 @@ class _HomeOverview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final profileAsync = ref.watch(profileProvider);
+    final overviewAsync = ref.watch(_homeOverviewProvider);
 
-    return profileAsync.when(
+    return overviewAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text('Profil özetini alırken hata oluştu: $error'),
+          Text('Ana sayfa verileri alınırken hata oluştu: $error'),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: () => ref.invalidate(profileProvider),
+            onPressed: () {
+              ref.invalidate(profileProvider);
+              ref.invalidate(_homeSeasonProvider);
+              ref.invalidate(_homeOverviewProvider);
+            },
             child: const Text('Tekrar dene'),
           ),
         ],
       ),
-      data: (profile) {
+      data: (overview) {
+        final profile = overview.profile;
+        final season = overview.season;
         final username =
             profile?['username']?.toString() ??
             fallbackUsername ??
             email?.split('@').first ??
             'Oyuncu';
         final energy = _asInt(profile?['energy']);
-        final level = _asInt(profile?['level']);
         final coins = _asInt(profile?['coins']);
         final xp = _asInt(profile?['xp']);
         final gems = _asInt(profile?['gems']);
@@ -239,11 +404,16 @@ class _HomeOverview extends ConsumerWidget {
           streak,
         );
         final dailyRewardCoins = 25 + (nextStreak.clamp(0, 30).toInt() * 5);
+        final levelProgress = _calculateLevelProgress(xp);
 
         final palette = AppTheme.of(context);
 
         return RefreshIndicator(
-          onRefresh: () async => ref.refresh(profileProvider.future),
+          onRefresh: () async {
+            ref.invalidate(profileProvider);
+            ref.invalidate(_homeSeasonProvider);
+            final _ = await ref.refresh(_homeOverviewProvider.future);
+          },
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
@@ -283,7 +453,7 @@ class _HomeOverview extends ConsumerWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Level $level · ${_formatCompact(xp)} XP · %$accuracy doğruluk',
+                        'Level ${levelProgress.level} · ${_formatCompact(xp)} XP · %$accuracy doğruluk',
                         style: theme.textTheme.bodyLarge,
                       ),
                       const SizedBox(height: 18),
@@ -328,6 +498,14 @@ class _HomeOverview extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              const _SpecialEventCard(event: _specialEvent),
+              const SizedBox(height: 20),
+              _LevelProgressCard(progress: levelProgress),
+              const SizedBox(height: 20),
+              if (season == null) ...[
+                const _NoActiveSeasonCard(),
+                const SizedBox(height: 20),
+              ],
               _DailyRewardCard(
                 canClaim: canClaimDailyReward,
                 xp: 50,

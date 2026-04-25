@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/app_config.dart';
 import '../core/supabase/supabase_provider.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/app_bottom_nav.dart';
 import '../features/profile/profile_provider.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/achievements/achievements_screen.dart';
@@ -33,13 +34,42 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: GoRouterRefreshStream(authChanges),
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
-      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
-      GoRoute(path: '/play', builder: (context, state) => const PlayScreen()),
-      GoRoute(
-        path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            _MainNavigationShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/play', builder: (context, state) => const PlayScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/league', builder: (context, state) => const LeagueScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: '/shop', builder: (context, state) => const ShopScreen()),
+              GoRoute(path: '/themes', builder: (context, state) => const ShopScreen()),
+            ],
+          ),
+        ],
       ),
+      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
       GoRoute(
         path: '/millionaire',
         builder: (context, state) => const MillionaireScreen(),
@@ -47,8 +77,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/quick', builder: (context, state) => const QuickScreen()),
       GoRoute(path: '/duel', builder: (context, state) => const DuelScreen()),
       GoRoute(path: '/daily', builder: (context, state) => const DailyScreen()),
-      GoRoute(path: '/shop', builder: (context, state) => const ShopScreen()),
-      GoRoute(path: '/themes', builder: (context, state) => const ShopScreen()),
       GoRoute(
         path: '/tournament',
         builder: (context, state) => const TournamentScreen(),
@@ -56,10 +84,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/leaderboard',
         builder: (context, state) => const LeaderboardScreen(),
-      ),
-      GoRoute(
-        path: '/league',
-        builder: (context, state) => const LeagueScreen(),
       ),
       GoRoute(
         path: '/achievements',
@@ -151,6 +175,57 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() {
     _subscription.cancel();
     super.dispose();
+  }
+}
+
+class _MainNavigationShell extends StatelessWidget {
+  const _MainNavigationShell({required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  static const _items = [
+    AppBottomNavItem(
+      icon: Icons.sports_soccer_outlined,
+      selectedIcon: Icons.sports_soccer,
+      label: 'Ana',
+    ),
+    AppBottomNavItem(
+      icon: Icons.sports_esports_outlined,
+      selectedIcon: Icons.sports_esports_rounded,
+      label: 'Oyna',
+    ),
+    AppBottomNavItem(
+      icon: Icons.emoji_events_outlined,
+      selectedIcon: Icons.emoji_events_rounded,
+      label: 'Lig',
+    ),
+    AppBottomNavItem(
+      icon: Icons.person_outline,
+      selectedIcon: Icons.person,
+      label: 'Profil',
+    ),
+    AppBottomNavItem(
+      icon: Icons.palette_outlined,
+      selectedIcon: Icons.palette_rounded,
+      label: 'Shop',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: navigationShell,
+      bottomNavigationBar: AppBottomNav(
+        selectedIndex: navigationShell.currentIndex,
+        items: _items,
+        onTap: (index) {
+          navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          );
+        },
+      ),
+    );
   }
 }
 

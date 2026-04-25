@@ -301,9 +301,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         ? Map<String, dynamic>.from(settings['jokers'] as Map)
         : <String, dynamic>{};
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mağaza')),
-      body: FutureBuilder<Map<String, dynamic>>(
+    return FutureBuilder<Map<String, dynamic>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -782,8 +780,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
             ],
           );
         },
-      ),
-    );
+      );
   }
 
   int _asInt(Object? value) {

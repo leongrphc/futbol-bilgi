@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
@@ -14,15 +13,7 @@ class PlayScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final profileAsync = ref.watch(profileProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Oyun Modları'),
-        leading: IconButton(
-          onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-      ),
-      body: profileAsync.when(
+    return profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => ListView(
           padding: const EdgeInsets.all(24),
@@ -116,8 +107,7 @@ class PlayScreen extends ConsumerWidget {
             ),
           );
         },
-      ),
-    );
+      );
   }
 
   int _asInt(Object? value) {

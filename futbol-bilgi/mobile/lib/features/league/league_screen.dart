@@ -48,9 +48,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('League')),
-      body: FutureBuilder<_LeaguePayload>(
+    return FutureBuilder<_LeaguePayload>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -172,8 +170,7 @@ class _LeagueScreenState extends State<LeagueScreen> {
             ),
           );
         },
-      ),
-    );
+      );
   }
 }
 
