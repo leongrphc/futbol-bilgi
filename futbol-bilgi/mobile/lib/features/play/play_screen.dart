@@ -5,11 +5,20 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 
-class PlayScreen extends ConsumerWidget {
+enum _ModeFilter { all, free, energy, daily, recommended }
+
+class PlayScreen extends ConsumerStatefulWidget {
   const PlayScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayScreen> createState() => _PlayScreenState();
+}
+
+class _PlayScreenState extends ConsumerState<PlayScreen> {
+  _ModeFilter _selectedFilter = _ModeFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final profileAsync = ref.watch(profileProvider);
 
@@ -31,6 +40,15 @@ class PlayScreen extends ConsumerWidget {
           final streak = _asInt(profile?['streak_days']);
           final lastDailyClaim = profile?['last_daily_claim']?.toString();
           final canClaimToday = _canClaimDailyReward(lastDailyClaim);
+          final recommendedMode = _recommendedMode(
+            energy: energy,
+            streak: streak,
+            canClaimToday: canClaimToday,
+          );
+          final visibleModes = _visibleModes(
+            selectedFilter: _selectedFilter,
+            recommendedMode: recommendedMode,
+          );
 
           return RefreshIndicator(
             onRefresh: () async => ref.refresh(profileProvider.future),
@@ -67,7 +85,21 @@ class PlayScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                ..._gameModes.map(
+                _RecommendedModeCard(
+                  mode: recommendedMode,
+                  energy: energy,
+                  streak: streak,
+                  canClaimToday: canClaimToday,
+                ),
+                const SizedBox(height: 16),
+                _ModeFilterBar(
+                  selectedFilter: _selectedFilter,
+                  onSelected: (filter) {
+                    setState(() => _selectedFilter = filter);
+                  },
+                ),
+                const SizedBox(height: 16),
+                ...visibleModes.map(
                   (mode) => Padding(
                     padding: const EdgeInsets.only(bottom: 14),
                     child: _GameModeCard(
@@ -75,6 +107,8 @@ class PlayScreen extends ConsumerWidget {
                       energy: energy,
                       streak: streak,
                       canClaimToday: canClaimToday,
+                      highlighted: mode.route == recommendedMode.route &&
+                          _selectedFilter != _ModeFilter.recommended,
                     ),
                   ),
                 ),
@@ -127,6 +161,137 @@ class PlayScreen extends ConsumerWidget {
     return parsed.year != now.year ||
         parsed.month != now.month ||
         parsed.day != now.day;
+  }
+
+  _GameMode _recommendedMode({
+    required int energy,
+    required int streak,
+    required bool canClaimToday,
+  }) {
+    if (canClaimToday) {
+      return _gameModes.firstWhere((mode) => mode.daily);
+    }
+    if (energy <= 0) {
+      return _gameModes.firstWhere((mode) => mode.energyCost == 0);
+    }
+    if (streak >= 3) {
+      return _gameModes.firstWhere((mode) => mode.route == '/tournament');
+    }
+    return _gameModes.firstWhere((mode) => mode.route == '/millionaire');
+  }
+
+  List<_GameMode> _visibleModes({
+    required _ModeFilter selectedFilter,
+    required _GameMode recommendedMode,
+  }) {
+    return switch (selectedFilter) {
+      _ModeFilter.all => _gameModes,
+      _ModeFilter.free => _gameModes.where((mode) => mode.energyCost == 0).toList(),
+      _ModeFilter.energy => _gameModes.where((mode) => mode.energyCost > 0).toList(),
+      _ModeFilter.daily => _gameModes.where((mode) => mode.daily).toList(),
+      _ModeFilter.recommended => [recommendedMode],
+    };
+  }
+}
+
+class _ModeFilterBar extends StatelessWidget {
+  const _ModeFilterBar({
+    required this.selectedFilter,
+    required this.onSelected,
+  });
+
+  final _ModeFilter selectedFilter;
+  final ValueChanged<_ModeFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final filter in _ModeFilter.values) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(_filterLabel(filter)),
+                selected: selectedFilter == filter,
+                onSelected: (_) => onSelected(filter),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _filterLabel(_ModeFilter filter) {
+    return switch (filter) {
+      _ModeFilter.all => 'Tümü',
+      _ModeFilter.free => 'Ücretsiz',
+      _ModeFilter.energy => 'Enerjili',
+      _ModeFilter.daily => 'Günlük',
+      _ModeFilter.recommended => 'Önerilen',
+    };
+  }
+}
+
+class _RecommendedModeCard extends StatelessWidget {
+  const _RecommendedModeCard({
+    required this.mode,
+    required this.energy,
+    required this.streak,
+    required this.canClaimToday,
+  });
+
+  final _GameMode mode;
+  final int energy;
+  final int streak;
+  final bool canClaimToday;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reason = canClaimToday
+        ? 'Günlük serini korumak için önce bunu bitir.'
+        : energy <= 0
+            ? 'Şu an enerjisiz oynayabileceğin en iyi mod bu.'
+            : streak >= 3
+                ? 'Serin yükselmişken daha yüksek ödüllü moda geç.'
+                : 'Bugünkü ana koşun için en dengeli başlangıç bu mod.';
+
+    return GlassCard(
+      variant: GlassCardVariant.highlighted,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const AppBadge(
+                label: 'Senin için',
+                icon: Icons.auto_awesome_rounded,
+                tone: AppBadgeTone.premium,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(mode.title, style: theme.textTheme.titleLarge),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(reason, style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => context.push(mode.route),
+              icon: Icon(mode.icon),
+              label: Text(mode.duelCta ? 'Hemen Eşleş' : 'Modu Aç'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -237,12 +402,14 @@ class _GameModeCard extends StatelessWidget {
     required this.energy,
     required this.streak,
     required this.canClaimToday,
+    this.highlighted = false,
   });
 
   final _GameMode mode;
   final int energy;
   final int streak;
   final bool canClaimToday;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +418,7 @@ class _GameModeCard extends StatelessWidget {
     final canPlay = mode.energyCost == 0 || hasEnergy;
 
     return GlassCard(
-      variant: GlassCardVariant.elevated,
+      variant: highlighted ? GlassCardVariant.highlighted : GlassCardVariant.elevated,
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -514,6 +514,16 @@ class _HomeOverview extends ConsumerWidget {
                 onClaim: () => _claimDailyReward(context, ref),
               ),
               const SizedBox(height: 20),
+              _DailyGoalsCard(
+                goals: _buildDailyGoals(
+                  canClaimDailyReward: canClaimDailyReward,
+                  accuracy: accuracy,
+                  streak: streak,
+                  energy: energy,
+                  totalAnswered: totalAnswered,
+                ),
+              ),
+              const SizedBox(height: 20),
               _JokerInventoryCard(jokers: jokers),
               const SizedBox(height: 20),
               if (!isPremium) ...[
@@ -683,6 +693,183 @@ class _HomeOverview extends ConsumerWidget {
     ).subtract(const Duration(days: 1));
     final lastClaimDay = DateTime(parsed.year, parsed.month, parsed.day);
     return lastClaimDay == yesterday ? currentStreak + 1 : 1;
+  }
+
+  List<_DailyGoal> _buildDailyGoals({
+    required bool canClaimDailyReward,
+    required int accuracy,
+    required int streak,
+    required int energy,
+    required int totalAnswered,
+  }) {
+    final answeredProgress = (totalAnswered / 25).clamp(0.0, 1.0);
+    final accuracyProgress = totalAnswered == 0
+        ? 0.08
+        : (accuracy / 70).clamp(0.0, 1.0);
+    final streakProgress = streak <= 0 ? 0.0 : (streak / 7).clamp(0.0, 1.0);
+    final energyProgress = (energy / 3).clamp(0.0, 1.0);
+
+    return [
+      _DailyGoal(
+        title: 'Günlük ödülü kap',
+        description: 'Serini bozmadan bugünkü bonus XP ve coin paketini al.',
+        progress: canClaimDailyReward ? 0.0 : 1.0,
+        tone: AppProgressTone.gold,
+        icon: Icons.card_giftcard_rounded,
+        doneLabel: 'Alındı',
+        pendingLabel: 'Bekliyor',
+      ),
+      _DailyGoal(
+        title: 'Ritmi koru',
+        description: totalAnswered == 0
+            ? 'İlk sorularını çözerek günün temposunu aç.'
+            : 'Bugün en az %70 doğruluk çizgisini koru.',
+        progress: totalAnswered == 0 ? answeredProgress : accuracyProgress,
+        tone: AppProgressTone.success,
+        icon: Icons.track_changes_rounded,
+        doneLabel: 'Formda',
+        pendingLabel: totalAnswered == 0 ? '${totalAnswered.clamp(0, 25)}/25' : '%$accuracy',
+      ),
+      _DailyGoal(
+        title: 'Enerjiyi boşa bırakma',
+        description: streak > 0
+            ? '$streak günlük serin seni tekrar oyuna çağırıyor.'
+            : 'En az 3 enerji hazır tutup yeni bir seri başlat.',
+        progress: streak > 0 ? streakProgress : energyProgress,
+        tone: AppProgressTone.info,
+        icon: streak > 0
+            ? Icons.local_fire_department_rounded
+            : Icons.bolt_rounded,
+        doneLabel: streak > 0 ? '$streak gün' : 'Hazır',
+        pendingLabel: streak > 0 ? '$streak/7' : '$energy/3',
+      ),
+    ];
+  }
+}
+
+class _DailyGoal {
+  const _DailyGoal({
+    required this.title,
+    required this.description,
+    required this.progress,
+    required this.tone,
+    required this.icon,
+    required this.doneLabel,
+    required this.pendingLabel,
+  });
+
+  final String title;
+  final String description;
+  final double progress;
+  final AppProgressTone tone;
+  final IconData icon;
+  final String doneLabel;
+  final String pendingLabel;
+
+  bool get completed => progress >= 1;
+}
+
+class _DailyGoalsCard extends StatelessWidget {
+  const _DailyGoalsCard({required this.goals});
+
+  final List<_DailyGoal> goals;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final completedCount = goals.where((goal) => goal.completed).length;
+
+    return GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                child: const Icon(Icons.task_alt_rounded),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Günlük Hedefler', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$completedCount/${goals.length} hedef tamamlandı.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              AppBadge(
+                label: completedCount == goals.length ? 'Tamamlandı' : 'Bugün',
+                tone: completedCount == goals.length
+                    ? AppBadgeTone.success
+                    : AppBadgeTone.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          for (var index = 0; index < goals.length; index++) ...[
+            _DailyGoalRow(goal: goals[index]),
+            if (index != goals.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyGoalRow extends StatelessWidget {
+  const _DailyGoalRow({required this.goal});
+
+  final _DailyGoal goal;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: theme.colorScheme.surface.withValues(alpha: 0.48),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                child: Icon(goal.icon, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(goal.title, style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(goal.description, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              AppBadge(
+                label: goal.completed ? goal.doneLabel : goal.pendingLabel,
+                tone: goal.completed ? AppBadgeTone.success : AppBadgeTone.info,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          AppProgressBar(value: goal.progress, height: 7, tone: goal.tone),
+        ],
+      ),
+    );
   }
 }
 

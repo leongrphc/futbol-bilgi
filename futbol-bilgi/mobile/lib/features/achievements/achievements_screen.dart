@@ -5,6 +5,7 @@ import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/glass_card.dart';
 import '../league/league_repository.dart';
 import '../profile/profile_provider.dart';
+import 'achievement_models.dart';
 import 'achievements_repository.dart';
 
 class AchievementsScreen extends ConsumerStatefulWidget {
@@ -93,11 +94,11 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
           final profile = Map<String, dynamic>.from(
             payload['profile'] as Map? ?? <String, dynamic>{},
           );
-          final achievementCards = _achievementDefinitions
+          final achievementCards = achievementDefinitions
               .map(
                 (definition) => _AchievementProgress(
                   definition: definition,
-                  progress: _progressFor(definition, profile),
+                  progress: achievementProgressFor(definition, profile),
                   newlyUnlocked: unlocked.contains(definition.id),
                 ),
               )
@@ -118,11 +119,11 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
                     Text('Başarımlar', style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 8),
                     Text(
-                      '$completedCount/${_achievementDefinitions.length} başarım tamamlandı.',
+                      '$completedCount/${achievementDefinitions.length} başarım tamamlandı.',
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Yeni açılan: ${unlocked.isEmpty ? 'Yok' : unlocked.map(_achievementTitle).join(', ')}',
+                      'Yeni açılan: ${unlocked.isEmpty ? 'Yok' : unlocked.map(achievementTitle).join(', ')}',
                     ),
                   ],
                 ),
@@ -178,48 +179,6 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     );
   }
 
-  int _progressFor(
-    _AchievementDefinition definition,
-    Map<String, dynamic> profile,
-  ) {
-    return switch (definition.id) {
-      'ilk_adim' => _asInt(profile['total_questions_answered']),
-      'mukemmel_10' ||
-      'bilgi_krali' => _asInt(profile['total_correct_answers']),
-      'streak_ustasi' => _asInt(profile['streak_days']),
-      'duello_sampiyonu' => _asInt(profile['duel_wins']),
-      'milyoner' => _asInt(profile['best_millionaire_score']),
-      'hiz_seytani' => _asInt(profile['fast_correct_answers']),
-      'sosyal_kelebek' => _asInt(profile['friends_count']),
-      _ => 0,
-    };
-  }
-}
-
-class _AchievementDefinition {
-  const _AchievementDefinition({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.category,
-    required this.rarity,
-    required this.coins,
-    required this.gems,
-    required this.xp,
-    required this.target,
-    required this.icon,
-  });
-
-  final String id;
-  final String title;
-  final String description;
-  final String category;
-  final String rarity;
-  final int coins;
-  final int gems;
-  final int xp;
-  final int target;
-  final IconData icon;
 }
 
 class _AchievementProgress {
@@ -229,7 +188,7 @@ class _AchievementProgress {
     required this.newlyUnlocked,
   });
 
-  final _AchievementDefinition definition;
+  final AchievementDefinition definition;
   final int progress;
   final bool newlyUnlocked;
 
@@ -237,112 +196,6 @@ class _AchievementProgress {
   double get ratio => definition.target <= 0
       ? 0
       : (progress / definition.target).clamp(0, 1).toDouble();
-}
-
-const _achievementDefinitions = [
-  _AchievementDefinition(
-    id: 'ilk_adim',
-    title: 'İlk Adım',
-    description: 'İlk sorunu cevapla.',
-    category: 'Starter',
-    rarity: 'Bronze',
-    coins: 50,
-    gems: 0,
-    xp: 10,
-    target: 1,
-    icon: Icons.flag_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'mukemmel_10',
-    title: 'Müthiş 10',
-    description: 'Toplam 10 doğru cevap ver.',
-    category: 'Mastery',
-    rarity: 'Silver',
-    coins: 200,
-    gems: 0,
-    xp: 30,
-    target: 10,
-    icon: Icons.check_circle_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'bilgi_krali',
-    title: 'Bilgi Kralı',
-    description: 'Toplam 100 doğru cevaba ulaş.',
-    category: 'Mastery',
-    rarity: 'Gold',
-    coins: 500,
-    gems: 0,
-    xp: 100,
-    target: 100,
-    icon: Icons.workspace_premium_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'streak_ustasi',
-    title: 'Streak Ustası',
-    description: '7 günlük giriş serisi yakala.',
-    category: 'Streak',
-    rarity: 'Gold',
-    coins: 300,
-    gems: 5,
-    xp: 75,
-    target: 7,
-    icon: Icons.local_fire_department_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'duello_sampiyonu',
-    title: 'Düello Şampiyonu',
-    description: '5 düello kazan.',
-    category: 'Duel',
-    rarity: 'Gold',
-    coins: 500,
-    gems: 0,
-    xp: 100,
-    target: 5,
-    icon: Icons.sports_martial_arts_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'hiz_seytani',
-    title: 'Hız Şeytanı',
-    description: '5 hızlı doğru cevap ver.',
-    category: 'Speed',
-    rarity: 'Silver',
-    coins: 200,
-    gems: 0,
-    xp: 40,
-    target: 5,
-    icon: Icons.bolt_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'sosyal_kelebek',
-    title: 'Sosyal Kelebek',
-    description: '3 arkadaş ekle.',
-    category: 'Social',
-    rarity: 'Silver',
-    coins: 150,
-    gems: 0,
-    xp: 30,
-    target: 3,
-    icon: Icons.group_rounded,
-  ),
-  _AchievementDefinition(
-    id: 'milyoner',
-    title: 'Milyoner',
-    description: 'Milyoner modunda 1.000.000 puana ulaş.',
-    category: 'Mastery',
-    rarity: 'Platinum',
-    coins: 1000,
-    gems: 10,
-    xp: 250,
-    target: 1000000,
-    icon: Icons.emoji_events_rounded,
-  ),
-];
-
-String _achievementTitle(String id) {
-  for (final definition in _achievementDefinitions) {
-    if (definition.id == id) return definition.title;
-  }
-  return id;
 }
 
 class _RewardCard extends StatelessWidget {

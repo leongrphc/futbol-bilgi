@@ -7,6 +7,7 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/avatar_with_frame.dart';
 import '../../core/widgets/glass_card.dart';
+import '../achievements/achievement_models.dart';
 import 'profile_provider.dart';
 import 'profile_repository.dart';
 
@@ -263,20 +264,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               _SectionCard(
-                title: 'Profil Paylaşımı',
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _shareProfile(
-                      username: username,
-                      level: level,
-                      xp: xp,
+                title: 'Başarı Özeti',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _AchievementSummaryPreview(
+                      completedCount: _completedAchievements(profile).length,
+                      totalCount: achievementDefinitions.length,
+                      streak: streak,
                       accuracy: accuracy,
                       leagueTier: leagueTier,
                     ),
-                    icon: const Icon(Icons.share_rounded),
-                    label: const Text('Profili Paylaş'),
-                  ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _shareProfile(
+                          username: username,
+                          level: level,
+                          xp: xp,
+                          accuracy: accuracy,
+                          leagueTier: leagueTier,
+                          streak: streak,
+                          correctAnswers: correctAnswers,
+                          totalAnswered: totalAnswered,
+                          profile: profile,
+                        ),
+                        icon: const Icon(Icons.share_rounded),
+                        label: const Text('Başarı Özetini Paylaş'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -370,15 +388,89 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required int xp,
     required int accuracy,
     required String leagueTier,
+    required int streak,
+    required int correctAnswers,
+    required int totalAnswered,
+    required Map<String, dynamic> profile,
   }) {
+    final completed = _completedAchievements(profile);
+    final topAchievements = completed.take(3).map((item) => item.title).join(', ');
     analyticsService.track('profile_shared', {
       'level': level,
       'league_tier': leagueTier,
+      'completed_achievements': completed.length,
     });
     return shareService.shareText(
-      subject: 'Futbol Bilgi profilim',
+      subject: 'Futbol Bilgi başarı özetim',
       text:
-          'Futbol Bilgi profilim: $username · Level $level · $xp XP · %$accuracy doğruluk · $leagueTier ligi.',
+          'Futbol Bilgi başarı özetim\n'
+          '$username · Level $level · $leagueTier ligi\n'
+          '$xp XP · %$accuracy doğruluk · $streak gün seri\n'
+          '$correctAnswers/$totalAnswered doğru cevap\n'
+          'Tamamlanan başarımlar: ${completed.length}/${achievementDefinitions.length}\n'
+          '${topAchievements.isEmpty ? 'İlk başarımını açmaya çok yakınsın.' : 'Öne çıkanlar: $topAchievements'}',
+    );
+  }
+
+  List<AchievementDefinition> _completedAchievements(Map<String, dynamic> profile) {
+    return achievementDefinitions
+        .where((definition) => achievementProgressFor(definition, profile) >= definition.target)
+        .toList();
+  }
+}
+
+class _AchievementSummaryPreview extends StatelessWidget {
+  const _AchievementSummaryPreview({
+    required this.completedCount,
+    required this.totalCount,
+    required this.streak,
+    required this.accuracy,
+    required this.leagueTier,
+  });
+
+  final int completedCount;
+  final int totalCount;
+  final int streak;
+  final int accuracy;
+  final String leagueTier;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const AppBadge(
+                label: 'Paylaşılabilir',
+                icon: Icons.ios_share_rounded,
+                tone: AppBadgeTone.info,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$completedCount/$totalCount başarım açık',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '%$accuracy doğruluk · $streak gün seri · $leagueTier ligi',
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
+      ),
     );
   }
 }
