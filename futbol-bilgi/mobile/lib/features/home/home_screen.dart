@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/app_stat_chip.dart';
+import '../../core/widgets/app_state_panel.dart';
 import '../../core/widgets/energy_countdown_chip.dart';
 import '../../core/widgets/glass_card.dart';
 import '../league/league_repository.dart';
@@ -61,8 +62,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+const _homeSeasonLoadTimeout = Duration(seconds: 10);
+
 final _homeSeasonProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
-  return leagueRepository.fetchCurrentSeason();
+  return leagueRepository.fetchCurrentSeason().timeout(
+    _homeSeasonLoadTimeout,
+    onTimeout: () => throw Exception(
+      'Sezon verisi zamanında alınamadı. Bağlantını kontrol edip tekrar dene.',
+    ),
+  );
 });
 
 class _HomeOverviewData {
@@ -73,8 +81,10 @@ class _HomeOverviewData {
 }
 
 final _homeOverviewProvider = FutureProvider<_HomeOverviewData>((ref) async {
-  final profile = await ref.watch(profileProvider.future);
-  final season = await ref.watch(_homeSeasonProvider.future);
+  final (profile, season) = await (
+    ref.watch(profileProvider.future),
+    ref.watch(_homeSeasonProvider.future),
+  ).wait;
   return _HomeOverviewData(profile: profile, season: season);
 });
 
@@ -356,21 +366,16 @@ class _HomeOverview extends ConsumerWidget {
     final overviewAsync = ref.watch(_homeOverviewProvider);
 
     return overviewAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text('Ana sayfa verileri alınırken hata oluştu: $error'),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () {
-              ref.invalidate(profileProvider);
-              ref.invalidate(_homeSeasonProvider);
-              ref.invalidate(_homeOverviewProvider);
-            },
-            child: const Text('Tekrar dene'),
-          ),
-        ],
+      loading: () => const AppStatePanel.loading(
+        message: 'Ana sayfa yükleniyor...',
+      ),
+      error: (error, _) => AppStatePanel.error(
+        message: 'Ana sayfa verileri alınırken hata oluştu: $error',
+        onAction: () {
+          ref.invalidate(profileProvider);
+          ref.invalidate(_homeSeasonProvider);
+          ref.invalidate(_homeOverviewProvider);
+        },
       ),
       data: (overview) {
         final profile = overview.profile;
