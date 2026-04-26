@@ -11,6 +11,7 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/app_state_panel.dart';
 import '../../core/widgets/glass_card.dart';
+import '../../core/widgets/post_game_cta_bar.dart';
 import '../profile/profile_provider.dart';
 import 'tournament_repository.dart';
 
@@ -425,27 +426,19 @@ class _TournamentScreenState extends ConsumerState<TournamentScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: () => shareService.shareGameResult(
+            PostGameCtaBar(
+              primaryLabel: 'Yeni Turnuva Seç',
+              onPrimary: _loadTournaments,
+              primaryIcon: Icons.replay_rounded,
+              secondaryLabel: 'Sonucu Paylaş',
+              onSecondary: () => shareService.shareGameResult(
                 mode: 'Turnuva',
                 score: _result!.score,
                 correctAnswers: _result!.correctAnswers,
                 totalAnswered: _result!.totalAnswered,
               ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-              ),
-              icon: const Icon(Icons.share_rounded),
-              label: const Text('Sonucu Paylaş'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => context.go('/'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-              ),
-              icon: const Icon(Icons.home_rounded),
-              label: const Text('Ana Sayfaya Dön'),
+              tertiaryLabel: 'Ana Sayfaya Dön',
+              onTertiary: () => context.go('/'),
             ),
           ],
         ),

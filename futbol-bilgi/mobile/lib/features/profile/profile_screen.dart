@@ -274,6 +274,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       streak: streak,
                       accuracy: accuracy,
                       leagueTier: leagueTier,
+                      nextAchievements: _nextAchievements(profile),
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
@@ -417,6 +418,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         .where((definition) => achievementProgressFor(definition, profile) >= definition.target)
         .toList();
   }
+
+  List<_AchievementPreviewItem> _nextAchievements(Map<String, dynamic> profile) {
+    final pending = achievementDefinitions
+        .map(
+          (definition) => _AchievementPreviewItem(
+            definition: definition,
+            progress: achievementProgressFor(definition, profile),
+          ),
+        )
+        .where((item) => !item.completed)
+        .toList()
+      ..sort((a, b) {
+        final remainingCompare = a.remaining.compareTo(b.remaining);
+        if (remainingCompare != 0) {
+          return remainingCompare;
+        }
+        return b.ratio.compareTo(a.ratio);
+      });
+    return pending.take(2).toList();
+  }
 }
 
 class _AchievementSummaryPreview extends StatelessWidget {
@@ -426,6 +447,7 @@ class _AchievementSummaryPreview extends StatelessWidget {
     required this.streak,
     required this.accuracy,
     required this.leagueTier,
+    required this.nextAchievements,
   });
 
   final int completedCount;
@@ -433,6 +455,7 @@ class _AchievementSummaryPreview extends StatelessWidget {
   final int streak;
   final int accuracy;
   final String leagueTier;
+  final List<_AchievementPreviewItem> nextAchievements;
 
   @override
   Widget build(BuildContext context) {
@@ -468,6 +491,83 @@ class _AchievementSummaryPreview extends StatelessWidget {
           Text(
             '%$accuracy doğruluk · $streak gün seri · $leagueTier ligi',
             style: theme.textTheme.bodyMedium,
+          ),
+          if (nextAchievements.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Sıradaki başarımlar', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 10),
+            for (final item in nextAchievements) ...[
+              _AchievementPreviewRow(item: item),
+              if (item != nextAchievements.last) const SizedBox(height: 10),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AchievementPreviewItem {
+  const _AchievementPreviewItem({
+    required this.definition,
+    required this.progress,
+  });
+
+  final AchievementDefinition definition;
+  final int progress;
+
+  bool get completed => progress >= definition.target;
+  int get remaining => (definition.target - progress).clamp(0, definition.target);
+  double get ratio => definition.target <= 0
+      ? 0
+      : (progress / definition.target).clamp(0, 1).toDouble();
+}
+
+class _AchievementPreviewRow extends StatelessWidget {
+  const _AchievementPreviewRow({required this.item});
+
+  final _AchievementPreviewItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: theme.colorScheme.surface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.definition.title,
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+              Text(
+                '${item.progress.clamp(0, item.definition.target)}/${item.definition.target}',
+                style: theme.textTheme.labelLarge,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.definition.description,
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 10),
+          AppProgressBar(value: item.ratio, tone: AppProgressTone.gold, height: 7),
+          const SizedBox(height: 6),
+          Text(
+            item.remaining == 0
+                ? 'Hazır'
+                : 'Açılmasına ${item.remaining} adım kaldı',
+            style: theme.textTheme.labelMedium,
           ),
         ],
       ),

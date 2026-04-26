@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/glass_card.dart';
 import '../league/league_repository.dart';
@@ -102,7 +103,16 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
                   newlyUnlocked: unlocked.contains(definition.id),
                 ),
               )
-              .toList();
+              .toList()
+            ..sort((a, b) {
+              if (a.newlyUnlocked != b.newlyUnlocked) {
+                return a.newlyUnlocked ? -1 : 1;
+              }
+              if (a.completed != b.completed) {
+                return a.completed ? -1 : 1;
+              }
+              return b.ratio.compareTo(a.ratio);
+            });
           final completedCount = achievementCards
               .where((item) => item.completed)
               .length;
@@ -125,6 +135,10 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
                     Text(
                       'Yeni açılan: ${unlocked.isEmpty ? 'Yok' : unlocked.map(achievementTitle).join(', ')}',
                     ),
+                    if (unlocked.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _UnlockedBanner(unlocked: unlocked),
+                    ],
                   ],
                 ),
               ),
@@ -196,6 +210,48 @@ class _AchievementProgress {
   double get ratio => definition.target <= 0
       ? 0
       : (progress / definition.target).clamp(0, 1).toDouble();
+}
+
+class _UnlockedBanner extends StatelessWidget {
+  const _UnlockedBanner({required this.unlocked});
+
+  final List<String> unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: theme.colorScheme.primaryContainer,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const AppBadge(
+            label: 'Yeni açıldı',
+            icon: Icons.auto_awesome_rounded,
+            tone: AppBadgeTone.success,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            unlocked.length == 1
+                ? '${achievementTitle(unlocked.first)} artık senin.'
+                : '${unlocked.length} yeni başarım açtın.',
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            unlocked.map(achievementTitle).join(' • '),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RewardCard extends StatelessWidget {

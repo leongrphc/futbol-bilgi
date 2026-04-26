@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/energy_countdown_chip.dart';
 import '../../core/widgets/glass_card.dart';
 import '../profile/profile_provider.dart';
 
@@ -38,6 +39,7 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
         data: (profile) {
           final energy = _asInt(profile?['energy']);
           final streak = _asInt(profile?['streak_days']);
+          final energyLastRefill = profile?['energy_last_refill']?.toString();
           final lastDailyClaim = profile?['last_daily_claim']?.toString();
           final canClaimToday = _canClaimDailyReward(lastDailyClaim);
           final recommendedMode = _recommendedMode(
@@ -74,9 +76,22 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
                               style: theme.textTheme.headlineSmall,
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Enerji: $energy/5 · Seri: $streak gün',
-                              style: theme.textTheme.bodyLarge,
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                EnergyCountdownChip(
+                                  energy: energy,
+                                  maxEnergy: 5,
+                                  lastRefillTimestamp: energyLastRefill,
+                                  compact: true,
+                                ),
+                                Text(
+                                  'Seri: $streak gün',
+                                  style: theme.textTheme.bodyLarge,
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -122,11 +137,16 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.battery_charging_full_rounded),
+                        EnergyCountdownChip(
+                          energy: energy,
+                          maxEnergy: 5,
+                          lastRefillTimestamp: energyLastRefill,
+                          compact: true,
+                        ),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
-                            'Enerji her 30 dakikada yenilenir veya mağazadan doldurulabilir.',
+                            'Dolumu beklerken ücretsiz modlarla akışı sürdür veya mağazadan doldur.',
                           ),
                         ),
                         FilledButton.tonal(

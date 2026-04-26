@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/app_state_panel.dart';
 import '../../core/widgets/glass_card.dart';
+import '../../core/widgets/post_game_cta_bar.dart';
 import '../profile/profile_provider.dart';
 import 'duel_repository.dart';
 
@@ -348,36 +349,19 @@ class _DuelScreenState extends ConsumerState<DuelScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _initializeGame,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-              ),
-              icon: const Icon(Icons.replay_rounded),
-              label: const Text('Yeni Düello'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => shareService.shareGameResult(
+            PostGameCtaBar(
+              primaryLabel: 'Yeni Düello',
+              onPrimary: _initializeGame,
+              primaryIcon: Icons.replay_rounded,
+              secondaryLabel: 'Sonucu Paylaş',
+              onSecondary: () => shareService.shareGameResult(
                 mode: 'Düello',
                 score: _result!.playerScore,
                 correctAnswers: _result!.correctAnswers,
                 totalAnswered: _result!.totalAnswered,
               ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-              ),
-              icon: const Icon(Icons.share_rounded),
-              label: const Text('Sonucu Paylaş'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => context.go('/'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(54),
-              ),
-              icon: const Icon(Icons.home_rounded),
-              label: const Text('Ana Sayfaya Dön'),
+              tertiaryLabel: 'Ana Sayfaya Dön',
+              onTertiary: () => context.go('/'),
             ),
           ],
         ),

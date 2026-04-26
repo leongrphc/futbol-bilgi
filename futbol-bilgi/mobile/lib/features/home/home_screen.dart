@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_progress_bar.dart';
 import '../../core/widgets/app_stat_chip.dart';
+import '../../core/widgets/energy_countdown_chip.dart';
 import '../../core/widgets/glass_card.dart';
 import '../league/league_repository.dart';
 import '../profile/profile_provider.dart';
@@ -399,6 +400,7 @@ class _HomeOverview extends ConsumerWidget {
         final canClaimDailyReward = _canClaimDailyReward(
           profile?['last_daily_claim']?.toString(),
         );
+        final energyLastRefill = profile?['energy_last_refill']?.toString();
         final nextStreak = _nextStreak(
           profile?['last_daily_claim']?.toString(),
           streak,
@@ -461,10 +463,10 @@ class _HomeOverview extends ConsumerWidget {
                         spacing: 10,
                         runSpacing: 10,
                         children: [
-                          _ChipStat(
-                            label: 'Enerji',
-                            value: '$energy/5',
-                            icon: Icons.bolt_rounded,
+                          EnergyCountdownChip(
+                            energy: energy,
+                            maxEnergy: 5,
+                            lastRefillTimestamp: energyLastRefill,
                             color: palette.gold,
                           ),
                           _ChipStat(
@@ -512,6 +514,11 @@ class _HomeOverview extends ConsumerWidget {
                 coins: dailyRewardCoins,
                 nextStreak: nextStreak,
                 onClaim: () => _claimDailyReward(context, ref),
+              ),
+              const SizedBox(height: 20),
+              _StreakReminderCard(
+                streak: streak,
+                canClaimDailyReward: canClaimDailyReward,
               ),
               const SizedBox(height: 20),
               _DailyGoalsCard(
@@ -767,6 +774,59 @@ class _DailyGoal {
   final String pendingLabel;
 
   bool get completed => progress >= 1;
+}
+
+class _StreakReminderCard extends StatelessWidget {
+  const _StreakReminderCard({
+    required this.streak,
+    required this.canClaimDailyReward,
+  });
+
+  final int streak;
+  final bool canClaimDailyReward;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final title = canClaimDailyReward
+        ? 'Serini güvenceye al'
+        : 'Seri aktif kalıyor';
+    final description = canClaimDailyReward
+        ? streak > 0
+            ? '$streak günlük seriyi korumak için bugünkü ödülü almayı unutma.'
+            : 'Bugün ilk ödülünü alıp yeni bir seri başlatabilirsin.'
+        : streak > 0
+            ? '$streak günlük seri korundu. Yarın tekrar gelip akışı devam ettir.'
+            : 'Bugün ritmi açtın. Yarın tekrar girerek seri kurabilirsin.';
+
+    return GlassCard(
+      variant: GlassCardVariant.elevated,
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 22,
+            child: Icon(Icons.local_fire_department_rounded),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(description, style: theme.textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          AppBadge(
+            label: streak > 0 ? '$streak gün' : 'Yeni',
+            tone: streak > 0 ? AppBadgeTone.warning : AppBadgeTone.info,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DailyGoalsCard extends StatelessWidget {
